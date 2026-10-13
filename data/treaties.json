@@ -6,10 +6,10 @@
     "line": "property_energy",
     "structure": "xol",
     "season": "season_0101",
-    "limit_usd_m": 150,
+    "limit_usd_m": 100,
     "attachment_usd_m": 50,
     "expiring": {
-      "premium_usd_m": 18.0,
+      "premium_usd_m": 12.0,
       "panel": [
         {
           "re": "re_alpenglow",

@@ -71,7 +71,7 @@
     ],
     "requirements": {
       "min_rating": "A-",
-      "max_single_share": 0.35,
+      "max_single_share": 0.4,
       "preferred_terms": "standard",
       "shariah_required": false,
       "shariah_conventional_cap": null

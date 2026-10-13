@@ -855,11 +855,16 @@
       const noises = [1, 2, 3, 4, 5].map((s) => neg.quoteProposal(ctx(s), form, ng).noise);
       check(new Set(noises).size > 1 && noises.every((n) => n >= -1 && n <= 1), `${noises}`);
     });
-    test('negotiation: 실제 데이터로 한 번의 제안 — 주롱×알펜글로우 새 게임 값에서 §7.7과 같은 반제, 요청 35%는 용량 때문에 줄어든다', () => {
+    test('negotiation: 실제 데이터로 한 번의 제안 — 주롱×알펜글로우 새 게임 값에서 §7.7과 같은 반제, 한도 100이라 요청 35%는 그대로 맡는다', () => {
       const q = neg.quoteProposal({ treaty: jurong, client: jurongClient, reinsurer: reById('re_alpenglow'), relationship: 45, scoutPrice: 20, seed: 1 },
         { market: 42, p: -3, sReq: 0.35, weeksLeft: 4, terms: 'standard', structureOption: null, bundles: 0, lrExtra: 0, bigLoss: false, prepQuality: 0 }, ng);
-      near(q.floor.floor, -1.45, 0.05); eq(q.response.kind, 'counter'); eq(q.response.limited, true);
-      near(q.response.share, q.maxShare, 1e-12); near(q.response.rc, -0.8, 0.2);
+      near(q.floor.floor, -1.45, 0.05); eq(q.response.kind, 'counter'); eq(q.response.limited, false);
+      near(q.response.share, 0.35, 1e-12); near(q.response.rc, -0.8, 0.2);
+    });
+    test('negotiation: 주롱×칼랑은 만기 지분 30%가 용량 상한(약 25%)을 넘어 줄어든다', () => {
+      const q = neg.quoteProposal({ treaty: jurong, client: jurongClient, reinsurer: reById('re_kallang'), relationship: 45, scoutPrice: 20, seed: 1 },
+        { market: 42, p: 5, sReq: 0.3, weeksLeft: 4, terms: 'standard', structureOption: null, bundles: 0, lrExtra: 0, bigLoss: false, prepQuality: 0 }, ng);
+      eq(q.response.limited, true); near(q.maxShare, 0.246, 0.005); near(q.response.share, q.maxShare, 1e-12);
     });
     test('negotiation: 구조 옵션은 가격 하한을 내린다(주롱 자기부담 상향 −4%p)', () => {
       const run = (opt) => neg.quoteProposal({ treaty: jurong, client: jurongClient, reinsurer: reById('re_alpenglow'), relationship: 45, scoutPrice: 20, seed: 1 },
@@ -891,8 +896,8 @@
       check(convShare <= req.shariah_conventional_cap + 1e-9, `만기 패널 비샤리아 지분 ${convShare}`);
       for (const m of t.expiring.panel) check(m.share <= caps.find((x) => x.r.id === m.re).s + 1e-9, `${m.re} 만기 지분이 상한 초과`);
     });
-    test('트리티 데이터: 설계 §10.3·§1.4의 주롱 값(한도 150, 부담 50, 손해율 52/61/58, 목표 −3.0, 패널 35/30/35)', () => {
-      eq([jurong.limit_usd_m, jurong.attachment_usd_m, jurong.loss_ratio_hist, jurong.target_rc, jurong.season], [150, 50, [52, 61, 58], -3, 'season_0101']);
+    test('트리티 데이터: 설계 §10.3·§1.4의 주롱 값(한도 100, 부담 50, 손해율 52/61/58, 목표 −3.0, 패널 35/30/35)', () => {
+      eq([jurong.limit_usd_m, jurong.attachment_usd_m, jurong.loss_ratio_hist, jurong.target_rc, jurong.season], [100, 50, [52, 61, 58], -3, 'season_0101']);
       eq(jurong.expiring.panel, [{ re: 're_alpenglow', share: 0.35 }, { re: 're_kallang', share: 0.3 }, { re: 're_thames_quay', share: 0.35 }]);
     });
     test('로더(treaties): 모양 오류는 위치와 함께 알려 준다', () => {
