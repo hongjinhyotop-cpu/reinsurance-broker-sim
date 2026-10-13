@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (돈·순위·성적표·해고 · 규칙을 바꾸는 사건 · 길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
+  <h1>테스트 (시즌 리뷰·평판 효과·공백 감액 · 돈·순위·성적표·해고 · 규칙을 바꾸는 사건 · 길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -234,7 +234,7 @@
 
     test('store: 새 게임의 모양이 설계(§10.9)와 시작값(config)을 따른다', () => {
       fresh(); const s = store.newGame({ seed: 777 });
-      eq(s.version, 8); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
+      eq(s.version, 9); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
       eq(s.player, { firm: 'Marina Bay Re Brokers', cash_usd_m: 1, reputation: 50, compliance: 70, board_confidence: 60, market_intel: 0, flags: [] });
       eq(s.market, { index: 42, band: 'neutral' });
       eq(Object.keys(s.entities.clients), data.clients.map((c) => c.id)); eq(Object.keys(s.entities.reinsurers), data.reinsurers.map((r) => r.id));
@@ -309,7 +309,7 @@
       fresh(); store.newGame({ seed: 9 }); const base = clone(store.getState());
       const parse = (v) => { const s = clone(base); if (v === undefined) delete s.version; else s.version = v; return store.parseSave(JSON.stringify(s)); };
       for (const v of [undefined, 0, 1.5, '1', null]) check(!parse(v).ok, `version ${String(v)}`);
-      const future = parse(9); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
+      const future = parse(10); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
     });
     test('store: 마이그레이션 체인 (v1→v2→v3), 규칙 누락·실패 처리', () => {
       const raw = { version: 1, x: 1 };
@@ -317,7 +317,7 @@
       check(ok.ok); eq([ok.state.version, ok.state.a, ok.state.b], [3, 1, 2]);
       check(!store.migrate(raw, { current: 3, migrations: { 1: (s) => s } }).ok, '규칙 누락');
       check(!store.migrate(raw, { current: 2, migrations: { 1: () => null } }).ok, '변환 실패');
-      eq(store.SAVE_VERSION, 8); eq(store.migrate({ version: 1 }).ok, true);
+      eq(store.SAVE_VERSION, 9); eq(store.migrate({ version: 1 }).ok, true);
     });
     test('store: __proto__ 키가 든 세이브를 가져와도 오염되지 않는다', () => {
       fresh(); store.newGame({ seed: 4 });
@@ -667,7 +667,7 @@
       fresh(); store.newGame({ seed: 3 });
       const old = clone(store.getState()); old.version = 1; old.entities = { clients: {}, reinsurers: {} };
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 8); eq(Object.keys(r.state.treaties).length, 3);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 9); eq(Object.keys(r.state.treaties).length, 3);
       eq(Object.keys(r.state.entities.clients).length, 3); eq(Object.keys(r.state.entities.reinsurers).length, 5);
       eq(r.state.entities.reinsurers.re_alpenglow.scout, data.reinsurers[0].initial.scout);
     });
@@ -1170,13 +1170,13 @@
       old.version = 2; old.treaties = {}; old.ap = 3; old.entities.clients.cli_jurong_crest.relationship = 61;
       for (const r of Object.values(old.entities.reinsurers)) delete r.patience;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 8);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 9);
       eq(Object.keys(r.state.treaties), data.treaties.map((t) => t.id)); eq(r.state.treaties[JR].phase, 'open'); eq(r.state.treaties[JR].panel, []);
       eq(r.state.ap, 3); eq(r.state.entities.clients.cli_jurong_crest.relationship, 61); eq(r.state.entities.reinsurers.re_nur.patience, {});
       eq(store.validateState(r.state), []);
       // 실제 슬롯 불러오기도 같은 길을 지난다
       const st = fresh(); st.map.set('rbs:save:v1:1', JSON.stringify(old));
-      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 8);
+      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 9);
     });
 
     test('세이브 v3: 트리티 상태가 틀린 세이브는 거부(상태 값·재보험사 id·중복 행·인내심)', () => {
@@ -1411,7 +1411,7 @@
       startBoard(5); const old = clone(store.getState());
       old.version = 3; for (const t of Object.values(old.treaties)) delete t.verdict_reason;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 8); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 9); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
     });
 
     test('반제 유효 기간: 반제를 받은 주에는 "이번 주까지"(counter_until = 그 턴), 주를 넘기면 미제안으로 돌아가고 인내심·관계도·AP는 그대로', () => {
@@ -1478,7 +1478,7 @@
       startBoard(5, 20); PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }); PL.propose(JR, 're_kallang', { share: 0.3, rc: 5 });
       const old = clone(store.getState()); old.version = 4; old.turn = 3;
       for (const t of Object.values(old.treaties)) for (const row of t.panel) delete row.counter_until;
-      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r)); eq(r.state.version, 8);
+      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r)); eq(r.state.version, 9);
       const rows = r.state.treaties[JR].panel;
       eq(rows.find((x) => x.re === 're_alpenglow').counter_until, 3);
       eq(rows.filter((x) => x.status !== 'countered').every((x) => x.counter_until === null), true);
@@ -1623,7 +1623,7 @@
     test('store(M6a): v5 세이브를 불러오면 market.band가 지수로 채워지고 나머지는 그대로다', () => {
       fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 5; delete old.market.band; old.market.index = 66.5;
       const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
-      eq([r.state.version, r.state.market], [8, { index: 66.5, band: 'hard' }]); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+      eq([r.state.version, r.state.market], [9, { index: 66.5, band: 'hard' }]); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
     });
 
     test('turn(M6a): 분기 드리프트는 분기 시작 턴에만 적용되고, 프리시즌 동안은 지수가 그대로다', async () => {
@@ -2600,7 +2600,7 @@
       fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 6; delete old.overrides;
       for (const t of Object.values(old.treaties)) { delete t.lr_extra; delete t.big_loss; delete t.gap_applied; }
       const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
-      eq([r.state.version, r.state.overrides], [8, { reinsurers: {}, clients: {} }]); eq(r.state.treaties[JR].lr_extra, 0); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+      eq([r.state.version, r.state.overrides], [9, { reinsurers: {}, clients: {} }]); eq(r.state.treaties[JR].lr_extra, 0); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
     });
     test('store(M6b): 덮어쓴 값·보정·예약 항목의 모양을 검사하고, 저장했다 불러오면 그대로다', () => {
       const s = begin(); turn.forceEvent('evt_reinsurer_downgrade'); turn.forceEvent('evt_shariah_ruling'); applyEffects(s, [{ op: 'modifier_add', target: `reinsurer:${TQ}`, field: 'capacity', mult: 0.7, duration_weeks: 12 }]);
@@ -2720,14 +2720,14 @@
       s.turn = 5; fin.settleWeek(data, s); eq(Object.keys(s.finance.booked).length, 0, '인셉션 전에는 확정하지 않는다');
       near(s.player.cash_usd_m, 1 - 0.03, 1e-9, '고정비');
       s.turn = 7; const booked = fin.settleWeek(data, s); eq(booked, [JR]);
-      eq(s.finance.booked[JR], { turn: 7, premium_usd_m: 11.64, brokerage_usd_m: 1.164, due_turn: 11, paid: false });
+      eq(s.finance.booked[JR], { turn: 7, premium_usd_m: 11.64, brokerage_usd_m: 1.164, due_turn: 11, paid: false, gap_weeks: 0, cut_usd_m: 0 });
       near(s.player.cash_usd_m, 1 - 0.06, 1e-9, '확정만 하고 아직 입금 전');
       s.turn = 10; fin.settleWeek(data, s); eq(s.finance.booked[JR].paid, false);
       s.turn = 11; fin.settleWeek(data, s); eq(s.finance.booked[JR].paid, true); near(s.player.cash_usd_m, 1 - 0.12 + 1.164, 1e-9);
       near(fin.receivableTotal(s.finance), 0, 1e-9); near(fin.bookedTotal(s.finance), 1.164, 1e-9);
       const g = begin(3); g.turn = 1; fin.settleWeek(data, g); eq(g.player.cash_usd_m, 1, '턴 1은 고정비가 없다');
     });
-    test('M7a 재무: 인셉션 뒤에 늦게 확정한 트리티는 확정한 다음 정산에서 전액 확정한다', () => {
+    test('M7a 재무: 공백 기록이 없는 트리티는 인셉션 뒤에 늦게 확정해도 확정한 다음 정산에서 전액 확정한다', () => {
       const s = begin(3); s.turn = 9; fin.settleWeek(data, s); eq(Object.keys(s.finance.booked).length, 0);
       s.treaties[JR].phase = 'placed'; s.treaties[JR].final_rc = 0; s.turn = 10; fin.settleWeek(data, s);
       eq(s.finance.booked[JR].turn, 10); near(s.finance.booked[JR].brokerage_usd_m, 1.2, 1e-9);
@@ -2837,7 +2837,7 @@
     test('M7a 세이브 v8: v7 세이브를 불러오면 finance·standings·ending이 채워지고 나머지는 그대로다', () => {
       fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 7; delete old.finance; delete old.standings; delete old.ending;
       const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
-      eq([r.state.version, r.state.ending], [8, null]); eq(r.state.finance, { booked: {}, overhead_usd_m: 0, fines: [], negative_quarters: 0, quarters: [] }); eq(r.state.standings, { quarters: [] });
+      eq([r.state.version, r.state.ending], [9, null]); eq(r.state.finance, { booked: {}, overhead_usd_m: 0, fines: [], negative_quarters: 0, quarters: [] }); eq(r.state.standings, { quarters: [] });
       eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
     });
     test('M7a 세이브 v8: 잘못된 장부·순위표·끝남 모양은 검증에서 걸린다', () => {
@@ -2919,7 +2919,7 @@
       try { check(!shell.textContent.includes('준비 중'), '준비 중 표시'); } finally { shell.remove(); }
     });
     test('M7a 메일: 이사회 의장 메일은 숫자·속마음 이름이 없고, 성적표 변수가 모두 풀린다', () => {
-      eq(BOARD_MAILS.length, 14);
+      eq(BOARD_MAILS.length, 20);
       const s = begin(22); allPlaced(s); runYear(s); const vars = turn.mailVars(data, s);
       for (const id of Object.values(data.config.board.mails.grade)) {
         const m = data.mails.find((x) => x.id === id); const text = [m.subject_ko, ...m.body_ko].map((t) => mailLib.fillText(t, vars)).join(' ');
@@ -2959,6 +2959,207 @@
       eq(riv.tableRows(data.brokers, null, { firm: 'x', reputation: 1 }), null);
       eq(riv.tableRows(data.brokers, snap, { firm: '우리', reputation: 1 }).find((r) => r.isPlayer).dq, null, '첫 분기');
       const tie = snapOf(1, { ytd: data.brokers[0].base_income_usd_m / 4 }); eq(riv.tableRows(data.brokers, tie, { firm: '우리', reputation: 1 })[0].isPlayer, true);
+    });
+
+
+    // ---------- M7b: 시즌 중간 리뷰 · 연말 상세 · 평판 효과 · 시즌 평가 · 공백 감액 ----------
+    const seasonMod = await import('../js/season.js');
+    const S0101 = 'season_0101'; const S0104 = 'season_0104'; const S0107 = 'season_0107';
+    const tJR = data.treaties.find((t) => t.id === JR);
+    const newMailIds = ['mail_board_season_up', 'mail_board_season_flat', 'mail_board_season_down', 'mail_board_season_pending', 'mail_board_season_lost', 'mail_board_reputation_flow'];
+    const mailCount = (s, tpl) => s.mails.filter((m) => m.template === tpl).length;
+    const HIDDEN_WORDS = /보수성|가격 민감|충성도|conservatism|loyalty|price_sensitivity/i;
+
+    test('M7b 데이터: 설정·성적표 문구·새 이사회 메일 6통이 로더 검증을 통과한다', () => {
+      eq(validateConfig(data.config), []); eq(loaderMod.validateReport(data.report, 'report.json', new Set(data.glossary.map((t) => t.id))), []);
+      eq(validateCross(data), []);
+      eq(Object.keys(data.config.board.season_eval.mails), loaderMod.SEASON_MAIL_KEYS);
+      for (const id of newMailIds) check(data.mails.some((m) => m.id === id), id);
+    });
+    test('M7b 로더: 시즌 평가·평판 효과·공백 감액 설정이 틀리면 알려 준다', () => {
+      const a = clone(data.config); a.board.season_eval.tiers[3].min_ratio = 0.5; check(has(validateConfig(a), '0부터'), '마지막 단계');
+      const b = clone(data.config); b.board.season_eval.tiers[1].min_ratio = 1.2; check(has(validateConfig(b), '작아져야'), '내림차순');
+      const c = clone(data.config); c.board.season_eval.mails.up = 'mail_nope'; check(has(validateCross({ ...data, config: c }), '없는 메일 id'), '메일 id');
+      const d = clone(data.config); d.rivals.reputation_flow.max_rate = 2; check(has(validateConfig(d), 'max_rate'), '상한');
+      const e = clone(data.config); e.finance.gap_cut.per_week = -1; check(has(validateConfig(e), 'per_week'), '주당 비율');
+      const f = clone(data.config); delete f.guide.season_end_weeks; check(has(validateConfig(f), 'season_end_weeks'), '안내띠 설정');
+      const r = clone(data.report); delete r.season.eval_ko.lost; check(has(loaderMod.validateReport(r, 'report.json', new Set(data.glossary.map((t) => t.id))), 'season.eval_ko.lost'), '문구 누락');
+    });
+    test('M7b 메일: 새 이사회 메일은 숫자·속마음 이름이 없고 용어 표시를 단 의장의 글이다', () => {
+      const bodies = newMailIds.map((id) => data.mails.find((m) => m.id === id));
+      for (const m of bodies) {
+        const text = [m.subject_ko, ...m.body_ko].join(' ');
+        check(!/\d/.test(text), `${m.id} 숫자`); check(!HIDDEN_WORDS.test(text), `${m.id} 속마음 이름`);
+        check(m.from.kind === 'board' && m.type === 'board' && m.choices.length === 0 && m.schedule === undefined, m.id);
+        check(/\[\[gl_[a-z_]+\|[^\]]+\]\]/.test(text), `${m.id}에 용어 표시가 없어요`); check(text.includes('이사회 의장 드림'), `${m.id} 끝인사`);
+      }
+      eq(new Set(bodies.map((m) => m.body_ko.join('\n'))).size, 6, '서로 다른 글');
+      const rep = JSON.stringify(data.report.season); check(!/\d/.test(rep.replace(/\\u[0-9a-f]{4}/gi, '')), '문구에 숫자'); check(!HIDDEN_WORDS.test(rep), '문구에 속마음 이름');
+    });
+    test('M7b 공백 감액: 공백이 있었던 트리티는 늦은 주마다 수수료를 깎고 상한이 있으며, 공백이 없으면 전액이다', () => {
+      eq([0, 1, 2, 6, 20].map((w) => fin.gapCut(w, data.config.finance.gap_cut)), [0, 0.05, 0.1, 0.3, 0.3]);
+      const s = begin(3); s.treaties[JR].phase = 'placed'; s.treaties[JR].final_rc = 0; s.treaties[JR].gap_applied = true; s.turn = 10; fin.settleWeek(data, s);
+      const b = s.finance.booked[JR]; eq(b.gap_weeks, 2); near(b.brokerage_usd_m, 1.08, 1e-9); near(b.cut_usd_m, 0.12, 1e-9); near(b.premium_usd_m, 12, 1e-9, '프리미엄은 그대로');
+      near(fin.gapCutTotal(s.finance), 0.12, 1e-9);
+      const cap = begin(3); cap.treaties[JR].phase = 'placed'; cap.treaties[JR].final_rc = 0; cap.treaties[JR].gap_applied = true; cap.turn = 40; fin.settleWeek(data, cap);
+      eq(cap.finance.booked[JR].gap_weeks, 32); near(cap.finance.booked[JR].brokerage_usd_m, 0.84, 1e-9, '상한 30%');
+      const none = begin(3); none.treaties[JR].phase = 'placed'; none.treaties[JR].final_rc = 0; none.turn = 40; fin.settleWeek(data, none);
+      eq([none.finance.booked[JR].gap_weeks, none.finance.booked[JR].cut_usd_m], [0, 0]); near(none.finance.booked[JR].brokerage_usd_m, 1.2, 1e-9);
+    });
+    test('M7b 공백 감액: 인셉션 다음 주에 제출해 받아들여지면 한 주 늦은 것으로 5%를 깎는다', () => {
+      const s = begin(7); answerOpen(s); playTo(s, 8); eq(s.treaties[JR].gap_applied, true); check(s.finance.booked[JR] === undefined, '아직 미확정');
+      s.treaties[JR].phase = 'placed'; s.treaties[JR].final_rc = 0; answerOpen(s); turn.advance();
+      eq(s.finance.booked[JR].turn, 9); eq(s.finance.booked[JR].gap_weeks, 1); near(s.finance.booked[JR].brokerage_usd_m, 1.2 * 0.95, 1e-9);
+    });
+    test('M7b 평판 효과: 문턱 이하면 0, 넘으면 점마다 늘고 상한이 있다', () => {
+      const cfg = data.config.rivals; eq([0, 50, 55].map((r) => riv.flowRate(r, cfg)), [0, 0, 0]);
+      near(riv.flowRate(65, cfg), 0.008, 1e-12); near(riv.flowRate(100, cfg), 0.02, 1e-12, '상한'); eq(riv.flowRate(70, {}), 0, '설정이 없으면 0');
+    });
+    test('M7b 평판 효과: 라이벌에게서 떼어 낸 몫의 합이 플레이어의 몫이고, 평판이 낮으면 M7a와 똑같다', () => {
+      const quarter = { id: 'q1', to: 19 }; const player = { q: 1, ytd: 1, placed_premium_usd_m: 10, clients: 3 };
+      const args = { defs: data.brokers, prev: null, quarter, quarterIndex: 0, seed: 7, marketIndex: 50, player, cfg: data.config.rivals };
+      const low = riv.buildSnapshot({ ...args, reputation: 50 }); const high = riv.buildSnapshot({ ...args, reputation: 100 });
+      eq(low.player.flow_q, 0); eq(low.player.flow_ytd, 0); check(Object.values(low.rivals).every((r) => r.moved === 0), '낮은 평판은 이동 없음');
+      const moved = Object.values(high.rivals).reduce((a, r) => a + r.moved, 0); near(high.player.flow_q, moved, 1e-3); check(high.player.flow_q > 0);
+      for (const b of data.brokers) near(high.rivals[b.id].q + high.rivals[b.id].moved, low.rivals[b.id].q, 2e-4, '떼기 전 수익은 평판과 무관(난수 분리)');
+      check(high.rank <= low.rank, '평판이 높으면 순위가 나빠지지 않는다');
+      const next = riv.buildSnapshot({ ...args, prev: high, quarter: { id: 'q2', to: 32 }, quarterIndex: 1, reputation: 100 });
+      near(next.player.flow_ytd, high.player.flow_q + next.player.flow_q, 2e-4, '몫의 누계');
+      const rows = riv.tableRows(data.brokers, high, { firm: '우리', reputation: 100 }); const me = rows.find((r) => r.isPlayer);
+      near(me.ytd, 1 + high.player.flow_ytd, 1e-9, '표의 수익은 리그 수익'); eq(me.brokerage_ytd, 1);
+    });
+    test('M7b 평판 효과: 평판이 높은 게임은 분기 결산에서 몫을 받고, 의장 알림 메일은 한 번만 온다', () => {
+      const s = begin(9); allPlaced(s); s.player.reputation = 100; playTo(s, 19); answerOpen(s);
+      const q1 = s.standings.quarters[0]; check(q1.player.flow_q > 0, '몫이 생겼다'); check(s.player.flags.includes('rep_flow_noted'), '알림 깃발'); eq(mailCount(s, 'mail_board_reputation_flow'), 1);
+      playTo(s, 58); eq(mailCount(s, 'mail_board_reputation_flow'), 1, '한 번만');
+      check(s.standings.quarters.at(-1).player.flow_ytd >= q1.player.flow_ytd, '누계는 줄지 않는다');
+      eq(store.validateState(s), []);
+      const poor = begin(9); allPlaced(poor); poor.player.reputation = 50; playTo(poor, 19); eq(poor.standings.quarters[0].player.flow_q, 0); check(!poor.player.flags.includes('rep_flow_noted'));
+    });
+    test('M7b 시즌 평가: 비율 단계와 확정 전·이탈 값이 설정대로 나온다', () => {
+      const cfg = data.config.board.season_eval; const evalRc = (rc) => seasonMod.evalSeason(tJR, { phase: 'placed' }, { brokerage_usd_m: fin.brokerageOf(tJR, rc) }, cfg);
+      eq([0, -3, -4, -7].map((rc) => evalRc(rc).delta), [4, 2, 0, -2]); near(evalRc(-3).ratio, 0.97, 1e-9);
+      eq(seasonMod.evalSeason(tJR, { phase: 'open' }, undefined, cfg), { kind: 'open', ratio: null, delta: 0 });
+      eq(seasonMod.evalSeason(tJR, { phase: 'lost' }, undefined, cfg), { kind: 'lost', ratio: null, delta: -3 });
+      eq(seasonMod.evalSeason(tJR, { phase: 'placed' }, undefined, cfg).kind, 'open', '확정했지만 장부에 없으면 확정 전');
+      eq([seasonMod.evalMailKey({ kind: 'tier', delta: 4 }), seasonMod.evalMailKey({ kind: 'tier', delta: 0 }), seasonMod.evalMailKey({ kind: 'tier', delta: -2 }), seasonMod.evalMailKey({ kind: 'open', delta: 0 }), seasonMod.evalMailKey({ kind: 'lost', delta: -3 })], ['up', 'flat', 'down', 'pending', 'lost']);
+      near(seasonMod.expectedBrokerage(tJR), 1.2, 1e-9);
+    });
+    test('M7b 시즌 마감: 인셉션 다음 주에 리뷰가 굳고 이사회 신뢰가 ±되며 의장 편지가 온다', () => {
+      freshCodex(); const s = begin(5); allPlaced(s); eq(s.seasons[S0101].open.codex_count, 0, '출발 기록');
+      gl.collect('gl_line', 1, 'T'); gl.collect('gl_panel', 2, 'T');
+      playTo(s, 7); eq(s.seasons[S0101].review, null, '인셉션 주에는 아직'); eq(mailCount(s, 'mail_board_season_up'), 0);
+      answerOpen(s); const before = s.player.board_confidence; const r = turn.advance(); eq(s.turn, 8); eq(r.seasonsClosed, [S0101]);
+      const rev = s.seasons[S0101].review; eq(rev.turn, 8); eq(rev.status, 'placed'); eq(rev.eval, { kind: 'tier', ratio: 0.97, delta: 2 });
+      eq(rev.codex_gain, 2); check(rev.rel_client_delta !== null && rev.scout_gain !== null, '변화량');
+      near(rev.board_after - rev.board_before, 2, 1e-9); near(s.player.board_confidence, before + 2 + (rev.board_before - before), 1e-9);
+      eq(mailCount(s, 'mail_board_season_up'), 1); eq(store.validateState(s), []);
+      playTo(s, 34); eq(Object.values(s.seasons).filter((x) => x.review).length, 3); eq([mailCount(s, 'mail_board_season_up'), mailCount(s, 'mail_board_season_flat')], [2, 1], '주롱·누산타라는 올림, 스트레이츠(RC -4)는 그대로');
+      eq(seasonMod.seasonRows(data, s).map((x) => [x.season.label, x.phase]), [['1/1', 'placed'], ['1/4', 'placed'], ['1/7', 'placed']]);
+    });
+    test('M7b 시즌 마감: 아직 확정 전이면 평가 0과 확정 전 편지, 이탈이면 이탈 값과 이탈 편지', () => {
+      const s = begin(6); playTo(s, 9);
+      const rev = s.seasons[S0101].review; eq(rev.status, 'open'); eq(rev.eval, { kind: 'open', ratio: null, delta: 0 }); eq(rev.board_after, rev.board_before);
+      eq(mailCount(s, 'mail_board_season_pending'), 1); eq(s.treaties[JR].gap_applied, true);
+      const g = begin(6); g.treaties[JR].phase = 'lost'; playTo(g, 8);
+      eq(g.seasons[S0101].review.eval, { kind: 'lost', ratio: null, delta: -3 }); near(g.seasons[S0101].review.board_after - g.seasons[S0101].review.board_before, -3, 1e-9); eq(mailCount(g, 'mail_board_season_lost'), 1);
+    });
+    test('M7b 시즌 마감: 신뢰가 해고선 아래로 내려가면 그 주에 해고된다', () => {
+      const s = begin(6); s.treaties[JR].phase = 'lost'; s.player.board_confidence = 21; playTo(s, 8);
+      eq(s.ending?.kind, 'fired'); eq(s.ending.turn, 8); check(s.player.board_confidence < 20);
+    });
+    test('M7b 안내띠: 중간 리뷰가 나오면 먼저 알리고, 화면을 본 뒤에는 시즌을 마쳤다는 문구로 바뀐다', () => {
+      freshCodex(); const s = begin(5); allPlaced(s); playTo(s, 8); answerOpen(s);
+      for (const m of s.mails) m.read = true;
+      let a = act(); eq(a.id, 'season_review'); eq(a.route, 'review'); check(a.text.includes('1/1') && a.text.includes('중간 리뷰'), a.text);
+      check(!/\d{2,}|보수|민감|충성|conservatism|loyalty/.test(a.text), a.text);
+      turn.markSeasonReviewsSeen(); check(seasonMod.unseenReview(data, s) === null);
+      a = act(); eq(a.id, 'season_end'); check(a.text.includes('1/4') && a.text.includes('턴 14'), a.text); eq(a.route, 'database');
+      s.turn = 8 + data.config.guide.season_end_weeks + 1; a = act(); check(a.id !== 'season_end', '몇 주가 지나면 평소 문구');
+    });
+    test('M7b 안내띠: 마지막 시즌을 마치면 올해 갱신을 모두 마쳤다는 문구가 순위표를 가리킨다', () => {
+      const s = begin(5); allPlaced(s); playTo(s, 34); answerOpen(s); for (const m of s.mails) m.read = true; turn.markSeasonReviewsSeen();
+      eq(s.turn, 34); const a = act(); eq(a.id, 'season_end_all'); eq(a.route, 'standings');
+    });
+    test('M7b 안내띠: 읽지 않은 메일이 있으면 그 안내가 먼저이고, 필수 메일은 리뷰 안내보다 앞선다', () => {
+      const s = begin(5); allPlaced(s); playTo(s, 8); check(seasonMod.unseenReview(data, s) !== null);
+      check(['required_mail', 'unread_mail', 'deadline_mail'].includes(act().id), act().id);
+    });
+    test('M7b 세이브 v9: v8 세이브를 불러오면 빈 seasons가 채워지고 옛 장부·순위표 모양도 그대로 통과한다', () => {
+      fresh(); store.newGame({ seed: 11 }); const s = store.getState(); allPlaced(s); playTo(s, 20);
+      const old = clone(s); old.version = 8; delete old.seasons;
+      for (const b of Object.values(old.finance.booked)) { delete b.gap_weeks; delete b.cut_usd_m; }
+      for (const q of old.standings.quarters) { delete q.player.flow_q; delete q.player.flow_ytd; for (const r of Object.values(q.rivals)) delete r.moved; }
+      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
+      eq([r.state.version, r.state.seasons], [9, {}]); eq(r.state.turn, old.turn); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+    });
+    test('M7b 세이브 v9: 잘못된 시즌 기록은 검증에서 걸린다', () => {
+      const s = begin(5); allPlaced(s); playTo(s, 8); eq(store.validateState(s), []);
+      const a = clone(s); a.seasons[S0101].seen = 'x'; check(has(store.validateState(a), 'seasons.season_0101.seen'), 'seen');
+      const b = clone(s); b.seasons[S0101].review.eval.kind = 'zzz'; check(has(store.validateState(b), 'seasons.season_0101.review'), 'review');
+      const c = clone(s); c.seasons.season_nope = { open: null, review: null, seen: false }; check(has(store.validateState(c), '없는 시즌 id'), '시즌 id');
+      const d = clone(s); d.seasons[S0101].open = { turn: 1 }; check(has(store.validateState(d), 'seasons.season_0101.open'), 'open');
+      const e = clone(s); delete e.seasons; check(has(store.validateState(e), 'seasons'), 'seasons 없음');
+    });
+    test('M7b 화면: 시즌 리뷰 — 중간 점검에도 시즌 카드가 보이고, 화면을 그리면 "봄"으로 바뀐다', () => {
+      startScreens(); let root = renderReview(); document.body.append(root);
+      try { check(!root.textContent.includes('시즌별 중간 리뷰'), '끝난 시즌이 없으면 카드가 없다'); } finally { root.remove(); }
+      const s = store.getState(); allPlaced(s); playTo(s, 8); check(seasonMod.unseenReview(data, s) !== null); resetTermScope();
+      root = renderReview(); document.body.append(root);
+      try {
+        const text = root.textContent; check(text.includes('시즌별 중간 리뷰') && text.includes('1/1 갱신 시즌') && text.includes('시즌 동안 달라진 것') && text.includes('이사회 평가'), '카드');
+        check(text.includes('신뢰') && text.includes('→'), '신뢰 변화'); check(text.includes('만기 대비 97%'), '만기 대비');
+        check(!text.includes('시즌 비교'), '연말 전에는 비교 표가 없다'); check(!HIDDEN_WORDS.test(text), '속마음 이름');
+        eq(root.querySelectorAll('.season-card').length, 1);
+      } finally { root.remove(); }
+      check(seasonMod.unseenReview(data, s) === null, '그리면 봄');
+    });
+    test('M7b 화면: 시즌 리뷰 — 옛 세이브처럼 출발 기록이 없으면 변화는 알 수 없다고 말한다', () => {
+      startScreens(); const s = store.getState(); allPlaced(s); playTo(s, 8); s.seasons[S0101].open = null;
+      Object.assign(s.seasons[S0101].review, { rel_client_delta: null, rel_re_delta: null, scout_gain: null, codex_gain: null }); resetTermScope();
+      const root = renderReview(); document.body.append(root);
+      try { check(root.textContent.includes('출발 기록이 남아 있지 않아'), '안내'); } finally { root.remove(); }
+    });
+    test('M7b 화면: 연말 성적표 — 세 시즌 비교 표와 분기별 순위 추이가 붙고 합계가 맞는다', () => {
+      startScreens(); const s = store.getState(); allPlaced(s); s.player.reputation = 100; runYear(s); eq(s.ending?.kind, 'year_end'); resetTermScope();
+      const root = renderReview(); document.body.append(root);
+      try {
+        const text = root.textContent; check(text.includes('시즌 비교') && text.includes('분기별 순위 추이') && text.includes('시즌별 중간 리뷰'), '구역');
+        const tables = [...root.querySelectorAll('table')]; const compare = tables.find((t) => t.textContent.includes('만기 대비') && t.querySelector('tfoot'));
+        check(compare, '비교 표'); eq(compare.querySelectorAll('tbody tr').length, 3, '비교 표 행'); for (const l of ['1/1', '1/4', '1/7']) check(compare.textContent.includes(l), l);
+        check(compare.querySelector('tfoot').textContent.includes('합계'));
+        const trend = tables.find((t) => t.textContent.includes('가장 강한 라이벌')); eq(trend.querySelectorAll('tbody tr').length, 4, '추이 행');
+        eq(root.querySelectorAll('.season-card').length, 3, '카드 수'); check(!HIDDEN_WORDS.test(text), '속마음 이름');
+        check(text.includes('평판 효과'), '평판 효과 칸');
+      } finally { root.remove(); }
+      const rows = seasonMod.rankTrend(data, s); eq(rows.length, 4); eq(rows.map((r) => r.id), ['q1', 'q2', 'q3', 'q4']);
+    });
+    test('M7b 화면: 순위표 — 평판 효과가 있으면 내 행 밑에 브로커리지와 평판 효과를 나눠 적는다', () => {
+      startScreens(); const s = store.getState(); allPlaced(s); s.player.reputation = 100; playTo(s, 20); resetTermScope();
+      const root = renderStandings(); document.body.append(root);
+      try {
+        const me = [...root.querySelectorAll('tbody tr')].find((r) => r.textContent.includes('우리') && r.classList.contains('is-selected'));
+        check(me && me.textContent.includes('평판 효과'), '내 행'); check(root.textContent.includes('평판이 높으면 경쟁 중개회사 수익의 일부가 우리에게 넘어와요'), '설명');
+      } finally { root.remove(); }
+      const poor = startScreens(13) ?? null; const p = store.getState(); allPlaced(p); p.player.reputation = 40; playTo(p, 20); resetTermScope();
+      const root2 = renderStandings(); document.body.append(root2);
+      try { const me = [...root2.querySelectorAll('tbody tr')].find((r) => r.classList.contains('is-selected')); check(me && !me.textContent.includes('평판 효과'), '효과가 없으면 칸이 없다'); } finally { root2.remove(); }
+    });
+    test('M7b 화면: 성적표 돈 요약 — 공백으로 줄어든 수수료가 있을 때만 줄을 보여 준다', () => {
+      startScreens(); const s = store.getState(); allPlaced(s); runYear(s); resetTermScope();
+      let root = renderReview(); document.body.append(root);
+      try { check(!root.textContent.includes('공백으로 줄어든 수수료'), '평소엔 없음'); } finally { root.remove(); }
+      s.finance.booked[JR].cut_usd_m = 0.06; s.ending.report.facts.gap_cut_usd_m = 0.06; resetTermScope();
+      root = renderReview(); document.body.append(root);
+      try { check(root.textContent.includes('공백으로 줄어든 수수료'), '있으면 보임'); } finally { root.remove(); }
+    });
+    test('M7b Continue: 시즌 리뷰가 나온 주를 넘기면 요약에 알려 주고 멈춘다', () => {
+      const s = begin(5); allPlaced(s); playTo(s, 7); answerOpen(s); const r = turn.advance();
+      eq(r.seasonsClosed, [S0101]); check(r.stop !== null, '멈춤'); check(r.arrived.some((id) => s.mails.find((m) => m.id === id).template === 'mail_board_season_up'), '편지 도착');
+    });
+    test('M7b 결정성: 같은 시드·같은 행동이면 시즌 기록과 평판 효과가 똑같다', () => {
+      const run = () => { freshCodex(); const s = begin(31); allPlaced(s); s.player.reputation = 90; playTo(s, 40); return JSON.stringify([s.seasons, s.standings, s.finance.booked]); };
+      eq(run(), run());
     });
 
     // ---------- 실행 ----------

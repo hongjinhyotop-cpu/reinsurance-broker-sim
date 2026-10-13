@@ -22,11 +22,21 @@ export function brokerageOf(treaty, finalRc) {
   return round6(finalPremium(treaty, finalRc) * treaty.brokerage_rate);
 }
 
+// 공백 뒤 늦게 확정한 만큼 깎는 수수료 비율(0~max). 주당 비율에 늦은 주 수를 곱하고 상한을 둔다.
+export function gapCut(weeks, cfg) {
+  return Math.max(0, Math.min(cfg.max, cfg.per_week * weeks));
+}
+
 const inRange = (turn, from, to) => turn >= from && turn <= to;
 
 // 확정한 브로커리지 합(발생주의). from~to 턴에 확정한 것만 더한다.
 export function bookedTotal(finance, from = -Infinity, to = Infinity) {
   return round6(Object.values(finance.booked).filter((b) => inRange(b.turn, from, to)).reduce((s, b) => s + b.brokerage_usd_m, 0));
+}
+
+// 공백 때문에 깎인 수수료 합(M7b)
+export function gapCutTotal(finance) {
+  return round6(Object.values(finance.booked).reduce((s, b) => s + (b.cut_usd_m ?? 0), 0));
 }
 
 export function placedPremiumTotal(finance, to = Infinity) {
@@ -109,6 +119,7 @@ export function computeReport(data, state) {
       reputation: Math.round(state.player.reputation),
       gaps: gapCount(f), fines_usd_m: finesTotal(f), overhead_usd_m: round6(f.overhead_usd_m),
       cash_usd_m: state.player.cash_usd_m, receivable_usd_m: receivableTotal(f), placed_premium_usd_m: placedPremiumTotal(f),
+      gap_cut_usd_m: gapCutTotal(f),
     },
     strong: strong.id, weak: weak.id,
     confidence_before: state.player.board_confidence, confidence_after: state.player.board_confidence,
@@ -127,9 +138,13 @@ export function settleWeek(data, state) {
     const season = data.calendar.seasons.find((s) => s.id === treaty.season);
     if (!t || t.phase !== 'placed' || f.booked[treaty.id] || state.turn < season.inception_turn) continue;
     const rc = t.final_rc ?? 0;
+    const gapWeeks = t.gap_applied ? Math.max(0, state.turn - 1 - season.inception_turn) : 0; // 공백 뒤 늦게 확정한 주 수(§9.1)
+    const cut = gapCut(gapWeeks, cfg.gap_cut);
+    const full = brokerageOf(treaty, rc);
+    const brokerage = round6(full * (1 - cut));
     f.booked[treaty.id] = {
-      turn: state.turn, premium_usd_m: finalPremium(treaty, rc), brokerage_usd_m: brokerageOf(treaty, rc),
-      due_turn: state.turn + cfg.cash_delay_weeks, paid: false,
+      turn: state.turn, premium_usd_m: finalPremium(treaty, rc), brokerage_usd_m: brokerage,
+      due_turn: state.turn + cfg.cash_delay_weeks, paid: false, gap_weeks: gapWeeks, cut_usd_m: round6(full - brokerage),
     };
     booked.push(treaty.id);
   }
@@ -180,13 +195,19 @@ export function closeQuarterIfEnd(data, state) {
     const prev = latestSnapshot(state);
     const snap = buildSnapshot({
       defs: data.brokers, prev, quarter, quarterIndex: rivalQuarters.indexOf(quarter.id), seed: state.seed,
-      marketIndex: state.market.index, cfg: data.config.rivals,
+      marketIndex: state.market.index, cfg: data.config.rivals, reputation: state.player.reputation,
       player: {
         q: bookedTotal(f, quarter.from, quarter.to), ytd: bookedTotal(f, -Infinity, quarter.to),
         placed_premium_usd_m: placedPremiumTotal(f, quarter.to), clients: keptClients(data, state),
       },
     });
     state.standings.quarters.push(snap);
+    // 평판 효과를 처음 크게 누린 분기에는 의장이 한 번만 알려 준다(§9.3).
+    const flow = data.config.rivals.reputation_flow;
+    if (snap.player.flow_q >= flow.notice_min_usd_m && !state.player.flags.includes('rep_flow_noted')) {
+      applyEffects(state, [{ op: 'flag_set', flag: 'rep_flow_noted' }]);
+      sendMail(state, flow.mail);
+    }
     // 마지막 분기는 순위 메일 대신 연말 성적표 메일이 간다.
     if (state.turn < data.calendar.turns) sendMail(state, board.mails.rank[rankMailKey(snap.rank, snap.prev_rank, board)]);
   }

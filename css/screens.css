@@ -315,3 +315,9 @@
 .grade-score { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .report-fired { border-color: var(--danger); }
 .chair-note { max-width: 62ch; }
+
+/* 시즌 중간 리뷰 카드(M7b) */
+.season-reviews > h2 { margin-bottom: 4px; }
+.season-card h3 .tag { margin-left: 8px; }
+.season-card h4 { margin: 12px 0 4px; }
+.table tfoot th, .table tfoot td { border-top: 2px solid var(--border, currentColor); font-weight: 700; }

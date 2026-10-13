@@ -21,25 +21,41 @@ export function rivalQuarterIncome(def, marketIndex, z, cfg) {
   return round4(Math.max(0, value));
 }
 
+// 평판 효과(§9.3): 평판이 문턱을 넘으면 라이벌 분기 수익에서 떼어 내는 비율. 상한이 있고 문턱 이하면 0이다.
+export function flowRate(reputation, cfg) {
+  const rf = cfg?.reputation_flow;
+  if (!rf) return 0;
+  return Math.max(0, Math.min(rf.max_rate, rf.per_point * (reputation - rf.threshold)));
+}
+
 // 라이벌이 플레이어보다 "더 커야" 앞선다(동률이면 플레이어가 앞).
 export function rankOf(playerYtd, rivalYtds) {
   return 1 + rivalYtds.filter((y) => y > playerYtd).length;
 }
 
 // 분기 결산 스냅샷(세이브 standings.quarters 한 칸). player는 { q, ytd, placed_premium_usd_m, clients }.
-export function buildSnapshot({ defs, prev, quarter, quarterIndex, seed, marketIndex, player, cfg }) {
+// reputation: 플레이어 평판. 높으면 라이벌 각자의 분기 수익에서 일부(flowRate)가 플레이어의 flow_q로 넘어온다.
+// 순위는 리그 수익(확정 브로커리지 누계 + flow_ytd)으로 정한다. 난수는 평판과 무관하게 같은 순서로 쓴다.
+export function buildSnapshot({ defs, prev, quarter, quarterIndex, seed, marketIndex, player, cfg, reputation = 0 }) {
+  const rate = flowRate(reputation, cfg);
   const rivals = {};
+  let flowQ = 0;
   defs.forEach((def, i) => {
-    const q = rivalQuarterIncome(def, marketIndex, rivalNoise(seed, quarterIndex, i), cfg);
+    const gross = rivalQuarterIncome(def, marketIndex, rivalNoise(seed, quarterIndex, i), cfg);
+    const moved = round4(gross * rate);
+    const q = round4(gross - moved);
     const before = prev?.rivals?.[def.id]?.ytd ?? 0;
-    rivals[def.id] = { q, ytd: round4(before + q) };
+    rivals[def.id] = { q, ytd: round4(before + q), moved };
+    flowQ += moved;
   });
+  flowQ = round4(flowQ);
+  const flowYtd = round4((prev?.player?.flow_ytd ?? 0) + flowQ);
   return {
     id: quarter.id,
     turn: quarter.to,
-    rank: rankOf(player.ytd, Object.values(rivals).map((r) => r.ytd)),
+    rank: rankOf(player.ytd + flowYtd, Object.values(rivals).map((r) => r.ytd)),
     prev_rank: prev ? prev.rank : null,
-    player,
+    player: { ...player, flow_q: flowQ, flow_ytd: flowYtd },
     rivals,
   };
 }
@@ -57,9 +73,13 @@ export function tableRows(defs, snapshot, { firm, reputation, prev = null }) {
       clients: d.clients, reputation: d.reputation,
     };
   });
+  // 리그 수익 = 확정 브로커리지 + 평판으로 넘어온 몫(없던 옛 스냅샷은 0). 정렬과 표시는 리그 수익으로 한다.
+  const flowYtd = snapshot.player.flow_ytd ?? 0;
+  const flowQ = snapshot.player.flow_q ?? 0;
   rows.push({
-    id: 'player', name_ko: firm, tag_ko: '', isPlayer: true, ytd: snapshot.player.ytd, q: snapshot.player.q,
-    dq: prev ? round4(snapshot.player.q - prev.player.q) : null,
+    id: 'player', name_ko: firm, tag_ko: '', isPlayer: true, ytd: round4(snapshot.player.ytd + flowYtd), q: round4(snapshot.player.q + flowQ),
+    brokerage_ytd: snapshot.player.ytd, flow_ytd: flowYtd,
+    dq: prev ? round4(snapshot.player.q + flowQ - (prev.player.q + (prev.player.flow_q ?? 0))) : null,
     placed_premium_usd_m: snapshot.player.placed_premium_usd_m, clients: snapshot.player.clients, reputation,
   });
   rows.sort((a, b) => (b.ytd - a.ytd) || (a.isPlayer ? -1 : b.isPlayer ? 1 : 0));

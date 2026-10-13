@@ -4,7 +4,7 @@ import * as store from '../store.js';
 import { latestSnapshot, computeReport } from '../finance.js';
 import { tableRows } from '../rivals.js';
 import { h, formatUsdM } from './components.js';
-import { glossaryLink } from './glossary_view.js';
+import { glossaryLink, richText } from './glossary_view.js';
 
 const QUARTER_KO = { q1: '1분기', q2: '2분기', q3: '3분기', q4: '4분기' };
 
@@ -43,7 +43,8 @@ function renderLeague(data, state) {
   const body = h('tbody', {}, rows.map((r) => h('tr', { class: r.isPlayer ? 'is-selected' : null },
     h('td', {}, String(r.rank)),
     h('th', { scope: 'row' }, r.name_ko, r.isPlayer ? h('span', { class: 'tag tag-me' }, '우리') : null, r.tag_ko ? h('small', { class: 'dim row-tag' }, r.tag_ko) : null),
-    h('td', {}, formatUsdM(r.ytd)),
+    h('td', {}, formatUsdM(r.ytd),
+      r.isPlayer && r.flow_ytd > 0 ? h('small', { class: 'dim row-tag' }, `브로커리지 ${formatUsdM(r.brokerage_ytd)} + 평판 효과 ${formatUsdM(r.flow_ytd)}`) : null),
     h('td', {}, signedUsdM(r.dq)),
     h('td', {}, formatUsdM(r.placed_premium_usd_m)),
     h('td', {}, String(r.clients)),
@@ -51,7 +52,8 @@ function renderLeague(data, state) {
   return h('section', { class: 'card' },
     h('h2', {}, '브로커 리그'),
     h('p', { class: 'dim' }, `${QUARTER_KO[snap.id] ?? snap.id} 결산 기준이에요. 순위는 분기가 끝날 때마다 바뀌어요.`),
-    h('div', { class: 'table-wrap' }, h('table', { class: 'table' }, h('caption', { class: 'visually-hidden' }, '브로커 리그 순위표'), head, body)));
+    h('div', { class: 'table-wrap' }, h('table', { class: 'table' }, h('caption', { class: 'visually-hidden' }, '브로커 리그 순위표'), head, body)),
+    h('p', { class: 'dim' }, richText(data.report.season.flow_note_ko)));
 }
 
 function goalRow(label, now, ok) {

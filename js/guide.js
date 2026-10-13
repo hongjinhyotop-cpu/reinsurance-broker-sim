@@ -6,6 +6,7 @@
 import { findTemplate, needsReply } from './mail.js';
 import { submitBlockReason, actionBlockReason, counterWeeksLeft, isClosed, ratingShort, signedCheck } from './placement.js';
 import { liveClient } from './live.js';
+import { unseenReview, latestReview } from './season.js';
 
 const action = (id, text, route = null) => ({ id, text, route });
 
@@ -60,6 +61,10 @@ export function nextAction(data, state) {
     return action('deadline_mail', '인박스에서 마감이 가까운 메일에 답하기', 'inbox');
   }
 
+  // M7b: 시즌이 끝나 중간 리뷰가 나왔는데 아직 열어 보지 않았다(§6.0.1 3a). 점수·숫자는 말하지 않는다.
+  const fresh = unseenReview(data, state);
+  if (fresh) return action('season_review', `${fresh.season.label} 갱신 시즌이 끝났어요 — 시즌 리뷰에서 중간 리뷰를 확인하세요 (이사회의 평가가 신뢰에 반영됐어요)`, 'review');
+
   const treaty = treatiesInWindow(data, state)[0];
   if (treaty) {
     const ts = state.treaties[treaty.id];
@@ -97,6 +102,15 @@ export function nextAction(data, state) {
 
   if (data.calendar.turns - state.turn <= data.config.guide.year_end_weeks) {
     return action('year_end_near', '연말이 가까워요 — 순위표에서 이사회 목표를 점검해 보세요', 'standings');
+  }
+
+  // M7b: 시즌을 마친 직후 몇 주는 그 사실을 먼저 말한다(§6.0.1 9b).
+  const last = latestReview(data, state);
+  if (last && state.turn - last.review.turn <= data.config.guide.season_end_weeks) {
+    const next = nextSeason(data, state.turn);
+    return next
+      ? action('season_end', `${last.season.label} 시즌을 마쳤어요 — 다음 갱신(${next.label})의 협상 창구는 턴 ${next.open_turn}에 열려요. 그때까지 고객·재보험사 DB에서 미팅으로 상대를 알아 두거나, Continue로 넘어가세요`, 'database')
+      : action('season_end_all', '올해 갱신 시즌을 모두 마쳤어요 — 순위표에서 이사회 목표를 점검하며 연말을 준비하세요', 'standings');
   }
 
   if (ap >= meetingAp) return action('between', '다음 시즌까지 시간이 있어요 — DB에서 미팅으로 상대를 알아 두거나, Continue로 다음 주로 넘어가기', 'database');

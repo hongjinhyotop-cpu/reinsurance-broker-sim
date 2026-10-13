@@ -59,6 +59,7 @@ function onContinue() {
   if (res.expiredCounters > 0) parts.push(`유효 기간이 지나 사라진 반제 ${res.expiredCounters}건`);
   if (res.booked.length > 0) parts.push(`브로커리지 ${res.booked.length}건 확정`);
   if (res.closedQuarters.length > 0) parts.push('분기 결산이 끝났어요(순위표 갱신)');
+  if (res.seasonsClosed.length > 0) parts.push('시즌 중간 리뷰가 나왔어요(시즌 리뷰 화면)');
   if (res.stop && STOP_TEXT[res.stop]) parts.push(STOP_TEXT[res.stop]);
   if (res.toTurn - res.fromTurn > 1) parts.splice(1, 0, `${res.toTurn - res.fromTurn}주를 건너뛰었어요`);
   toast(parts.join(' · '), 'ok');
