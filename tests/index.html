@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
+  <h1>테스트 (길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -42,7 +42,7 @@
     import { renderPlacement } from '../js/ui/placement_view.js';
     import * as gl from '../js/glossary.js';
     import { validateGlossary, glossaryWarnings } from '../js/loader.js';
-    import { richText, glossaryLink, openTermCard, renderCodex, resetTermScope, showInCodex } from '../js/ui/glossary_view.js';
+    import { richText, glossaryLink, openTermCard, renderCodex, resetTermScope, showInCodex, linkWords } from '../js/ui/glossary_view.js';
     import { renderInbox } from '../js/ui/inbox.js';
     import { renderDatabase } from '../js/ui/database.js';
 
@@ -464,7 +464,7 @@
       const s = begin(); turn.answer(s.mails[1].id, 'prep'); eq(s.ap, 4);
       const r = turn.advance(); check(r.ok, r.error);
       eq([r.fromTurn, r.toTurn, r.stop], [1, 2, 'mail']); eq(s.ap, 6); eq(s.turn, 2);
-      eq(subjectIds(s).slice(-1), ['mail_market_report_soft']);
+      eq(subjectIds(s).slice(-2), ['mail_market_report_soft', 'mail_mentor_scout']);
     });
     test('turn: 프리시즌 6주를 Continue만으로 끝까지 — 턴 2,3,4,5,6,7에서 멈춘다 (필수 메일에 답해야 통과)', () => {
       const s = begin(7); const stops = [];
@@ -507,7 +507,7 @@
       const st = fresh(); store.newGame({ seed: 5 }); turn.startGame(); turn.advance(); turn.advance();
       const before = store.getState().turn; check(store.save('1').ok);
       store.newGame({ seed: 9 }); check(store.load('1').ok);
-      const s = store.getState(); eq(s.turn, before); eq(s.mails.length, 4);
+      const s = store.getState(); eq(s.turn, before); eq(s.mails.length, 6);
       check(turn.advance().ok); eq(s.turn, before + 1);
       check(st.map.has('rbs:save:v1:auto'), 'Continue가 자동 저장을 해요');
     });
@@ -2069,6 +2069,241 @@
           for (const n of nodes) if (n instanceof Node) check(termIds().includes(n.dataset.term), n.dataset.term);
         }
       }
+    });
+
+
+    // ---------- 길잡이: 선배 메일 · 안내띠 · 다음엔 이렇게 · 캘린더 용어 ----------
+    const guide = await import('../js/guide.js');
+    const prefs = await import('../js/prefs.js');
+    const { NAV, renderShell } = await import('../js/ui/shell.js');
+    const { renderSettings } = await import('../js/ui/settings.js');
+    const { renderCalendar } = await import('../js/ui/calendar_view.js');
+    prefs.usePrefsStorage(memoryStorage()); // 테스트가 진짜 localStorage(플레이어의 화면 설정)를 건드리지 않게
+    const act = () => guide.nextAction(store.getData(), store.getState());
+    const readAll = (s) => { for (const m of s.mails) m.read = true; };
+    const closeAll = (s) => { for (const m of s.mails) { m.read = true; m.answered = m.answered ?? 'x'; } };
+    const BANNED_WORDS = ['보수성', '보수적', '가격 민감도', '충성도', '성격', '성향'];
+
+    test('선배 메일: 2~5턴에 한 통씩, 선택지·마감·필수가 없고 용어 표시가 있으며 속마음 낱말이 없다', () => {
+      const mentors = data.mails.filter((m) => m.type === 'mentor');
+      eq(mentors.map((m) => m.schedule.turn), [2, 3, 4, 5]);
+      for (const m of mentors) {
+        eq([m.from.kind, m.choices.length, m.blocking, m.deadline_weeks], ['mentor', 0, false, undefined], m.id);
+        const body = m.body_ko.join('\n');
+        check(/\[\[gl_[a-z0-9_]+(\|[^\]]*)?\]\]/.test(body), `${m.id}: 용어 표시가 없어요`);
+        for (const w of [...BANNED_WORDS, 'Continue']) check(!body.includes(w) && !m.subject_ko.includes(w), `${m.id}: "${w}"`);
+        check(!m.subject_ko.includes('[['), '제목에는 용어 표시를 쓰지 않아요');
+      }
+      eq(mentors.map((m) => m.body_ko.join('').includes(NAV.find((n) => n.id === ['database', 'placement', 'calendar', 'inbox'][mentors.indexOf(m)]).label)), [true, true, true, true], '메일마다 이번 주에 열 화면 이름이 들어 있어요');
+    });
+    test('선배 메일: 부임 메일과 역할이 겹치지 않는다 (화면 이름은 선배 메일만, 조작 기본기는 부임 메일만)', () => {
+      const welcome = data.mails.find((m) => m.id === 'mail_welcome_board').body_ko.join('');
+      for (const word of ['고객·재보험사 DB', '캘린더', '인박스']) check(!welcome.includes(word), `부임 메일에 "${word}"가 있으면 선배 메일과 겹쳐요`);
+      for (const m of data.mails.filter((x) => x.type === 'mentor')) check(!m.body_ko.join('').includes('6점'), '행동 점수 설명을 되풀이하지 않아요');
+    });
+    test('선배 메일: 인박스 "선배" 필터는 선배 메일만 고르고, 답할 필요가 없는 메일로 센다', () => {
+      begin(); const s = store.getState();
+      for (let i = 0; i < 4; i++) { for (const m of s.mails) if (m.answered === null && mailLib.findTemplate(data.mails, m.template).blocking) turn.answer(m.id, 'submit'); turn.advance(); }
+      const rows = s.mails.map((mail) => ({ mail, t: mailLib.findTemplate(data.mails, mail.template) }));
+      const mentors = rows.filter((r) => mailLib.matchesFilter('mentor', r.mail, r.t));
+      eq(mentors.map((r) => r.t.id), ['mail_mentor_scout', 'mail_mentor_board', 'mail_mentor_calendar', 'mail_mentor_lost']);
+      check(mentors.every((r) => !mailLib.needsReply(r.mail, r.t)));
+      check(mailLib.MAIL_FILTERS.some((f) => f.id === 'mentor'));
+    });
+    test('loader(길잡이): config.guide가 없거나 값이 이상하면 막는다', () => {
+      eq(validateConfig(clone(data.config)), []);
+      const c = clone(data.config); delete c.guide; check(has(validateConfig(c), 'guide'));
+      const c2 = clone(data.config); c2.guide.counter_close_pp = -1; check(has(validateConfig(c2), 'counter_close_pp'));
+      const c3 = clone(data.config); c3.guide.careful_patience = 1.5; check(has(validateConfig(c3), 'careful_patience'));
+    });
+
+    test('prefs: 기본은 켜짐, 끈 값은 저장되고 다시 읽어도 유지된다', () => {
+      const st = memoryStorage(); prefs.usePrefsStorage(st);
+      eq(prefs.getPrefs().guide_strip, true);
+      check(prefs.setPref('guide_strip', false).ok);
+      eq(JSON.parse(st.map.get('rbs:prefs:v1')), { version: 1, guide_strip: false });
+      prefs.usePrefsStorage(st); eq(prefs.getPrefs().guide_strip, false);
+      store.newGame({ seed: 3 }); eq(prefs.getPrefs().guide_strip, false, '새 게임을 시작해도 유지');
+      prefs.usePrefsStorage(memoryStorage());
+    });
+    test('prefs: 깨진 값·틀린 모양·저장소 차단·새 버전은 게임을 멈추지 않고, 새 버전은 덮어쓰지 않는다', () => {
+      let st = memoryStorage(); st.setItem('rbs:prefs:v1', '{깨짐'); prefs.usePrefsStorage(st); eq(prefs.getPrefs().guide_strip, true);
+      st = memoryStorage(); st.setItem('rbs:prefs:v1', JSON.stringify({ version: 1, guide_strip: 'no' })); prefs.usePrefsStorage(st); eq(prefs.getPrefs().guide_strip, true);
+      st = memoryStorage({ failSet: true }); prefs.usePrefsStorage(st); eq(prefs.setPref('guide_strip', false).ok, false); eq(prefs.getPrefs().guide_strip, false, '이번 세션에는 유지');
+      st = memoryStorage({ failGet: true }); prefs.usePrefsStorage(st); eq(prefs.getPrefs().guide_strip, true);
+      const newer = JSON.stringify({ version: 9, guide_strip: false });
+      st = memoryStorage(); st.setItem('rbs:prefs:v1', newer); prefs.usePrefsStorage(st);
+      eq(prefs.getPrefs().guide_strip, true); eq(prefs.setPref('guide_strip', false).ok, false); eq(st.map.get('rbs:prefs:v1'), newer, '새 버전 값은 덮어쓰지 않아요');
+      prefs.usePrefsStorage(memoryStorage());
+      check(!prefs.setPref('other', true).ok && !prefs.setPref('guide_strip', 'x').ok, '모르는 칸·틀린 값은 거부');
+    });
+
+    test('안내띠(규칙): 첫 주 — 안 읽은 메일 → 상대와 미팅 → 지분 채우기', () => {
+      const s = begin();
+      eq([act().id, act().route], ['unread_mail', 'inbox']); check(act().text.includes('2통'));
+      readAll(s); eq([act().id, act().route], ['scout', 'database']);
+      s.entities.clients.cli_jurong_crest.meetings = 1; eq([act().id, act().route], ['fill', 'placement']);
+    });
+    test('안내띠(규칙): 필수 메일이 가장 먼저, 마감 주에는 그렇다고 알린다. 일반 메일은 마감이 임박했을 때만', () => {
+      const s = begin(); readAll(s); s.turn = 3;
+      eq(act().id, 'deadline_mail', '킥오프 메일 마감(4)이 1주 앞');
+      s.mails.push({ id: 'm_0090', template: 'mail_compliance_notice', turn: 3, deadline_turn: 5, read: true, answered: null, auto: false, thread: 't_90' });
+      eq(act().id, 'required_mail'); check(!act().text.includes('마감'));
+      s.turn = 5; check(act().text.includes('마감'), act().text);
+    });
+    test('안내띠(규칙): 행동 점수가 바닥나면 Continue, 반제가 이번 주까지면 반제, 제출할 수 있으면 제출, 재협상 뒤에는 기다림', () => {
+      startBoard(1, 0); const s = store.getState();
+      eq([act().id, act().route], ['out_of_ap', null], '점수 0');
+      s.ap = 20; s.entities.clients.cli_jurong_crest.meetings = 1;
+      const c = PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }); eq(c.status, 'countered');
+      eq([act().id, act().route], ['counter_due', 'placement']);
+      startBoard(1, 20); fillJurong(6); eq(act().id, 'submit');
+      eq(PL.submit(JR).verdict, 'renegotiate'); eq([act().id, act().route], ['wait_retry', null], '고객이 생각할 시간');
+      store.getState().turn += 1; eq(act().id, 'submit', '다음 주에는 다시 제출할 수 있다');
+    });
+    test('안내띠(규칙): 시즌 사이에는 미팅 또는 Continue, 시즌이 지났는데 안 끝난 트리티가 있으면 확인, 마지막 턴에는 없다', () => {
+      startBoard(1, 6); const s = store.getState(); s.turn = 10;
+      eq(act().id, 'overdue', '1/1 시즌이 지났는데 확정 안 됨');
+      for (const t of Object.values(s.treaties)) t.phase = 'placed';
+      eq([act().id, act().route], ['between', 'database']);
+      s.ap = 1; eq([act().id, act().route], ['between_idle', null]);
+      s.turn = 58; eq(act(), null);
+    });
+    test('안내띠(규칙): guide.js는 상대의 속마음 값을 읽지도 쓰지도 않는다 (소스 점검)', async () => {
+      const src = await (await fetch('../js/guide.js')).text();
+      for (const bad of [/hidden/, /\.scout\b/, /scout\./, /conservatism|price_sensitivity|loyalty|relationship/]) check(!bad.test(src), `guide.js에 ${bad}가 있어요`);
+    });
+    test('안내띠(규칙): 어떤 상황에서도 문구가 비어 있지 않고 route는 실제 화면이다', () => {
+      const screens = NAV.map((n) => n.id);
+      for (let t = 1; t <= 57; t += 1) {
+        for (const ap of [0, 6]) {
+          startBoard(2, ap); const s = store.getState(); s.turn = t;
+          const a = act(); check(a && a.text.length > 4, `턴 ${t}`);
+          check(a.route === null || screens.includes(a.route), `턴 ${t}: ${a.route}`);
+        }
+      }
+    });
+
+    test('안내띠(화면): 본문 맨 위에 한 줄이 뜨고, 끄면 사라지며 설정 화면의 체크로 다시 켠다', () => {
+      startScreens(); prefs.usePrefsStorage(memoryStorage());
+      let shell = renderShell('placement', document.createElement('div')); document.body.append(shell);
+      try {
+        const strip = shell.querySelector('.guide-strip');
+        check(strip, '띠가 없어요'); eq(strip.getAttribute('aria-label'), '지금 할 일');
+        eq(shell.querySelector('main').firstElementChild, strip, '본문 맨 위');
+        check(strip.textContent.includes('다음으로 할 일') && strip.textContent.includes('인박스'));
+        eq(strip.querySelector('a.guide-go').getAttribute('href'), '#/inbox');
+        eq(strip.querySelectorAll('[style]').length, 0, 'style 속성 금지');
+        strip.querySelector('.guide-off').click();
+        eq(prefs.getPrefs().guide_strip, false);
+      } finally { shell.remove(); }
+      shell = renderShell('placement', document.createElement('div'));
+      check(!shell.querySelector('.guide-strip'), '끄면 띠가 없어요');
+      const settings = renderSettings(); document.body.append(settings);
+      try {
+        const box = settings.querySelector('#pref-guide'); eq(box.checked, false);
+        box.checked = true; box.dispatchEvent(new Event('change'));
+        eq(prefs.getPrefs().guide_strip, true);
+      } finally { settings.remove(); }
+      check(renderShell('placement', document.createElement('div')).querySelector('.guide-strip'), '다시 켜면 띠가 나와요');
+      prefs.usePrefsStorage(memoryStorage());
+    });
+    test('안내띠(화면): 이미 그 화면에 있으면 이동 링크를 달지 않는다', () => {
+      startScreens(); prefs.usePrefsStorage(memoryStorage());
+      const shell = renderShell('inbox', document.createElement('div'));
+      check(shell.querySelector('.guide-strip') && !shell.querySelector('.guide-go'));
+    });
+
+    const GH = (row, over = {}) => guide.responseHint(row, { signedTotal: 0.4, patience: 3, ...over }, data.config.guide);
+    const mk = (status, last, extra = {}) => ({ re: 're_x', status, share_req: 0.3, rc_req: -3, last, ...extra });
+    test('다음엔 이렇게(응답): 수락·반제·거절·사유 있는 거절·협상 중단이 각각 다른 곳을 가리킨다', () => {
+      const acc = mk('accepted', { mode: 'propose', kind: 'accept' });
+      check(GH(acc).includes('남은 60%'), GH(acc)); check(GH(acc, { signedTotal: 1 }).includes('가득'));
+      check(GH(mk('accepted', { mode: 'propose', kind: 'accept', limited: true })).includes('모자란'));
+      const ctr = (rc) => mk('countered', { mode: 'propose', kind: 'counter', rc, share: 0.3 });
+      check(GH(ctr(-2.5)).includes('차이가 작아요') && GH(ctr(-2.5)).includes('반제 수락'));
+      check(GH(ctr(0)).includes('차이가 커요') && GH(ctr(0)).includes('RC'));
+      const rej = (hint) => mk('rejected', { mode: 'propose', kind: 'reject', hint });
+      check(GH(rej('near')).includes('조금만'));
+      check(GH(rej('far')).includes('많이 멀어요'));
+      check(GH(rej('far'), { patience: 1 }).includes('의견 묻기'), '인내심이 얼마 없으면 의견 묻기부터');
+      check(GH(mk('rejected', { mode: 'propose', kind: 'decline', reason: 'shariah' })).includes('0으로 비우고'));
+      check(GH(rej('far'), { patience: 0 }).includes('더 협상하지 않아요'));
+      eq(GH(mk('draft', { mode: 'ask', kind: 'accept', hint: 'near' })), null, '의견 묻기에는 붙이지 않는다');
+      eq(GH(mk('draft', null)), null); eq(GH(null), null);
+    });
+    test('다음엔 이렇게(고객 반응): 확정이면 다음 시즌 창구, 재협상·거부면 고객이 말한 이유별 바꿀 곳', () => {
+      startBoard(); const s = store.getState(); s.turn = 7;
+      const placed = { verdict: 'accept', verdict_reason: 'price' };
+      check(guide.verdictHint(data, s, placed).includes('턴 14'), guide.verdictHint(data, s, placed));
+      s.turn = 40; check(guide.verdictHint(data, s, placed).includes('모두 마쳤어요'));
+      eq(Object.keys(guide.REASON_NEXT), [...neg.REASONS_BAD], '고객이 말하는 이유 종류와 1:1');
+      for (const reason of neg.REASONS_BAD) for (const verdict of ['renegotiate', 'reject']) eq(guide.verdictHint(data, s, { verdict, verdict_reason: reason }), guide.REASON_NEXT[reason]);
+      eq(guide.verdictHint(data, s, { verdict: null, verdict_reason: null }), null);
+      eq(guide.verdictHint(data, s, { verdict: 'reject', verdict_reason: null }), null);
+    });
+    test('다음엔 이렇게: 문구는 속마음 낱말을 쓰지 않고 고객의 이유 한 줄과 같은 말이 아니다', () => {
+      const lines = [...Object.values(guide.REASON_NEXT)];
+      for (const verdict of ['accept', 'delighted']) { startBoard(); lines.push(guide.verdictHint(data, store.getState(), { verdict, verdict_reason: 'price' })); }
+      for (const last of [{ kind: 'accept', limited: true }, { kind: 'counter', rc: 0 }, { kind: 'reject', hint: 'far' }, { kind: 'reject', hint: 'far', p: 1 }, { kind: 'decline' }]) {
+        lines.push(GH(mk(last.kind === 'accept' ? 'accepted' : last.kind === 'counter' ? 'countered' : 'rejected', { mode: 'propose', ...last })));
+      }
+      lines.push(GH(mk('rejected', { mode: 'propose', kind: 'reject', hint: 'far' }), { patience: 0 }));
+      for (const line of lines) {
+        check(typeof line === 'string' && line.length > 8, String(line));
+        for (const w of BANNED_WORDS) check(!line.includes(w), `"${w}": ${line}`);
+      }
+      const said = new Set(data.clients.flatMap((c) => Object.values(c.verdict_reasons.bad).concat(Object.values(c.verdict_reasons.good))));
+      for (const line of lines) check(!said.has(line), '이유 한 줄과 겹쳐요');
+    });
+    test('화면(보드): 제안 응답과 고객 반응 밑에 "다음엔 이렇게" 한 줄이 붙는다', () => {
+      startBoard(1, 20); fillJurong(6); const r = PL.submit(JR); eq(r.verdict, 'renegotiate');
+      const root = renderPlacement(); document.body.append(root);
+      try {
+        for (const row of root.querySelectorAll('.pl-row')) {
+          if (!row.querySelector('.pl-resp')) continue;
+          const next = row.querySelector('.pl-next'); check(next && next.textContent.startsWith('다음엔 이렇게 ▸'), '응답 밑 한 줄');
+          check(row.querySelector('.pl-resp').compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING, '응답 아래에 있어요');
+        }
+        const submit = root.querySelector('section[aria-label="제출"]');
+        const reason = store.getState().treaties[JR].verdict_reason;
+        check(submit.querySelector('.pl-next').textContent.includes(guide.REASON_NEXT[reason]), '고객 반응 밑 한 줄');
+        check(submit.querySelector('.pl-resp').compareDocumentPosition(submit.querySelector('.pl-next')) & Node.DOCUMENT_POSITION_FOLLOWING);
+        check(!root.textContent.includes('null') && !root.textContent.includes('undefined'));
+      } finally { root.remove(); }
+    });
+    test('화면(보드): 확정된 보드는 행에 한 줄을 붙이지 않고 고객 반응 밑에 다음 시즌만 알린다', () => {
+      startBoard(1, 20);
+      PL.propose(JR, 're_alpenglow', { share: 0.4, rc: 2 }); PL.propose(JR, 're_kallang', { share: 0.24, rc: 6 }); PL.propose(JR, 're_thames_quay', { share: 0.36, rc: 4 });
+      check(PL.submit(JR).placed);
+      const root = renderPlacement(); document.body.append(root);
+      try {
+        eq(root.querySelectorAll('.pl-row .pl-next').length, 0);
+        const lines = root.querySelectorAll('.pl-next'); eq(lines.length, 1);
+        check(lines[0].textContent.includes('턴 14'));
+      } finally { root.remove(); }
+    });
+
+    test('linkWords: 낱말을 처음 한 번만 링크로 바꾸고 나머지 글자는 그대로 둔다', () => {
+      resetTermScope();
+      const parts = linkWords('1/1 인셉션 주, 인셉션까지', [['인셉션', 'gl_inception']]);
+      eq(parts.map((p) => (typeof p === 'string' ? p : p.dataset.term)), ['1/1 ', 'gl_inception', ' 주, 인셉션까지']);
+      resetTermScope(); eq(linkWords('없는 낱말', [['갱신', 'gl_renewal']]), ['없는 낱말']);
+      resetTermScope(); linkWords('인셉션', [['인셉션', 'gl_inception']]);
+      eq(linkWords('인셉션', [['인셉션', 'gl_inception']]), ['', '인셉션', ''], '이미 링크한 용어는 글자로만');
+    });
+    test('화면(캘린더): 인셉션·갱신이 용어 링크가 되고 첫 등장만 링크이며 마크업 글자가 없다', () => {
+      startScreens();
+      const root = renderCalendar(); document.body.append(root);
+      try {
+        const ids = [...root.querySelectorAll('.term')].map((b) => b.dataset.term);
+        check(ids.includes('gl_inception') && ids.includes('gl_renewal'), ids.join());
+        eq(new Set(ids).size, ids.length, '같은 용어를 두 번 링크하지 않아요');
+        for (const id of ids) check(termIds().includes(id), id);
+        check(!root.textContent.includes('[['));
+        check(root.textContent.includes('갱신 시즌 협상 기간') && root.textContent.includes('(계약 시작)'), '범례 글자는 그대로');
+        check(root.textContent.includes('1/1 시즌 협상 1/6주차') && root.textContent.includes('인셉션까지 6주'), '현재 위치 문장도 그대로');
+      } finally { root.remove(); }
     });
 
     // ---------- 실행 ----------

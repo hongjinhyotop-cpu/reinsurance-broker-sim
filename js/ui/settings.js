@@ -4,6 +4,7 @@
 import * as store from '../store.js';
 import { getCodex, progressOf, resetCodex } from '../glossary.js';
 import { describeTurn, turnLabel } from '../calendar.js';
+import { getPrefs, setPref } from '../prefs.js';
 import { h, toast, confirmDialog, navigate, formatUsdM, formatDateTime } from './components.js';
 
 const SLOT_NAMES = { auto: '자동 저장', 1: '슬롯 1', 2: '슬롯 2', 3: '슬롯 3' };
@@ -174,6 +175,24 @@ function renderCodexReset() {
     }, '도감 초기화'));
 }
 
+function renderGuideSetting() {
+  const on = getPrefs().guide_strip;
+  return h('section', { class: 'card' },
+    h('h2', {}, '안내띠'),
+    h('p', { class: 'dim' }, '화면 맨 위에 "다음으로 할 일"을 한 줄로 보여 줘요. 답을 알려 주는 게 아니라 길을 잃었을 때 돌아올 자리예요. 이 설정은 세이브와 따로 저장돼서 새 게임을 시작해도 남아요.'),
+    h('label', { class: 'check', for: 'pref-guide' },
+      h('input', {
+        type: 'checkbox', id: 'pref-guide', checked: on ? true : null,
+        onchange: (ev) => {
+          const res = setPref('guide_strip', ev.target.checked);
+          if (!res.ok) toast('저장하지 못했어요. 이번에 켜 둔 동안만 적용돼요', 'warn');
+          store.refresh();
+        },
+      }),
+      ' 안내띠 보기'),
+  );
+}
+
 export function renderSettings() {
   const state = store.getState();
   const { calendar } = store.getData();
@@ -214,6 +233,7 @@ export function renderSettings() {
       ),
       h('p', { class: 'dim' }, '같은 시드로 새 게임을 시작하면 같은 난수 흐름으로 시작해요.'),
     ),
+    renderGuideSetting(),
     renderCodexReset(),
     renderDevPanel(),
     h('section', { class: 'card' },

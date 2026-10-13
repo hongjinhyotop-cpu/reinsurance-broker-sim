@@ -55,6 +55,20 @@ export function glossaryLink(id, { label, gloss = false, scope: seen = scope } =
   return termButton(term, gloss && term.gloss_ko ? `${text}(${term.gloss_ko})` : text);
 }
 
+// 화면 고정 문구 속 낱말을 용어 링크로 바꾼다. words: [[낱말, 용어 id], ...]. 글에서 처음 나온 낱말만, 화면 첫 등장일 때만 링크가 된다.
+export function linkWords(text, words) {
+  let parts = [text];
+  for (const [word, id] of words) {
+    parts = parts.flatMap((part) => {
+      if (typeof part !== 'string') return [part];
+      const at = part.indexOf(word);
+      if (at < 0) return [part];
+      return [part.slice(0, at), glossaryLink(id, { label: word }), part.slice(at + word.length)];
+    });
+  }
+  return parts;
+}
+
 // ---------- 도감 기록 + 알림 ----------
 
 function record(id, level) {

@@ -6,6 +6,7 @@ import { findTemplate, needsReply } from '../mail.js';
 import { mailVars } from '../turn.js';
 import { fillText } from '../mail.js';
 import { h } from './components.js';
+import { glossaryLink, linkWords } from './glossary_view.js';
 
 let uiGeneration = -1;
 let selectedTurn = null;
@@ -109,11 +110,12 @@ export function renderCalendar() {
 
   return h('div', { class: 'screen screen-wide' },
     h('h1', {}, '캘린더'),
-    h('p', {}, `지금은 `, h('strong', {}, `${turnLabel(nowDesc)} (전체 ${nowDesc.totalTurns}주 중 ${state.turn}주차)`), `예요. ${seasonLabel(nowDesc)}.`),
+    h('p', {}, `지금은 `, h('strong', {}, `${turnLabel(nowDesc)} (전체 ${nowDesc.totalTurns}주 중 ${state.turn}주차)`), '예요. ',
+      linkWords(seasonLabel(nowDesc), [['인셉션', 'gl_inception'], ['갱신', 'gl_renewal']]), '.'),
     h('ul', { class: 'cal-legend', 'aria-label': '범례' },
       h('li', {}, h('span', { class: 'swatch swatch-now' }), '이번 주'),
-      h('li', {}, h('span', { class: 'swatch swatch-window' }), '시즌 협상 기간'),
-      h('li', {}, h('span', { class: 'swatch swatch-inception' }), '★ 인셉션(계약 시작)'),
+      h('li', {}, h('span', { class: 'swatch swatch-window' }), glossaryLink('gl_renewal', { label: '갱신' }), ' 시즌 협상 기간'),
+      h('li', {}, h('span', { class: 'swatch swatch-inception' }), '★ ', glossaryLink('gl_inception', { label: '인셉션' }), '(계약 시작)'),
       h('li', {}, h('span', { class: 'swatch swatch-deadline' }), '! 답장 마감'),
       h('li', {}, h('span', { class: 'swatch swatch-past' }), '지난 주'),
     ),

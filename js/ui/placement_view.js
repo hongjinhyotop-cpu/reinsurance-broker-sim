@@ -6,6 +6,7 @@ import * as store from '../store.js';
 import { describeTurn } from '../calendar.js';
 import { boardCheck, publicShareCap } from '../negotiation.js';
 import * as placement from '../placement.js';
+import { responseHint, verdictHint } from '../guide.js';
 import { h, toast, confirmDialog } from './components.js';
 import { glossaryLink, resetTermScope } from './glossary_view.js';
 
@@ -250,7 +251,7 @@ function describeLast(cfg, l) {
   return `제안: 거절 — 가격이 너무 낮아요 (인내심 ${cfg.reject_patience}, 관계도 ${cfg.reject_relationship})`;
 }
 
-function resultLines(data, row) {
+function resultLines(data, row, hint) {
   const l = row?.last;
   if (!l) return null;
   const lines = [];
@@ -265,7 +266,13 @@ function resultLines(data, row) {
   }
   if (l.mode === 'propose' && l.limited) lines.push(h('p', { class: 'pl-line' }, `라인이 제한돼요. 요청한 ${share(l.share_req)}보다 적게 맡을 수 있어요.`));
   if (l.mode === 'propose' && l.hint && l.kind !== 'accept') lines.push(h('p', { class: 'pl-line dim' }, `가격 감: ${HINT_KO[l.hint]}`));
+  if (hint) lines.push(nextLine(hint));
   return lines;
+}
+
+// 결과 밑 "다음엔 이렇게" 한 줄(design.md §6.3). 이유·목소리와 달리 화면의 어디를 바꿔 볼지를 말한다.
+function nextLine(text) {
+  return h('p', { class: 'pl-line pl-next' }, h('strong', {}, '다음엔 이렇게 ▸ '), text);
 }
 
 function stepButton(label, delta, ariaLabel, reinsurer, rerender, locked) {
@@ -376,7 +383,7 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
     ),
     shownWhy ? h('p', { class: 'pl-line dim pl-small' }, shownWhy) : null,
     chips.length > 0 ? h('div', { class: 'pl-chips' }, chips) : null,
-    resultLines(data, row),
+    resultLines(data, row, locked ? null : responseHint(row, { signedTotal: ctx.signedTotal, patience }, data.config.guide)),
   );
 }
 
@@ -474,6 +481,7 @@ export function renderPlacement() {
     const ctx = boardContext(data, state);
     const check = runCheck(data, state, ctx);
     const signed = placement.signedCheck(data, state, ctx.treaty.id);
+    ctx.signedTotal = signed.total;
     const total = Math.round(check.total * 100);
     const signedTotal = Math.round(signed.total * 100);
     const trt = ctx.treaty;
@@ -571,13 +579,16 @@ export function renderPlacement() {
     const submitWhy = placement.submitBlockReason(data, state, trt.id);
     const blockText = signed.blockers.map((b) => BLOCK_KO[b]);
     const verdict = verdictText(data, ctx);
+    const nextText = verdict ? verdictHint(data, state, ctx.t) : null;
     const submitChildren = [h('h2', {}, '고객에게 제출')];
     if (locked) {
       submitChildren.push(
         h('p', { class: 'pl-resp pl-resp-accept', role: 'status' }, verdict),
+        nextText ? nextLine(nextText) : null,
         h('p', {}, `최종 평균 RC ${pct(ctx.t.final_rc, 2)} · 확정 패널 ${ctx.t.panel.filter((r) => r.status === 'accepted').map((r) => `${data.reinsurers.find((x) => x.id === r.re).name_ko} ${share(r.share_signed)}`).join(' · ')}`));
     } else {
       if (verdict) submitChildren.push(h('p', { class: `pl-resp pl-resp-${ctx.t.verdict === 'renegotiate' ? 'counter' : 'reject'}`, role: 'status' }, verdict));
+      if (nextText) submitChildren.push(nextLine(nextText));
       submitChildren.push(
         blockText.length > 0
           ? h('ul', { class: 'plain-list', role: 'status' }, blockText.map((t) => h('li', {}, t)))

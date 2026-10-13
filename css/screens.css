@@ -231,6 +231,8 @@
 .btn-step { min-width: 44px; padding: 6px 8px; }
 .pl-unit { color: var(--text-dim); }
 .pl-line { margin: 6px 0 0; }
+.pl-next { padding: 4px 10px; border-left: 3px solid var(--accent); background: var(--bg-elev-2); border-radius: 0 var(--radius) var(--radius) 0; }
+.pl-next strong { color: var(--accent); }
 .pl-voice { font-style: italic; color: var(--text-dim, inherit); }
 .pl-deadline { font-size: 0.8rem; font-weight: 700; padding: 1px 10px; border-radius: 999px; border: 2px solid var(--warn); color: var(--text); background: color-mix(in srgb, var(--warn) 18%, transparent); }
 .pl-urgent { display: flex; gap: 12px; align-items: center; margin-bottom: var(--gap); padding: 10px 14px; border-radius: var(--radius); border: 2px solid var(--warn); border-left-width: 10px; background: color-mix(in srgb, var(--warn) 16%, var(--bg-elev)); }
@@ -276,3 +278,15 @@
 /* 표 머리에 쉬운 말이 붙어 길어져도 이름 칸이 찌그러지지 않게 머리만 줄바꿈을 허용한다. */
 .db-table thead th { white-space: normal; max-width: 8.5em; vertical-align: bottom; }
 .db-table tbody th { min-width: 7em; }
+
+/* 안내띠(design.md §6.0.1): 막혔을 때 돌아올 한 줄. 색이 아니라 글자로 말한다. */
+.guide-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  margin-bottom: var(--gap); padding: 8px 12px;
+  background: var(--bg-elev); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius);
+}
+.guide-label { font-size: 0.8rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.guide-text { flex: 1 1 260px; min-width: 0; }
+.guide-go { color: var(--accent); white-space: nowrap; }
+.guide-off { min-height: 28px; padding: 2px 10px; font-size: 0.85rem; }
+.check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }

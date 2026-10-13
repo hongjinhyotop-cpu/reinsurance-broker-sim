@@ -49,6 +49,7 @@ export const MAIL_FILTERS = [
   { id: 'regulator', label: '규제' },
   { id: 'market', label: '시장' },
   { id: 'system', label: '시스템' },
+  { id: 'mentor', label: '선배' },
 ];
 
 export function matchesFilter(filterId, mail, template) {

@@ -54,6 +54,11 @@
   "turn": {
     "deadline_warning_weeks": 1
   },
+  "guide": {
+    "scout_min_meetings": 1,
+    "counter_close_pp": 1.0,
+    "careful_patience": 1
+  },
   "scouting": {
     "meeting_ap": 2,
     "meeting_focus_gain": 16,
