@@ -18,7 +18,7 @@ index.html            진입점
 docs/design.md        설계 문서
 css/                  base.css(토큰·셸), screens.css
 js/                   main, loader, store, rng, calendar, market, negotiation, placement, reveal,
-                      scouting, glossary, anki, effects, events, mail, turn, finance, rivals, season, guide, prefs
+                      scouting, glossary, anki, effects, events, mail, turn, finance, rivals, season, guide, prefs, difficulty
 js/ui/                components, shell, start, settings, inbox, database,
                       placement_view, glossary_view, calendar_view, standings, review
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
@@ -44,6 +44,7 @@ tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연
 ## 세이브 규칙
 - 키 `rbs:save:v1:<slot>`, 도감은 별도 키 `rbs:codex:v1`(새 게임에도 유지), 화면 설정(안내띠 켜기/끄기)은 별도 키 `rbs:prefs:v1`.
 - 세이브에는 동적 상태만 저장하고 정적 콘텐츠는 id로 참조한다.
+- 난이도(`easy`/`normal`)는 세이브의 `difficulty`에 있고 게임 도중 바꾸지 않는다. 난이도별 숫자는 `data/config.json`의 `difficulty.profiles`에만 둔다(보통은 중립값 — 보통의 규칙·숫자는 바꾸지 않는다). 설계는 design.md §9.5.
 - 구조를 바꾸면 `version`을 올리고 `store.js`에 마이그레이션을 추가한다. localStorage 접근은 try/catch로 감싼다.
 
 ## 작업 방식
