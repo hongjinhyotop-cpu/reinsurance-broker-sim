@@ -58,5 +58,96 @@
       "low_below": 35,
       "high_above": 65
     }
+  },
+  "negotiation": {
+    "market_k": 0.3,
+    "capacity_k": 0.4,
+    "line_adj": {
+      "property_energy": 1.0,
+      "marine_cargo": 0.0,
+      "takaful_general": -1.0
+    },
+    "lr_weights": [
+      0.2,
+      0.3,
+      0.5
+    ],
+    "loss_k": 0.5,
+    "loss_min": -5,
+    "loss_max": 20,
+    "cons_k": 8,
+    "cons_capacity_k": 0.35,
+    "uncertainty": {
+      "base": 0.2,
+      "new_reinsurer": 0.4,
+      "broad_terms": 0.3,
+      "big_loss": 0.3,
+      "prep": 0.25
+    },
+    "terms_adj": {
+      "strict": -2,
+      "standard": 0,
+      "broad": 4
+    },
+    "terms_order": [
+      "strict",
+      "standard",
+      "broad"
+    ],
+    "rel_k": 4,
+    "goodwill_base": 0.4,
+    "goodwill_loyalty": 0.6,
+    "bundle_each": 1.5,
+    "bundle_max": 3,
+    "quote_k": 0.5,
+    "quote_cap": 2,
+    "bluff_base": 0.3,
+    "bluff_cons_k": 0.4,
+    "theta_base": 1.5,
+    "theta_span": 3.5,
+    "noise_pp": 0.3,
+    "support_gap": 3,
+    "support_max_extra": 0.1,
+    "counter_weeks_divisor": 6,
+    "reject_patience": -1,
+    "reject_relationship": -2,
+    "hint_err_k": 6,
+    "hint_near_pp": 2.0,
+    "rating_score": {
+      "AA": 100,
+      "AA-": 95,
+      "A+": 88,
+      "A": 80,
+      "A-": 70,
+      "BBB+": 45,
+      "_default": 20
+    },
+    "onshore_bonus": 3,
+    "share_tolerance": 0.0005,
+    "client": {
+      "price_slope": 8,
+      "weights": {
+        "price_base": 0.2,
+        "price_ps": 0.4,
+        "security": 0.25,
+        "continuity_base": 0.05,
+        "continuity_cons": 0.25,
+        "terms": 0.1,
+        "service": 0.15
+      },
+      "continuity_k": 120,
+      "terms_step": 25,
+      "accept_threshold_base": 70,
+      "accept_threshold_goodwill_k": 0.1,
+      "delighted_margin": 10,
+      "renegotiate_margin": 8
+    },
+    "expectation": {
+      "base": 0.25,
+      "relationship_k": 0.25,
+      "high_ps": 70,
+      "high_ps_relationship": -1,
+      "cooldown_weeks": 2
+    }
   }
 }

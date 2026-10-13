@@ -275,6 +275,7 @@ label  = 범위 전체가 한 구간(<35 낮음 / 35–65 보통 / >65 높음)�
 - `jitter`는 `err × jitter_ratio`를 한도로 한 값(−한도~+한도)이고 (엔티티 id, 속성, 세이브 시드)의 해시에서 뽑는다. 한도가 err 이하이므로 실제 값은 항상 표시 범위 안에 들어가며, 범위는 s가 오를수록 좁아진다. 범위는 0~100으로 자른다.
 - 이번 마일스톤에서 s를 올리는 경로는 **미팅뿐**이다(인디케이션·협상 반응·이벤트·시즌 완료·시장 정찰은 해당 기능이 생기는 마일스톤에서 붙인다). 접촉 없는 관계 감소(8주마다 −1)와 재보험사 미팅 분기당 4회 초과 시 컴플라이언스 −2도 이후로 미룬다.
 - 미팅 직후 알림은 토스트와 스카우트 리포트의 "방금 알게 된 것"으로 보여 준다. 인박스 회신 메일은 동적 메일 구조가 없어 이후로 미룬다.
+- **미팅 반응 한 줄(M4 추가)**: 미팅이 끝나면 "방금 알게 된 것" 위에 상대의 반응 한두 줄을 인용문으로 보여 준다. 엔티티마다 미팅 주제 4가지(일반 / 보수성 / 가격 민감도 / 충성도)별로 한 줄씩 `meeting_reactions`에 적어 두고, 고른 주제의 줄을 그대로 보여 준다(난수 없음). 성격 이름과 숫자는 쓰지 않고, 소개문(`intro_ko`)·단서 메모와 같은 어조·행동으로만 암시한다. 같은 주제를 다시 고르면 같은 줄이 나온다(1차의 단순화).
 
 ---
 
@@ -441,6 +442,9 @@ UI 톤: 표 중심의 고밀도 레이아웃, 다크 기본. 색·간격은 CSS 
 ### 6.7 용어 도감
 - §5.4. 진행률 바, 카테고리 탭, 검색, 카드 그리드(★ 표시), 상세(3단계 한 번에), **Anki CSV 내보내기**, 도감 초기화(확인 모달).
 
+### 6.8 협상 시험대 (임시, M4~M5)
+- M4의 계산을 손으로 확인하는 화면. 트리티·재보험사·시장 지수·제안 RC·지분·남은 주·조건을 고르면 응답(수락/반제/거절)과 정성 힌트가 나오고, 만기 패널을 같은 RC로 냈을 때 고객 평가도 볼 수 있다. §7.7의 두 예시를 버튼 하나로 불러온다. 세이브·AP를 건드리지 않는다. M5에서 라인 구성 보드로 대체되며 함께 지운다(§7.8).
+
 ---
 
 ## 7. 플레이스먼트 협상 계산식 (초안)
@@ -542,8 +546,21 @@ U   = Σ w_k × score_k
 - 관계 45, 충성 40 → `goodwill = 28.8` → `A_rel = 1.15`
 - **F ≈ −1.5%**. 가격 민감도 70 → `θ = 2.55`.
 - 제안 −3.0 → `gap = −1.5` → 반제(마감 4주 전이면 `m=0.67` → 약 −0.8% 역제안).
-- 고객 쪽: 평균 RC −1.0, `ps_c=55`, 목표 −3 → 기준 −2.3 → `PS ≈ 90`. 패널 유지(CS=100), 조건 일치(TS=100), SS≈82, VS≈44 → `U ≈ 85` > `θ_c+10` → 매우 만족.
+- 고객 쪽: 평균 RC −1.0, `ps_c=55`, 목표 −3 → 기준 −2.3 → `PS ≈ 90`. 패널 유지(CS=100), 조건 일치(TS=100), SS≈82(온쇼어 보정 전. 보정은 §7.8), VS≈44 → `U ≈ 85` > `θ_c+10` → 매우 만족.
 - **하드마켓 대조**: M=70, 대손실 후 `A_loss=+10` → F ≈ +17. 평균 RC +17이면 `PS=0`, `U≈52` < `θ_c−8` → 거부. 이 상황에서 **구조 옵션·기대 관리·패널 재편**이 ZOPA를 만드는 수단이 된다.
+
+### 7.8 M4 구현 메모
+
+`js/negotiation.js`는 DOM·저장소를 모르는 순수 함수 모음이다. 계수는 모두 `data/config.json`의 `negotiation` 블록에 있다(§10.7). 상태를 바꾸는 일(인내심·관계 증감 적용, 제안 기록)은 M5가 맡고, 여기서는 "얼마를 바꿔야 하는지"를 값으로만 돌려준다.
+
+- **함수**: `priceFloor`(7.1 F_r와 항별 내역) · `maxShare`(가용 라인 상한) · `respond`(7.2 응답) · `priceHint`(정성 힌트) · `bluffChance`(7.3 허세 탐지 확률) · `evaluatePackage`(7.5 고객 평가) · `manageExpectation`(7.6).
+- **N의 입력**: `신규재보험사`(만기 패널에 없던 곳) · `넓은 조건` · `당해 대손실`(불리언) · `prep_quality`. 사고 이벤트로 y₀에 더할 손해율(`lr_extra`)은 `당해 대손실`과 별개의 입력이다. 이벤트(M6)가 둘을 함께 켤지 정한다.
+- **레버**: 번들 약속 수(`A_bundle`), 진실한 경쟁 견적(`F −= min(2, 0.5 × (F − q))`), 구조 옵션 `f_adj`는 `priceFloor` 입력으로 반영된다. 허세 견적은 탐지 확률만 계산하고, 주사위는 호출자가 굴려 `roll`로 넘긴다. 관계 호의 사용(인내심 +1)은 상태 변경이라 M5에서 한다.
+- **시드 노이즈**: `respond`는 호출자가 준 `noise ∈ [−1, 1]`에 `noise_pp`(0.3)를 곱해 F_r에 더한다. 시험대는 (세이브 시드, 트리티, 재보험사, 제안값)의 해시로 노이즈를 뽑아서 같은 제안이면 같은 답이 나온다.
+- **정성 힌트**: `err_pp = 6 × (1 − s_price/100)`의 폭만큼 흔들린 격차(해시 고정)를 보고, 격차 ≥ 0이면 "받아줄 분위기", ≥ −`hint_near_pp`(2.0)이면 "근접", 그 아래면 "눈높이가 멀다"로 말한다. 스카우트 값이 낮을수록 폭이 커서 틀리기 쉽다.
+- **온쇼어 보정**: 담보 점수 SS의 "+3"은 지분 가중으로 더한다(온쇼어 재보험사가 가져가는 지분 비율 × 3). 그래서 7.7의 SS는 보정 전 약 82, 보정 후 약 83.7이고 U는 약 85.4다(결과 "매우 만족"은 같다).
+- **하드 실패**: 지분 합 ≠ 100% · 단일 한도(`min(고객, 재보험사)`) 초과 · 최소 등급 미달 · 샤리아 상한 초과는 U를 계산하되 결과를 `invalid`로 돌려주고 사유 목록을 함께 준다.
+- **협상 시험대(임시 화면)**: M5의 보드가 생기기 전에 계산을 손으로 확인하려고 만든 화면이다. 세이브를 바꾸지 않고 AP도 쓰지 않는다. "계산 근거 보기"를 켜면 정확한 F_r와 항별 값이 나오는데, 이는 숨은 속성을 간접적으로 드러내므로 **시험대 전용**이며 M5에서 화면과 함께 없앤다.
 
 ---
 
@@ -623,6 +640,9 @@ U   = Σ w_k × score_k
     "relationship": 55,
     "scout": { "conservatism": 10, "price_sensitivity": 25, "loyalty": 20 }   // 스카우트 값 시작점
   },
+  "meeting_reactions": {                      // 미팅 직후 보여 주는 반응 한 줄(M4 추가). 주제별 1줄, 성격 이름·숫자 금지
+    "general": "…", "conservatism": "…", "price_sensitivity": "…", "loyalty": "…"
+  },
   "scout_notes": [                            // s ≥ min_scout 이면 스카우트 리포트에 인용
     { "attr": "conservatism",     "min_scout": 25, "text_ko": "\"패널은 가급적 그대로 가져가고 싶습니다.\" 지난 3년간 재보험사 구성이 바뀐 적이 없다." },
     { "attr": "conservatism",     "min_scout": 60, "text_ko": "신규 재보험사 소개에는 늘 '내부 위원회 심사 필요'라고 답한다." },
@@ -632,7 +652,7 @@ U   = Σ w_k × score_k
     "min_rating": "A-", "max_single_share": 0.35, "preferred_terms": "standard",
     "shariah_required": false, "shariah_conventional_cap": null
   },
-  "treaties": ["trt_jurong_property_xl"]      // treaties.json이 생기는 마일스톤(M4~M5)에서 추가. M3의 clients.json에는 없다
+  "treaties": ["trt_jurong_property_xl"]      // M4에서 추가. 트리티가 없는 고객은 빈 목록(누산타라는 §14-4 결정 뒤에 채운다)
 }
 ```
 
@@ -653,11 +673,14 @@ U   = Σ w_k × score_k
   "hidden": { "conservatism": 78, "price_sensitivity": 70, "loyalty": 40 },
   "behavior": { "response_weeks": 1, "patience": 3, "max_single_share": 0.40 },
   "initial": { "relationship": 45, "scout": { "conservatism": 15, "price_sensitivity": 20, "loyalty": 5 } },
+  "meeting_reactions": { /* 고객과 동일한 형식 (M4 추가) */ },
   "scout_notes": [ /* 고객과 동일한 형식 */ ]
 }
 ```
 
 ### 10.3 트리티 `data/treaties.json`
+
+M4에서는 두 개만 만든다(`trt_jurong_property_xl`, `trt_straits_marine_xl`). 타카풀 트리티는 §14-4 때문에 보류한다. 로더 검증: 고객·재보험사·시즌 id 존재, 라인이 고객의 라인에 포함, 만기 패널 지분 합 = 1.0, 패널 지분 ≤ `min(고객, 재보험사) max_single_share`, 손해율 이력 3개, 구조 옵션 id 중복 없음, 고객의 `treaties` 목록과 서로 일치.
 ```jsonc
 {
   "id": "trt_jurong_property_xl",
@@ -791,7 +814,7 @@ U   = Σ w_k × score_k
                 "meeting_relationship_gain": 4, "relationship_damping": 130,
                 "stage_thresholds": { "blurred": 15, "sharp": 45, "exact": 85 }, "err_k": 30,
                 "jitter_ratio": 0.6, "label_bands": { "low_below": 35, "high_above": 65 } },
-  "negotiation": {
+  "negotiation": { /* M4 확정 구조는 아래 "M4에서 확정한 negotiation 블록" 참고 */
     "market_k": 0.30, "loss_k": 0.5, "cons_k": 8, "theta_base": 1.5, "theta_span": 3.5,
     "line_adj": { "property_energy": 1.0, "marine_cargo": 0.0, "takaful_general": -1.0 },
     "rating_score": { "AA": 100, "AA-": 95, "A+": 88, "A": 80, "A-": 70, "BBB+": 45, "_default": 20 },
@@ -799,6 +822,35 @@ U   = Σ w_k × score_k
   },
   "board": { "targets": { "brokerage_usd_m": 4.0, "rank_max": 5, "clients_kept": 3, "compliance_min": 60 },
              "fired_below": 20 }
+}
+```
+
+**M4에서 확정한 `negotiation` 블록**: 위 초안의 평평한 키를 아래처럼 묶고, 식에 박혀 있던 숫자를 모두 이름 붙여 꺼냈다. 값은 §3·§7의 식 그대로다.
+```jsonc
+"negotiation": {
+  "market_k": 0.30, "capacity_k": 0.4,                   // A_market, cf(M)
+  "line_adj": { "property_energy": 1.0, "marine_cargo": 0.0, "takaful_general": -1.0 },
+  "lr_weights": [0.2, 0.3, 0.5], "loss_k": 0.5, "loss_min": -5, "loss_max": 20,
+  "cons_k": 8, "cons_capacity_k": 0.35,
+  "uncertainty": { "base": 0.2, "new_reinsurer": 0.4, "broad_terms": 0.3, "big_loss": 0.3, "prep": 0.25 },
+  "terms_adj": { "strict": -2, "standard": 0, "broad": 4 },
+  "terms_order": ["strict", "standard", "broad"],
+  "rel_k": 4, "goodwill_base": 0.4, "goodwill_loyalty": 0.6,
+  "bundle_each": 1.5, "bundle_max": 3,
+  "quote_k": 0.5, "quote_cap": 2, "bluff_base": 0.3, "bluff_cons_k": 0.4,
+  "theta_base": 1.5, "theta_span": 3.5, "noise_pp": 0.3,
+  "support_gap": 3, "support_max_extra": 0.10, "counter_weeks_divisor": 6,
+  "reject_patience": -1, "reject_relationship": -2,
+  "hint_err_k": 6, "hint_near_pp": 2.0,
+  "rating_score": { "AA": 100, "AA-": 95, "A+": 88, "A": 80, "A-": 70, "BBB+": 45, "_default": 20 },
+  "onshore_bonus": 3, "share_tolerance": 0.0005,
+  "client": {
+    "price_slope": 8,
+    "weights": { "price_base": 0.20, "price_ps": 0.40, "security": 0.25, "continuity_base": 0.05, "continuity_cons": 0.25, "terms": 0.10, "service": 0.15 },
+    "continuity_k": 120, "terms_step": 25,
+    "accept_threshold_base": 70, "accept_threshold_goodwill_k": 0.10, "delighted_margin": 10, "renegotiate_margin": 8
+  },
+  "expectation": { "base": 0.25, "relationship_k": 0.25, "high_ps": 70, "high_ps_relationship": -1, "cooldown_weeks": 2 }
 }
 ```
 
@@ -916,6 +968,7 @@ reinsurance-broker-sim/
 │     ├─ inbox.js
 │     ├─ database.js          # DB + 스카우트 리포트
 │     ├─ placement_view.js    # 라인 구성 보드
+│     ├─ bench.js             # 협상 시험대(임시, M4~M5. §6.8)
 │     ├─ glossary_view.js     # 용어 카드 모달 + 도감 화면
 │     ├─ calendar_view.js
 │     ├─ standings.js
@@ -947,7 +1000,7 @@ reinsurance-broker-sim/
 | M1 | 턴 루프, 캘린더, 인박스·메일·선택지·효과 | 프리시즌 6주를 메일만으로 진행 |
 | M2 | **용어집**: 마크업 파서, 카드, 도감, Anki CSV, `rbs:codex:v1` | 메일 속 용어 클릭 → 카드 → 도감 → CSV가 Anki에서 열림 |
 | M3 | **스카우팅**: DB 화면, 미팅 주제, `reveal.js`, 단서 (범위: 고객 3·재보험사 4 데이터 + 미팅으로 s 상승. 용어 마크업·협상·라인 보드 제외) | 미팅할수록 `???` → 범위 → 확정 |
-| M4 | 협상 엔진(순수 함수) + `tests/` | §7.7 예시 수치 재현 |
+| M4 | 협상 엔진(순수 함수) + `tests/` (+ 임시 시험대 화면 §6.8, 트리티 데이터) | §7.7 예시 수치 재현 |
 | M5 | **라인 구성 보드** UI | 1/1 시즌을 막대 100% 채우기로 끝까지 플레이 |
 | M6 | 이벤트 10개, 시장 사이클, 연쇄 | Q2 연쇄가 1/7에 영향 |
 | M7 | 재무, 순위표, 시즌·연말 리뷰, 이사회 | 한 해 완주 후 등급 산출 |
@@ -979,6 +1032,8 @@ v1에서는 구현하지 않으며, 여기서는 항목만 정리한다.
 1. **프리시즌 포함**: "1년 4분기"에 6주 프리시즌을 추가했다. 1/1 시즌을 실제 협상으로 만들기 위한 선택이며, 불필요하면 1/1을 "홀드 커버드 상태로 시작"하는 방식으로 대체할 수 있다.
 2. **트리티 1개/고객**: v1은 고객당 주 트리티 1개.
 3. **통화**: 전부 USD(백만 단위). 환 리스크는 후속.
+4. **(M4에서 발견) 타카풀 트리티를 채울 수 없다**: 누산타라는 샤리아 필수라 일반 재보험사 지분 합이 20%까지인데, 샤리아 가능 재보험사는 누르 하나뿐이고 누르의 단일 한도는 35%다. 최대 55%라서 100%를 채울 수 없고, 만기 패널(합 100%)도 만들 수 없다. 해결 후보: (a) 누르의 `max_single_share`나 누산타라의 `shariah_conventional_cap`을 올린다, (b) 샤리아 가능 재보험사를 하나 더 둔다, (c) 타카풀 한도 규칙을 완화한다. 결정되기 전까지 `treaties.json`에 타카풀 트리티를 넣지 않는다.
+5. **(M4에서 발견) 주롱 트리티는 지금 용량으로 100%를 채울 수 없다**: 한도 150에 대해 알펜글로우·칼랑·템스 키의 가용 라인 상한 합이 시장 지수 42에서 약 77%다(`max_line_r / limit`; 누르는 거의 0). 만기 패널(35/30/35)도 칼랑과 템스 키는 지금 상한을 넘는다. 해결 후보: 재보험사 용량을 늘리거나 트리티 한도를 낮춘다. 값은 M5에서 보드를 눌러 보며 정한다.
 4. **언어**: UI·데이터 텍스트는 한국어 단일.
 5. **재보험사 규제 지위**: `onshore` 하나로 단순화. 실제 MAS 인가 구분은 반영하지 않는다.
 6. **밸런스**: §7.7처럼 정상 갱신은 쉽고 하드마켓은 ZOPA가 없다. 난이도 곡선(Q1은 쉬움, Q2 이후 어려움)이 의도한 설계인지 플레이 후 조정한다.

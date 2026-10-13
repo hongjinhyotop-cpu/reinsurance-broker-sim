@@ -125,7 +125,62 @@ export function validateConfig(cfg, file = 'config.json') {
       }
     }
   }
+
+  if (c.object(cfg.negotiation, 'negotiation')) validateNegotiation(c, cfg.negotiation);
   return errors;
+}
+
+// 협상 계수(design.md §10.7). 범위는 "식이 깨지지 않는" 정도만 막고, 값 튜닝은 자유롭게 둔다.
+function validateNegotiation(c, n) {
+  const P = 'negotiation';
+  for (const k of ['market_k', 'loss_k', 'cons_k', 'theta_base', 'theta_span', 'noise_pp', 'support_gap', 'quote_k', 'quote_cap', 'bundle_each', 'bundle_max', 'hint_err_k', 'hint_near_pp', 'onshore_bonus']) {
+    c.num(n[k], `${P}.${k}`, 0, 1000);
+  }
+  for (const k of ['capacity_k', 'cons_capacity_k', 'goodwill_base', 'goodwill_loyalty', 'rel_k', 'bluff_base', 'bluff_cons_k', 'support_max_extra', 'share_tolerance']) {
+    c.num(n[k], `${P}.${k}`, 0, 100);
+  }
+  c.num(n.counter_weeks_divisor, `${P}.counter_weeks_divisor`, 1, 100); // 나눗셈이라 0이면 안 된다
+  c.num(n.reject_patience, `${P}.reject_patience`, -20, 20);
+  c.num(n.reject_relationship, `${P}.reject_relationship`, -100, 100);
+  c.num(n.loss_min, `${P}.loss_min`, -1000, 1000);
+  c.num(n.loss_max, `${P}.loss_max`, -1000, 1000);
+  if (Number.isFinite(n.loss_min) && Number.isFinite(n.loss_max) && n.loss_min > n.loss_max) c.fail(`${P}.loss_min`, 'loss_max보다 클 수 없어요', n.loss_min);
+
+  if (c.array(n.lr_weights, `${P}.lr_weights`, 3) && n.lr_weights.length === 3) n.lr_weights.forEach((w, i) => c.num(w, `${P}.lr_weights[${i}]`, 0, 1));
+  else if (Array.isArray(n.lr_weights)) c.fail(`${P}.lr_weights`, '손해율 가중치는 정확히 3개(y-2, y-1, y0)여야 해요', n.lr_weights);
+
+  if (c.object(n.line_adj, `${P}.line_adj`)) for (const l of LINES) c.num(n.line_adj[l], `${P}.line_adj.${l}`, -100, 100);
+  if (c.object(n.uncertainty, `${P}.uncertainty`)) for (const k of ['base', 'new_reinsurer', 'broad_terms', 'big_loss', 'prep']) c.num(n.uncertainty[k], `${P}.uncertainty.${k}`, 0, 10);
+  if (c.array(n.terms_order, `${P}.terms_order`, 2)) n.terms_order.forEach((t, i) => c.str(t, `${P}.terms_order[${i}]`, 20));
+  if (c.object(n.terms_adj, `${P}.terms_adj`) && Array.isArray(n.terms_order)) {
+    for (const t of n.terms_order) c.num(n.terms_adj[t], `${P}.terms_adj.${t}`, -100, 100);
+  }
+  if (c.object(n.rating_score, `${P}.rating_score`)) {
+    for (const [k, v] of Object.entries(n.rating_score)) c.num(v, `${P}.rating_score.${k}`, 0, 100);
+    c.num(n.rating_score._default, `${P}.rating_score._default`, 0, 100);
+  }
+
+  if (c.object(n.client, `${P}.client`)) {
+    const cl = n.client;
+    c.num(cl.price_slope, `${P}.client.price_slope`, 0, 1000);
+    c.num(cl.continuity_k, `${P}.client.continuity_k`, 0, 1000);
+    c.num(cl.terms_step, `${P}.client.terms_step`, 0, 100);
+    c.num(cl.accept_threshold_base, `${P}.client.accept_threshold_base`, 0, 100);
+    c.num(cl.accept_threshold_goodwill_k, `${P}.client.accept_threshold_goodwill_k`, 0, 10);
+    c.num(cl.delighted_margin, `${P}.client.delighted_margin`, 0, 100);
+    c.num(cl.renegotiate_margin, `${P}.client.renegotiate_margin`, 0, 100);
+    if (c.object(cl.weights, `${P}.client.weights`)) {
+      for (const k of ['price_base', 'price_ps', 'security', 'continuity_base', 'continuity_cons', 'terms', 'service']) c.num(cl.weights[k], `${P}.client.weights.${k}`, 0, 10);
+    }
+  }
+  if (c.object(n.expectation, `${P}.expectation`)) {
+    const e = n.expectation;
+    c.num(e.base, `${P}.expectation.base`, 0, 1);
+    c.num(e.relationship_k, `${P}.expectation.relationship_k`, 0, 1);
+    c.num(e.high_ps, `${P}.expectation.high_ps`, 0, 100);
+    c.num(e.high_ps_relationship, `${P}.expectation.high_ps_relationship`, -100, 100);
+    c.int(e.cooldown_weeks, `${P}.expectation.cooldown_weeks`, 0, 20);
+  }
 }
 
 export function validateCalendar(cal, file = 'calendar.json') {
@@ -335,6 +390,13 @@ function validateEntityCommon(c, e, label, idPrefix) {
       for (const a of HIDDEN_ATTRS) c.num(e.initial.scout[a], `${label}.initial.scout.${a}`, 0, 100);
     }
   }
+  // 미팅 반응 한 줄: 미팅 주제 4가지 모두에 있어야 한다(design.md §4.3).
+  if (c.object(e.meeting_reactions, `${label}.meeting_reactions`)) {
+    for (const topic of ['general', ...HIDDEN_ATTRS]) {
+      const path = `${label}.meeting_reactions.${topic}`;
+      if (c.str(e.meeting_reactions[topic], path, 200)) validateText(c, e.meeting_reactions[topic], path);
+    }
+  }
   // 단서 메모: 속성마다 문턱이 낮은 것부터 읽히므로 같은 속성 안에서는 min_scout이 오름차순이어야 한다.
   if (c.array(e.scout_notes, `${label}.scout_notes`, 1)) {
     const lastMin = {};
@@ -394,6 +456,7 @@ export function validateClients(list, file = 'clients.json') {
       if (c.object(pr.contact, `${label}.profile.contact`)) {
         for (const k of ['name', 'title', 'style']) c.str(pr.contact[k], `${label}.profile.contact.${k}`, 60);
       }
+      if (c.array(e.treaties, `${label}.treaties`)) e.treaties.forEach((id, j) => c.str(id, `${label}.treaties[${j}]`, 80));
       if (c.object(e.requirements, `${label}.requirements`)) {
         const r = e.requirements;
         c.str(r.min_rating, `${label}.requirements.min_rating`, 10);
@@ -430,8 +493,112 @@ export function validateReinsurers(list, file = 'reinsurers.json') {
   });
 }
 
+// ---------- 트리티 (design.md §10.3) ----------
+
+export const STRUCTURES = ['xol', 'qs'];
+
+// 고객·재보험사·시즌과의 연결은 validateCross가 본다. 여기서는 트리티 자체의 모양만 본다.
+export function validateTreaties(list, file = 'treaties.json') {
+  const errors = [];
+  const c = checker(file, errors);
+  if (!c.array(list, '(최상위)', 1)) return errors;
+  const seen = new Set();
+  list.forEach((t, i) => {
+    const p = `[${i}]`;
+    if (!c.object(t, p)) return;
+    const label = typeof t.id === 'string' ? `${p}(${t.id})` : p;
+    if (c.str(t.id, `${label}.id`, 80)) {
+      if (!/^trt_[a-z0-9_]+$/.test(t.id)) c.fail(`${label}.id`, 'trt_ 로 시작하는 snake_case여야 해요', t.id);
+      if (seen.has(t.id)) c.fail(`${label}.id`, '다른 트리티와 id가 겹쳐요', t.id);
+      seen.add(t.id);
+    }
+    c.str(t.client, `${label}.client`, 80);
+    c.str(t.name_ko, `${label}.name_ko`, 80);
+    if (!LINES.includes(t.line)) c.fail(`${label}.line`, `${LINES.join(' / ')} 중 하나여야 해요`, t.line);
+    if (!STRUCTURES.includes(t.structure)) c.fail(`${label}.structure`, `${STRUCTURES.join(' / ')} 중 하나여야 해요`, t.structure);
+    c.str(t.season, `${label}.season`, 40);
+    c.num(t.limit_usd_m, `${label}.limit_usd_m`, 0.001); // 지분 상한을 한도로 나누므로 0이면 안 된다
+    c.num(t.attachment_usd_m, `${label}.attachment_usd_m`, 0);
+    c.num(t.brokerage_rate, `${label}.brokerage_rate`, 0, 1);
+    c.num(t.target_rc, `${label}.target_rc`, -100, 100);
+    if (c.array(t.loss_ratio_hist, `${label}.loss_ratio_hist`, 3)) {
+      if (t.loss_ratio_hist.length !== 3) c.fail(`${label}.loss_ratio_hist`, '3개(y-2, y-1, y0)여야 해요', t.loss_ratio_hist);
+      t.loss_ratio_hist.forEach((v, j) => c.num(v, `${label}.loss_ratio_hist[${j}]`, 0, 300));
+    }
+    if (c.object(t.expiring, `${label}.expiring`)) {
+      c.num(t.expiring.premium_usd_m, `${label}.expiring.premium_usd_m`, 0);
+      if (c.array(t.expiring.panel, `${label}.expiring.panel`, 1)) {
+        const reIds = new Set();
+        let sum = 0;
+        t.expiring.panel.forEach((m, j) => {
+          const mp = `${label}.expiring.panel[${j}]`;
+          if (!c.object(m, mp)) return;
+          if (c.str(m.re, `${mp}.re`, 80)) {
+            if (reIds.has(m.re)) c.fail(`${mp}.re`, '같은 재보험사가 두 번 들어 있어요', m.re);
+            reIds.add(m.re);
+          }
+          if (c.num(m.share, `${mp}.share`, 0, 1)) sum += m.share;
+        });
+        if (Math.abs(sum - 1) > 1e-6) c.fail(`${label}.expiring.panel`, `지분 합이 1.0이어야 해요(지금 ${Math.round(sum * 1000) / 1000})`);
+      }
+    }
+    if (c.array(t.structure_options, `${label}.structure_options`)) {
+      const optIds = new Set();
+      t.structure_options.forEach((o, j) => {
+        const op = `${label}.structure_options[${j}]`;
+        if (!c.object(o, op)) return;
+        if (c.str(o.id, `${op}.id`, 40)) {
+          if (!ID_RE.test(o.id)) c.fail(`${op}.id`, 'snake_case 영문이어야 해요', o.id);
+          if (optIds.has(o.id)) c.fail(`${op}.id`, '같은 트리티의 다른 옵션과 겹쳐요', o.id);
+          optIds.add(o.id);
+        }
+        c.str(o.label_ko, `${op}.label_ko`, 80);
+        c.num(o.f_adj, `${op}.f_adj`, -100, 100);
+        c.num(o.client_cons_penalty, `${op}.client_cons_penalty`, 0, 100);
+      });
+    }
+    if (c.object(t.terms, `${label}.terms`)) c.str(t.terms.preferred, `${label}.terms.preferred`, 20);
+  });
+  return errors;
+}
+
+// 트리티가 다른 파일과 맞물리는 약속: 고객·재보험사·시즌 id, 라인, 단일 한도, 고객 쪽 목록과의 일치.
+function validateTreatyLinks({ treaties, clients, reinsurers, calendar }) {
+  const errors = [];
+  const c = checker('treaties.json', errors);
+  const clientById = new Map(clients.map((x) => [x.id, x]));
+  const reById = new Map(reinsurers.map((x) => [x.id, x]));
+  const seasons = new Set(calendar.seasons.map((s) => s.id));
+  treaties.forEach((t, i) => {
+    const label = `[${i}](${t.id})`;
+    const client = clientById.get(t.client);
+    if (!client) c.fail(`${label}.client`, 'clients.json에 없는 고객 id예요', t.client);
+    else {
+      if (!client.profile.lines.includes(t.line)) c.fail(`${label}.line`, `고객(${client.id})의 라인에 없어요`, t.line);
+      if (!client.treaties.includes(t.id)) c.fail(`${label}.id`, `고객(${client.id})의 treaties 목록에 이 트리티가 없어요`, t.id);
+    }
+    if (!seasons.has(t.season)) c.fail(`${label}.season`, 'calendar.json에 없는 시즌 id예요', t.season);
+    for (const [j, m] of t.expiring.panel.entries()) {
+      const re = reById.get(m.re);
+      if (!re) { c.fail(`${label}.expiring.panel[${j}].re`, 'reinsurers.json에 없는 재보험사 id예요', m.re); continue; }
+      const cap = Math.min(re.behavior.max_single_share, client ? client.requirements.max_single_share : 1);
+      if (m.share > cap + 1e-9) c.fail(`${label}.expiring.panel[${j}].share`, `단일 한도(${cap})를 넘어요`, m.share);
+    }
+  });
+  // 반대 방향: 고객이 말하는 트리티가 실제로 있어야 한다.
+  const treatyIds = new Set(treaties.map((t) => t.id));
+  const owner = new Map(treaties.map((t) => [t.id, t.client]));
+  for (const cl of clients) {
+    cl.treaties.forEach((id, j) => {
+      if (!treatyIds.has(id)) c.fail(`clients.json › ${cl.id}.treaties[${j}]`, 'treaties.json에 없는 트리티 id예요', id);
+      else if (owner.get(id) !== cl.id) c.fail(`clients.json › ${cl.id}.treaties[${j}]`, '다른 고객의 트리티예요', id);
+    });
+  }
+  return errors;
+}
+
 // 파일 사이의 약속(서로 다른 파일이 같은 값을 말해야 하는 것).
-export function validateCross({ config, calendar }) {
+export function validateCross({ config, calendar, clients, reinsurers, treaties }) {
   const errors = [];
   const c = checker('config.json', errors);
   if (config.game.total_turns !== calendar.turns) {
@@ -440,6 +607,7 @@ export function validateCross({ config, calendar }) {
   if (config.game.start_turn > calendar.turns) {
     c.fail('game.start_turn', `calendar.json의 turns(${calendar.turns}) 이하여야 해요`, config.game.start_turn);
   }
+  if (treaties && clients && reinsurers) errors.push(...validateTreatyLinks({ treaties, clients, reinsurers, calendar }));
   return errors;
 }
 
@@ -449,6 +617,7 @@ export const DATA_FILES = [
   { key: 'mails', file: 'mails.json', validate: (mails, file, raw) => validateMails(mails, file, raw.calendar) },
   { key: 'clients', file: 'clients.json', validate: validateClients },
   { key: 'reinsurers', file: 'reinsurers.json', validate: validateReinsurers },
+  { key: 'treaties', file: 'treaties.json', validate: validateTreaties },
 ];
 
 // 정적 콘텐츠를 실수로 고치는 코드를 바로 잡아내려고 통째로 얼린다.

@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터)</h1>
+  <h1>테스트 (rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -33,7 +33,8 @@
     import * as store from '../js/store.js';
     import { revealAttr, stageOf, labelOf, awareness, ATTRS } from '../js/reveal.js';
     import { applyMeeting, relationshipAfterMeeting, unlockedNotes, newlyUnlocked, TOPICS } from '../js/scouting.js';
-    import { validateClients, validateReinsurers } from '../js/loader.js';
+    import { validateClients, validateReinsurers, validateTreaties } from '../js/loader.js';
+    import * as neg from '../js/negotiation.js';
 
     // ---------- 미니 러너 ----------
     const tests = [];
@@ -208,7 +209,7 @@
         const r = map[name]; if (r instanceof Error) throw r;
         return { ok: r.status === 200, status: r.status, json: async () => JSON.parse(r.body) };
       };
-      const ent = { 'clients.json': { status: 200, body: JSON.stringify(data.clients) }, 'reinsurers.json': { status: 200, body: JSON.stringify(data.reinsurers) } };
+      const ent = { 'clients.json': { status: 200, body: JSON.stringify(data.clients) }, 'reinsurers.json': { status: 200, body: JSON.stringify(data.reinsurers) }, 'treaties.json': { status: 200, body: JSON.stringify(data.treaties) } };
       const res = await loadData({ fetchFn: fake({ ...ent, 'mails.json': { status: 200, body: '[]' }, 'config.json': { status: 404 }, 'calendar.json': { status: 200, body: '{ "turns": ' } }) });
       check(!res.ok); eq(res.errors.length, 2);
       check(res.errors[0].message.includes('config.json') && res.errors[0].message.includes('HTTP 404'), res.errors[0].message);
@@ -688,6 +689,264 @@
       }
       check(shown[0][0] === 'blurred' && shown[3][0] === 'sharp', JSON.stringify(shown));
       check(shown[3][2] - shown[3][1] < shown[0][2] - shown[0][1], JSON.stringify(shown));
+    });
+
+
+    // ---------- negotiation (design.md §7, 계산 예시 §7.7) ----------
+    const ng = data?.config.negotiation;
+    const near = (a, b, tol, msg) => { if (!(Math.abs(a - b) <= tol)) throw new Error(`${msg ?? ''} 기대 ${b}±${tol} / 실제 ${a}`); };
+    const jurong = data?.treaties.find((x) => x.id === 'trt_jurong_property_xl');
+    const jurongClient = data?.clients.find((x) => x.id === 'cli_jurong_crest');
+    const reById = (id) => data.reinsurers.find((r) => r.id === id);
+    // §7.7: 알펜글로우, M=42, 관계 45, 충성 40, 보수성 78, prep 0, 표준 조건
+    const alpenInput = (extra = {}) => ({
+      market: 42, line: 'property_energy', lossHist: [52, 61, 58], lrExtra: 0, targetLr: 58, conservatism: 78, loyalty: 40,
+      relationship: 45, terms: 'standard', newReinsurer: false, bigLoss: false, prepQuality: 0, bundles: 0, structureAdj: 0, ...extra,
+    });
+    const evalPanel = (market, rc, extra = {}) => neg.evaluateExpiringPanel({
+      treaty: jurong, client: jurongClient, clientRelationship: 55, reinsurers: data.reinsurers,
+    }, { market, rc, terms: 'standard', ...extra }, ng);
+
+    test('negotiation §7.7: 가격 하한 항별 값 — 시장 −2.4 · 라인 +1.0 · 손해율 ≈ −0.15 · 불확실성 1.25 · 관계 1.15, F ≈ −1.5', () => {
+      const f = neg.priceFloor(alpenInput(), ng);
+      near(f.parts.market, -2.4, 1e-9, 'A_market'); near(f.parts.line, 1, 1e-9, 'A_line');
+      near(f.lrExp, 57.7, 1e-9, 'LR_exp'); near(f.parts.loss, -0.15, 0.01, 'A_loss');
+      near(f.N, 0.2, 1e-9, 'N'); near(f.parts.cons, 1.25, 0.01, 'A_cons'); near(f.parts.rel, 1.15, 0.01, 'A_rel');
+      near(f.floor, -1.5, 0.06, 'F');
+    });
+    test('negotiation §7.7: 가격 민감도 70 → θ = 2.55, 제안 −3.0은 gap ≈ −1.5라서 반제, 마감 4주 전 역제안은 약 −0.8%', () => {
+      near(neg.theta(70, ng), 2.55, 1e-9, 'θ');
+      const f = neg.priceFloor(alpenInput(), ng).floor;
+      const r = neg.respond({ floor: f, p: -3, sReq: 0.3, maxShare: 0.4, weeksLeft: 4, priceSensitivity: 70, appetite: 0.8, noise: 0 }, ng);
+      eq(r.kind, 'counter'); near(r.gap, -1.5, 0.06, 'gap'); near(r.rc, -0.8, 0.06, '역제안 RC'); eq(r.share, 0.3);
+    });
+    test('negotiation §7.7: 고객 평가 — PS ≈ 90 · CS=100 · TS=100 · VS ≈ 44 · U ≈ 85 → 매우 만족', () => {
+      const e = evalPanel(42, -1.0);
+      near(e.reference, -2.3, 0.05, '공정가 기준'); near(e.scores.price, 90, 0.5, 'PS');
+      eq(e.scores.continuity, 100); near(e.scores.terms, 100, 1e-9, 'TS'); near(e.scores.service, 44.4, 0.1, 'VS');
+      near(e.scores.security, 81.75 + 1.95, 1e-9, 'SS(온쇼어 보정 +3 지분가중)'); // 보정 전 81.75 ≈ 82
+      near(e.U, 85, 0.6, 'U'); eq(e.verdict, 'delighted'); eq(e.hardFails, []);
+    });
+    test('negotiation §7.7 하드마켓 대조: M=70, A_loss=+10 → F ≈ 17, 평균 RC +17이면 PS=0 · U ≈ 52 → 거부', () => {
+      // 사고 가산 40.6%p → LR_exp 78 → A_loss = +10. 당해 대손실 플래그는 켜지 않는다(설계 예시의 가정).
+      const f = neg.priceFloor(alpenInput({ market: 70, lrExtra: 40.6 }), ng);
+      near(f.parts.loss, 10, 0.01, 'A_loss'); near(f.floor, 17, 0.2, 'F');
+      const e = evalPanel(70, 17);
+      eq(e.scores.price, 0); near(e.U, 52, 1, 'U'); eq(e.verdict, 'reject');
+      // 이 상황에서는 U가 임계값 θ_c − 8 아래다
+      check(e.U < e.theta - ng.client.renegotiate_margin);
+    });
+    test('negotiation: 응답 경계 — gap=0은 수락, gap=−θ는 반제, −θ보다 아래는 거절(인내심 −1·관계 −2)', () => {
+      const base = { floor: 0, sReq: 0.3, maxShare: 0.4, weeksLeft: 6, priceSensitivity: 70, appetite: 0.8, noise: 0 };
+      const th = neg.theta(70, ng);
+      eq(neg.respond({ ...base, p: 0 }, ng).kind, 'accept');
+      eq(neg.respond({ ...base, p: -th }, ng).kind, 'counter');
+      const rj = neg.respond({ ...base, p: -th - 0.01 }, ng);
+      eq([rj.kind, rj.patienceDelta, rj.relationshipDelta, rj.share], ['reject', -1, -2, 0]);
+    });
+    test('negotiation: 반제 폭은 마감이 가까울수록 작다(weeks/6), 수락 때는 제안 가격 그대로', () => {
+      const base = { floor: 0, p: -1, sReq: 0.3, maxShare: 0.4, priceSensitivity: 40, appetite: 1, noise: 0 };
+      const far = neg.respond({ ...base, weeksLeft: 6 }, ng).rc, close = neg.respond({ ...base, weeksLeft: 1 }, ng).rc;
+      near(far, 1, 1e-9); near(close, 1 / 6, 1e-9); check(close < far);
+      eq(neg.respond({ ...base, p: 0.4, weeksLeft: 3 }, ng).rc, 0.4);
+    });
+    test('negotiation: 지원 라인 — gap ≥ +3이면 요청 초과 최대 +10%p를 용량 한도 안에서, 그 아래는 없음', () => {
+      const base = { floor: 0, sReq: 0.2, weeksLeft: 3, priceSensitivity: 50, appetite: 1, noise: 0 };
+      near(neg.respond({ ...base, p: 3, maxShare: 0.4 }, ng).support, 0.10, 1e-9);
+      near(neg.respond({ ...base, p: 3, maxShare: 0.25 }, ng).support, 0.05, 1e-9);
+      eq(neg.respond({ ...base, p: 2.9, maxShare: 0.4 }, ng).support, 0);
+    });
+    test('negotiation: 용량이 모자라면 지분을 줄여 응답하고 limited로 알린다', () => {
+      const r = neg.respond({ floor: 0, p: 1, sReq: 0.5, maxShare: 0.3, weeksLeft: 3, priceSensitivity: 50, appetite: 1, noise: 0 }, ng);
+      eq([r.kind, r.share, r.limited], ['accept', 0.3, true]);
+    });
+    test('negotiation: 식욕 0 · 샤리아 불가는 가격과 상관없이 거절 사유로 답한다', () => {
+      const base = { floor: 0, p: 99, sReq: 0.2, maxShare: 0.4, weeksLeft: 3, priceSensitivity: 50, appetite: 1, noise: 0 };
+      const a = neg.respond({ ...base, appetite: 0 }, ng), b = neg.respond({ ...base, shariahBlocked: true }, ng);
+      eq([a.kind, a.reason, b.kind, b.reason], ['decline', 'no_appetite', 'decline', 'shariah']);
+    });
+    test('negotiation: 노이즈는 ±0.3%p 안에서만 하한을 흔든다', () => {
+      const base = { floor: 1, p: 1, sReq: 0.2, maxShare: 0.4, weeksLeft: 3, priceSensitivity: 50, appetite: 1 };
+      near(neg.respond({ ...base, noise: 1 }, ng).gap, 1 - 1.3, 1e-9); near(neg.respond({ ...base, noise: -1 }, ng).gap, 1 - 0.7, 1e-9);
+    });
+    test('negotiation: 가용 지분 상한 — 알펜글로우 ≈ 32%, 하드마켓일수록 줄고, 단일 한도가 최종 상한', () => {
+      const re = reById('re_alpenglow');
+      const args = (market, extra = {}) => ({ capacity: re.capacity_usd_m.property_energy, appetite: re.appetite.property_energy, marketIndex: market, conservatism: 78, N: 0.2, limit: 150, reinsurerMaxShare: 0.4, clientMaxShare: 0.35, ...extra });
+      near(neg.maxShare(args(42), ng), 0.322, 0.001);
+      check(neg.maxShare(args(70), ng) < neg.maxShare(args(42), ng) && neg.maxShare(args(30), ng) > neg.maxShare(args(42), ng));
+      eq(neg.maxShare(args(42, { limit: 10 }), ng), 0.35);
+    });
+    test('negotiation: 레버 — 번들은 1.5%p씩(최대 3), 진실한 견적은 min(2, 0.5×차이), 구조 옵션은 f_adj, 조건 등급', () => {
+      const f0 = neg.priceFloor(alpenInput(), ng).floor;
+      near(neg.priceFloor(alpenInput({ bundles: 1 }), ng).floor, f0 - 1.5, 1e-9);
+      near(neg.priceFloor(alpenInput({ bundles: 5 }), ng).floor, f0 - 3, 1e-9);
+      near(neg.priceFloor(alpenInput({ quote: f0 - 1 }), ng).floor, f0 - 0.5, 1e-9);
+      near(neg.priceFloor(alpenInput({ quote: f0 - 10 }), ng).floor, f0 - 2, 1e-9);
+      near(neg.priceFloor(alpenInput({ quote: f0 + 3 }), ng).floor, f0, 1e-9); // 더 비싼 견적은 효과 없음
+      near(neg.priceFloor(alpenInput({ structureAdj: -4 }), ng).floor, f0 - 4, 1e-9);
+      const strict = neg.priceFloor(alpenInput({ terms: 'strict' }), ng).floor, broad = neg.priceFloor(alpenInput({ terms: 'broad' }), ng);
+      near(strict, f0 - 2, 1e-9); near(broad.floor, f0 + 4 + broad.parts.cons - 1.248, 1e-6);
+    });
+    test('negotiation: 불확실성 N — 신규·넓은 조건·대손실이 올리고 자료 준비가 내리며 0~1로 잘린다', () => {
+      const n = (o) => neg.uncertainty({ newReinsurer: false, broadTerms: false, bigLoss: false, prepQuality: 0, ...o }, ng);
+      near(n({}), 0.2, 1e-9); near(n({ newReinsurer: true }), 0.6, 1e-9); near(n({ broadTerms: true, bigLoss: true }), 0.8, 1e-9);
+      eq(n({ newReinsurer: true, broadTerms: true, bigLoss: true }), 1); eq(n({ prepQuality: 100 }), 0);
+    });
+    test('negotiation: 손해율 가산(A_loss)은 −5~+20으로 잘린다', () => {
+      eq(neg.priceFloor(alpenInput({ lossHist: [10, 10, 10] }), ng).parts.loss, -5);
+      eq(neg.priceFloor(alpenInput({ lrExtra: 200 }), ng).parts.loss, 20);
+    });
+    test('negotiation: 허세 탐지 확률 = 0.3 + 0.4 × 보수성', () => {
+      near(neg.bluffChance(78, ng), 0.612, 1e-9); near(neg.bluffChance(25, ng), 0.4, 1e-9);
+    });
+    test('negotiation: 정성 힌트 — 스카우트 값이 낮을수록 오차 폭이 크고, 같은 입력이면 같은 답', () => {
+      const lo = neg.priceHint({ gap: -1, sPrice: 20, jitter: 0.5 }, ng), hi = neg.priceHint({ gap: -1, sPrice: 90, jitter: 0.5 }, ng);
+      near(lo.errPp, 4.8, 1e-9); near(hi.errPp, 0.6, 1e-9); check(lo.errPp > hi.errPp);
+      eq(neg.priceHint({ gap: 0.5, sPrice: 50, jitter: 0 }, ng).level, 'good');
+      eq(neg.priceHint({ gap: -1.5, sPrice: 50, jitter: 0 }, ng).level, 'near');
+      eq(neg.priceHint({ gap: -4, sPrice: 50, jitter: 0 }, ng).level, 'far');
+      eq(neg.priceHint({ gap: -1, sPrice: 20, jitter: 0.5 }, ng), lo);
+    });
+    test('negotiation: 고객 평가 하드 실패 — 지분 합·최소 등급·단일 한도·샤리아 상한이면 invalid와 사유', () => {
+      const mk = (shares, overrides = {}) => ({
+        panel: shares.map(([id, share, rating = 'A', extra = {}]) => ({ id, share, rc: 0, rating, onshore: false, shariahOk: false, terms: 'standard', maxShare: 0.5, ...extra })),
+        expiringIds: shares.map((s) => s[0]),
+        client: { conservatism: 50, priceSensitivity: 50, loyalty: 50, relationship: 50, targetRc: 0, minRating: 'A-', maxSingleShare: 0.5, preferredTerms: 'standard', shariahRequired: false, shariahConventionalCap: 1, ...overrides },
+        benchmark: 0,
+      });
+      eq(neg.evaluatePackage(mk([['a', 0.5], ['b', 0.4]]), ng).hardFails, ['share_total']);
+      eq(neg.evaluatePackage(mk([['a', 0.5], ['b', 0.5, 'BBB+']]), ng).hardFails, ['min_rating']);
+      eq(neg.evaluatePackage(mk([['a', 0.6], ['b', 0.4]]), ng).hardFails, ['single_share']);
+      eq(neg.evaluatePackage(mk([['a', 0.5], ['b', 0.5, 'A', { shariahOk: true }]], { shariahRequired: true, shariahConventionalCap: 0.2 }), ng).hardFails, ['shariah_cap']);
+      eq(neg.evaluatePackage(mk([['a', 0.5], ['b', 0.5, 'A', { shariahOk: true }]], { shariahRequired: true, shariahConventionalCap: 0.5 }), ng).hardFails, []);
+      eq(neg.evaluatePackage(mk([['a', 0.5], ['b', 0.4]]), ng).verdict, 'invalid');
+    });
+    test('negotiation: 고객 평가 결과 구간 — U가 θ_c+10 / θ_c / θ_c−8을 넘나들면 매우 만족 · 수락 · 재협상 · 거부', () => {
+      // 가격만 바꿔서 U를 훑는다: 가격이 비쌀수록 결과가 나빠진다.
+      const order = ['delighted', 'accept', 'renegotiate', 'reject'];
+      const seen = [];
+      for (let rc = -6; rc <= 12; rc += 0.25) seen.push(evalPanel(42, rc).verdict);
+      const idx = seen.map((v) => order.indexOf(v));
+      check(idx.every((v, i) => i === 0 || v >= idx[i - 1]), `가격이 오르는데 결과가 좋아졌어요: ${seen.join(',')}`);
+      check(order.every((v) => seen.includes(v)), `네 구간이 모두 나와야 해요: ${[...new Set(seen)]}`);
+    });
+    test('negotiation: 만기에 없던 재보험사가 지분을 가져가면 보수적인 고객은 연속성 점수가 깎인다', () => {
+      const e = neg.evaluatePackage({
+        panel: [{ id: 're_nur', share: 0.5, rc: 0, rating: 'A-', onshore: false, shariahOk: true, terms: 'standard', maxShare: 0.6 }, { id: 're_kallang', share: 0.5, rc: 0, rating: 'A', onshore: true, shariahOk: false, terms: 'standard', maxShare: 0.6 }],
+        expiringIds: ['re_kallang'],
+        client: { conservatism: 72, priceSensitivity: 55, loyalty: 68, relationship: 55, targetRc: -3, minRating: 'A-', maxSingleShare: 0.6, preferredTerms: 'standard', shariahRequired: false, shariahConventionalCap: 1 },
+        benchmark: 0,
+      }, ng);
+      near(e.turnover, 0.5, 1e-9); near(e.scores.continuity, 100 - 0.72 * 120 * 0.5, 1e-9);
+    });
+    test('negotiation: 약관 등급이 선호와 한 단계 다르면 TS −25', () => {
+      const e = evalPanel(42, -1, { terms: 'broad' }); near(e.scores.terms, 75, 1e-9);
+      near(evalPanel(42, -1, { terms: 'strict' }).scores.terms, 75, 1e-9);
+    });
+    test('negotiation §7.6: 기대 관리 — 목표가 벤치마크 쪽으로 (0.25 + 0.25×관계) 만큼 이동, 가격 민감도 70+는 관계 −1', () => {
+      const r = neg.manageExpectation({ targetRc: -3, benchmark: -1.4, relationship: 55, priceSensitivity: 55 }, ng);
+      near(r.targetRc, -3 + 1.6 * 0.3875, 1e-9); eq(r.relationshipDelta, 0); eq(r.cooldownWeeks, 2);
+      eq(neg.manageExpectation({ targetRc: -4, benchmark: -2.4, relationship: 40, priceSensitivity: 88 }, ng).relationshipDelta, -1);
+    });
+    test('negotiation: 같은 입력이면 같은 결과(노이즈·힌트 모두 시드로 고정), 시드가 다르면 노이즈가 달라진다', () => {
+      const ctx = (seed) => ({ treaty: jurong, client: jurongClient, reinsurer: reById('re_alpenglow'), relationship: 45, scoutPrice: 20, seed });
+      const form = { market: 42, p: -3, sReq: 0.3, weeksLeft: 4, terms: 'standard', structureOption: null, bundles: 0, lrExtra: 0, bigLoss: false, prepQuality: 0 };
+      eq(neg.quoteProposal(ctx(7), form, ng), neg.quoteProposal(ctx(7), form, ng));
+      const noises = [1, 2, 3, 4, 5].map((s) => neg.quoteProposal(ctx(s), form, ng).noise);
+      check(new Set(noises).size > 1 && noises.every((n) => n >= -1 && n <= 1), `${noises}`);
+    });
+    test('negotiation: 실제 데이터로 한 번의 제안 — 주롱×알펜글로우 새 게임 값에서 §7.7과 같은 반제, 요청 35%는 용량 때문에 줄어든다', () => {
+      const q = neg.quoteProposal({ treaty: jurong, client: jurongClient, reinsurer: reById('re_alpenglow'), relationship: 45, scoutPrice: 20, seed: 1 },
+        { market: 42, p: -3, sReq: 0.35, weeksLeft: 4, terms: 'standard', structureOption: null, bundles: 0, lrExtra: 0, bigLoss: false, prepQuality: 0 }, ng);
+      near(q.floor.floor, -1.45, 0.05); eq(q.response.kind, 'counter'); eq(q.response.limited, true);
+      near(q.response.share, q.maxShare, 1e-12); near(q.response.rc, -0.8, 0.2);
+    });
+    test('negotiation: 구조 옵션은 가격 하한을 내린다(주롱 자기부담 상향 −4%p)', () => {
+      const run = (opt) => neg.quoteProposal({ treaty: jurong, client: jurongClient, reinsurer: reById('re_alpenglow'), relationship: 45, scoutPrice: 20, seed: 1 },
+        { market: 42, p: -3, sReq: 0.3, weeksLeft: 4, terms: 'standard', structureOption: opt, bundles: 0, lrExtra: 0, bigLoss: false, prepQuality: 0 }, ng).floor.floor;
+      near(run('higher_attach'), run(null) - 4, 1e-9);
+    });
+    test('negotiation: 입력 객체를 바꾸지 않는다(순수 함수)', () => {
+      const input = alpenInput(); const snap = JSON.stringify(input); neg.priceFloor(input, ng); eq(JSON.stringify(input), snap);
+      const cfgSnap = JSON.stringify(ng); evalPanel(42, -1); neg.respond({ floor: 0, p: 0, sReq: 0.2, maxShare: 0.3, weeksLeft: 2, priceSensitivity: 50, appetite: 1, noise: 0 }, ng);
+      eq(JSON.stringify(ng), cfgSnap);
+    });
+
+    // ---------- 트리티 데이터 ----------
+    test('트리티 데이터: 2개(주롱 재산 · 스트레이츠 해상), 패널 지분 합 1.0, 타카풀은 아직 없다', () => {
+      eq(data.treaties.map((x) => x.id), ['trt_jurong_property_xl', 'trt_straits_marine_xl']);
+      for (const x of data.treaties) near(x.expiring.panel.reduce((s, m) => s + m.share, 0), 1, 1e-9, x.id);
+      eq(data.clients.map((c) => c.treaties), [['trt_jurong_property_xl'], ['trt_straits_marine_xl'], []]);
+    });
+    test('트리티 데이터: 설계 §10.3·§1.4의 주롱 값(한도 150, 부담 50, 손해율 52/61/58, 목표 −3.0, 패널 35/30/35)', () => {
+      eq([jurong.limit_usd_m, jurong.attachment_usd_m, jurong.loss_ratio_hist, jurong.target_rc, jurong.season], [150, 50, [52, 61, 58], -3, 'season_0101']);
+      eq(jurong.expiring.panel, [{ re: 're_alpenglow', share: 0.35 }, { re: 're_kallang', share: 0.3 }, { re: 're_thames_quay', share: 0.35 }]);
+    });
+    test('로더(treaties): 모양 오류는 위치와 함께 알려 준다', () => {
+      const bad = (mut) => { const c = clone(data.treaties); mut(c); return validateTreaties(c); };
+      check(has(bad((c) => { c[0].id = 'jurong'; }), 'trt_'));
+      check(has(bad((c) => { c[1].id = c[0].id; }), '겹쳐요'));
+      check(has(bad((c) => { c[0].line = 'car'; }), 'line'));
+      check(has(bad((c) => { c[0].limit_usd_m = 0; }), 'limit_usd_m'));
+      check(has(bad((c) => { c[0].loss_ratio_hist = [1, 2]; }), 'loss_ratio_hist'));
+      check(has(bad((c) => { c[0].expiring.panel[0].share = 0.5; }), '1.0'));
+      check(has(bad((c) => { c[0].expiring.panel[1].re = c[0].expiring.panel[0].re; }), '두 번'));
+      check(has(bad((c) => { c[0].structure_options.push(clone(c[0].structure_options[0])); }), '겹쳐요'));
+      eq(validateTreaties(data.treaties), []);
+    });
+    test('로더(파일 사이): 없는 고객·시즌·재보험사, 라인 불일치, 단일 한도 초과, 고객 목록 불일치를 잡는다', () => {
+      const run = (mut) => {
+        const raw = { config: data.config, calendar: data.calendar, clients: clone(data.clients), reinsurers: clone(data.reinsurers), treaties: clone(data.treaties) };
+        mut(raw); return validateCross(raw);
+      };
+      eq(run(() => {}), []);
+      check(has(run((r) => { r.treaties[0].client = 'cli_none'; }), 'clients.json에 없는'));
+      check(has(run((r) => { r.treaties[0].season = 'season_9999'; }), 'calendar.json에 없는'));
+      check(has(run((r) => { r.treaties[0].expiring.panel[0].re = 're_none'; }), 'reinsurers.json에 없는'));
+      check(has(run((r) => { r.treaties[0].line = 'marine_cargo'; }), '라인'));
+      check(has(run((r) => { r.treaties[0].expiring.panel = [{ re: 're_alpenglow', share: 0.5 }, { re: 're_kallang', share: 0.5 }]; }), '단일 한도'));
+      check(has(run((r) => { r.clients[0].treaties = []; }), 'treaties 목록'));
+      check(has(run((r) => { r.clients[2].treaties = ['trt_jurong_property_xl']; }), '다른 고객'));
+      check(has(run((r) => { r.clients[2].treaties = ['trt_none']; }), 'treaties.json에 없는'));
+    });
+    test('로더(config.negotiation): 나눗셈 분모 0 · 손해율 가중치 개수 · 범위 뒤집힘을 거절', () => {
+      const bad = (mut) => { const c = clone(data.config); mut(c.negotiation); return validateConfig(c); };
+      check(has(bad((n) => { n.counter_weeks_divisor = 0; }), 'counter_weeks_divisor'));
+      check(has(bad((n) => { n.lr_weights = [0.5, 0.5]; }), 'lr_weights'));
+      check(has(bad((n) => { n.loss_min = 30; }), 'loss_min'));
+      check(has(bad((n) => { delete n.client; }), 'negotiation.client'));
+      check(has(bad((n) => { n.terms_adj = { strict: 0 }; }), 'terms_adj'));
+      eq(validateConfig(data.config), []);
+    });
+
+    // ---------- 미팅 반응 한 줄 ----------
+    test('미팅 반응: 7곳 모두 주제 4가지(일반 · 보수성 · 가격 · 충성)에 줄이 있다 — 총 28줄, 서로 다르다', () => {
+      const all = [...data.clients, ...data.reinsurers];
+      const lines = all.flatMap((e) => TOPICS.map((t) => e.meeting_reactions[t]));
+      eq(lines.length, 28); check(lines.every((s) => typeof s === 'string' && s.trim().length > 0 && s.length <= 200));
+      eq(new Set(lines).size, 28);
+    });
+    test('미팅 반응: 성격 이름·속성 코드·[[ 마크업·숫자 값 없이 말투와 행동으로만 보여 준다', () => {
+      const all = [...data.clients, ...data.reinsurers];
+      for (const e of all) for (const t of TOPICS) {
+        const s = e.meeting_reactions[t];
+        check(!/보수|가격 민감|충성|conservatism|price_sensitivity|loyalty|\[\[/.test(s), `${e.id}.${t}: ${s}`);
+        check(!/\b(?:\d{2,3})\s*(?:점|%)/.test(s), `${e.id}.${t}: 숫자 값이 있어요`);
+      }
+    });
+    test('미팅 반응: 상대마다 직접 인용한 말이 하나 이상 있어 말투가 드러난다', () => {
+      for (const e of [...data.clients, ...data.reinsurers]) {
+        check(TOPICS.some((t) => /"/.test(e.meeting_reactions[t])), `${e.id}: 인용한 말이 하나도 없어요`);
+      }
+    });
+    test('미팅 반응: 로더가 빠졌거나 빈 줄, [[ 마크업이 든 반응을 거절', () => {
+      const bad = (mut) => { const c = clone(data.clients); mut(c); return validateClients(c); };
+      check(has(bad((c) => { delete c[0].meeting_reactions; }), 'meeting_reactions'));
+      check(has(bad((c) => { c[0].meeting_reactions.loyalty = ''; }), 'meeting_reactions.loyalty'));
+      check(has(bad((c) => { delete c[1].meeting_reactions.general; }), 'meeting_reactions.general'));
+      check(has(bad((c) => { c[0].meeting_reactions.general = '[[gl_x|용어]]'; }), 'M2'));
+      const badR = (mut) => { const r = clone(data.reinsurers); mut(r); return validateReinsurers(r); };
+      check(has(badR((r) => { r[2].meeting_reactions.price_sensitivity = 'x'.repeat(201); }), 'meeting_reactions.price_sensitivity'));
     });
 
     // ---------- 실행 ----------

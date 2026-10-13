@@ -1,0 +1,92 @@
+[
+  {
+    "id": "trt_jurong_property_xl",
+    "client": "cli_jurong_crest",
+    "name_ko": "주롱섬 재산 per-risk 초과손해 트리티",
+    "line": "property_energy",
+    "structure": "xol",
+    "season": "season_0101",
+    "limit_usd_m": 150,
+    "attachment_usd_m": 50,
+    "expiring": {
+      "premium_usd_m": 18.0,
+      "panel": [
+        {
+          "re": "re_alpenglow",
+          "share": 0.35
+        },
+        {
+          "re": "re_kallang",
+          "share": 0.3
+        },
+        {
+          "re": "re_thames_quay",
+          "share": 0.35
+        }
+      ]
+    },
+    "loss_ratio_hist": [
+      52,
+      61,
+      58
+    ],
+    "brokerage_rate": 0.1,
+    "target_rc": -3.0,
+    "structure_options": [
+      {
+        "id": "higher_attach",
+        "label_ko": "자기부담 상향 (50 → 75)",
+        "f_adj": -4.0,
+        "client_cons_penalty": 10
+      }
+    ],
+    "terms": {
+      "preferred": "standard"
+    }
+  },
+  {
+    "id": "trt_straits_marine_xl",
+    "client": "cli_straits_port",
+    "name_ko": "항만 해상화물 초과손해 트리티",
+    "line": "marine_cargo",
+    "structure": "xol",
+    "season": "season_0107",
+    "limit_usd_m": 60,
+    "attachment_usd_m": 10,
+    "expiring": {
+      "premium_usd_m": 7.0,
+      "panel": [
+        {
+          "re": "re_thames_quay",
+          "share": 0.4
+        },
+        {
+          "re": "re_alpenglow",
+          "share": 0.34
+        },
+        {
+          "re": "re_kallang",
+          "share": 0.26
+        }
+      ]
+    },
+    "loss_ratio_hist": [
+      48,
+      66,
+      72
+    ],
+    "brokerage_rate": 0.1,
+    "target_rc": -4.0,
+    "structure_options": [
+      {
+        "id": "higher_attach",
+        "label_ko": "자기부담 상향 (10 → 20)",
+        "f_adj": -3.0,
+        "client_cons_penalty": 5
+      }
+    ],
+    "terms": {
+      "preferred": "standard"
+    }
+  }
+]

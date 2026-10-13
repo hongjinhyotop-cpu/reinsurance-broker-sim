@@ -13,7 +13,7 @@ export function stageOf(s, cfg) {
 }
 
 // 문자열 → [-1, 1]. (엔티티, 속성, 세이브 시드)가 같으면 항상 같은 값이라 화면을 다시 열어도 범위가 흔들리지 않는다.
-function hashUnit(text) {
+export function hashUnit(text) {
   let hash = 0x811c9dc5; // FNV-1a
   for (let i = 0; i < text.length; i++) {
     hash ^= text.charCodeAt(i);

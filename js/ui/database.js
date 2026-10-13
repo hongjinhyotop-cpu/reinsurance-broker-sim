@@ -138,7 +138,7 @@ function onMeet(kind, def) {
   const stageUps = ATTRS
     .map((a) => ({ a, from: stageOf(res.before[a], cfg), to: stageOf(res.after[a], cfg) }))
     .filter((x) => x.from !== x.to);
-  lastMeeting = { id: def.id, topicLabel, newNotes: res.newNotes, stageUps };
+  lastMeeting = { id: def.id, topicLabel, newNotes: res.newNotes, stageUps, reaction: def.meeting_reactions[topic] };
   const bits = [`${def.name_ko}와 미팅했어요`];
   if (stageUps.length > 0) bits.push(stageUps.map((x) => `${ATTR_LABEL[x.a]} ${STAGE_KO[x.to]}`).join(', '));
   if (res.newNotes.length > 0) bits.push(`새 단서 ${res.newNotes.length}개`);
@@ -172,6 +172,8 @@ function renderReport(def, dyn, kind, state, data) {
   const parts = [renderMeetingBox(def, kind, state, data)];
   if (fresh) {
     parts.push(h('div', { class: 'notice fresh-box', role: 'status' },
+      // 상대의 반응 한 줄: 성격 이름 없이 말투와 행동으로만 드러난다(design.md §4.3).
+      h('blockquote', { class: 'clue reaction' }, h('p', {}, fresh.reaction), h('footer', { class: 'dim' }, `${def.name_ko} · ${fresh.topicLabel}`)),
       h('strong', {}, `방금 알게 된 것 (${fresh.topicLabel})`),
       h('ul', { class: 'plain-list' },
         fresh.stageUps.length === 0 && fresh.newNotes.length === 0
