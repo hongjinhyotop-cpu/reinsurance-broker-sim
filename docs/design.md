@@ -758,7 +758,13 @@ U   = Σ w_k × score_k
 ```jsonc
 {
   "game": { "start_turn": 1, "total_turns": 58, "ap_per_week": 6, "start_cash_usd_m": 1.0,
-            "weekly_overhead_usd_m": 0.03, "start_market_index": 42, "start_board_confidence": 60 },
+            "weekly_overhead_usd_m": 0.03, "start_market_index": 42, "start_board_confidence": 60,
+            "start_reputation": 50, "start_compliance": 70, "start_market_intel": 0,
+            "firm_name": "Marina Bay Re Brokers" },
+  "market": { "intel_error_k": 12,
+              "labels": [ { "max": 25, "label_ko": "매우 소프트" }, { "max": 40, "label_ko": "소프트" },
+                          { "max": 60, "label_ko": "중립" }, { "max": 75, "label_ko": "하드" },
+                          { "max": 100, "label_ko": "매우 하드" } ] },
   "scouting": { "meeting_focus_gain": 10, "meeting_other_gain": 3, "damping_divisor": 120,
                 "stage_thresholds": { "blurred": 15, "sharp": 45, "exact": 85 }, "err_k": 30 },
   "negotiation": {
@@ -790,6 +796,8 @@ U   = Σ w_k × score_k
 }
 ```
 
+M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이면 해당 라벨)이고 `market.intel_error_k`는 §3의 오차 계수(12)다. `start_compliance`(70)는 §9.4의 시작값이며, **`start_reputation`(50)과 `start_market_intel`(0)은 설계에 시작값이 없어 임시로 정한 초안 값**이다.
+
 `data/brokers.json`: 라이벌 7곳(`id`, `name`, `base_income_usd_m`, `volatility`, `market_beta`, `reputation`).
 
 ### 10.8 효과(effects) 연산자 — 닫힌 집합
@@ -814,6 +822,7 @@ U   = Σ w_k × score_k
 {
   "version": 1,
   "seed": 20270101, "rng_state": 123456789,
+  "saved_at": "2026-10-13T09:26:00.000Z",     // 저장 시각(ISO). 슬롯 목록 표시용
   "turn": 12, "ap": 6,
   "player": { "firm": "Marina Bay Re Brokers", "cash_usd_m": 0.74, "reputation": 52,
               "compliance": 70, "board_confidence": 60, "market_intel": 20, "flags": ["jurong_loss"] },
@@ -876,6 +885,8 @@ reinsurance-broker-sim/
 │  └─ ui/
 │     ├─ components.js        # h() DOM 헬퍼, 표, pill, 모달, 범위 바
 │     ├─ shell.js             # 상단 바·내비
+│     ├─ start.js             # 시작 화면(새 게임·저장 목록)·데이터 오류 화면
+│     ├─ settings.js          # 설정 화면(세이브 슬롯·파일 백업)
 │     ├─ inbox.js
 │     ├─ database.js          # DB + 스카우트 리포트
 │     ├─ placement_view.js    # 라인 구성 보드
@@ -894,7 +905,7 @@ reinsurance-broker-sim/
 │  ├─ glossary.json           # 약 50개 용어, 3단계 설명 (사전 작성)
 │  └─ brokers.json
 └─ tests/
-   └─ index.html              # 브라우저 실행 간이 테스트 러너 (negotiation/reveal/scouting/anki/effects)
+   └─ index.html              # 브라우저 실행 간이 테스트 러너 (M0: rng/calendar/market/loader/store → 이후 negotiation/reveal/scouting/anki/effects)
 ```
 
 - 실행: ES Modules·`fetch`는 `file://`에서 막히므로 로컬 정적 서버로 연다(예: `python3 -m http.server 8000`). 빌드·패키지 설치는 없다.

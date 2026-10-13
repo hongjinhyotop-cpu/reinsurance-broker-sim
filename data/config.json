@@ -1,0 +1,25 @@
+{
+  "game": {
+    "start_turn": 1,
+    "total_turns": 58,
+    "ap_per_week": 6,
+    "start_cash_usd_m": 1.0,
+    "weekly_overhead_usd_m": 0.03,
+    "start_market_index": 42,
+    "start_board_confidence": 60,
+    "start_reputation": 50,
+    "start_compliance": 70,
+    "start_market_intel": 0,
+    "firm_name": "Marina Bay Re Brokers"
+  },
+  "market": {
+    "intel_error_k": 12,
+    "labels": [
+      { "max": 25, "label_ko": "매우 소프트" },
+      { "max": 40, "label_ko": "소프트" },
+      { "max": 60, "label_ko": "중립" },
+      { "max": 75, "label_ko": "하드" },
+      { "max": 100, "label_ko": "매우 하드" }
+    ]
+  }
+}
