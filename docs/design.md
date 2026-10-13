@@ -170,8 +170,8 @@ v1은 아래 세 기능이 "이 게임이 무엇인가"를 정의한다. 다른 
 
 1. 주 전환: 날짜·턴 +1, AP를 6으로 리셋, 만료된 modifier 제거
 2. 예약 큐 처리(지연 메일·지연 이벤트·지연 효과)
-3. 이벤트 판정(시드 RNG): 창구 내 후보를 조건·확률로 평가
-4. 시장 지수 갱신(분기 경계 주에 드리프트 적용, 이벤트 충격은 즉시)
+3. 이벤트 판정(시드 RNG): 창구 내 후보를 조건·확률로 평가 (판정 규칙은 §8)
+4. 시장 지수 갱신(분기 경계 주에 드리프트 적용, 이벤트 충격은 즉시). 시장 분위기(소프트/중립/하드)가 바뀌었으면 시장 리포트 메일을 예약(§3)
 5. 진행 중 액션 해소(인디케이션 도착, 견적 만료)
 6. 시즌 단계 전환(킥오프·마감·인셉션·홀드 커버드·공백 판정)
 7. 재무 정산(고정비 차감, 브로커리지 수금)
@@ -208,6 +208,12 @@ M이 쓰이는 곳
 - 조건부 이벤트 트리거(M ≥ 62 지속 시 자본 유입 등 자기 교정)
 
 플레이어에게는 **정확한 M이 아니라 라벨 + 오차 범위**가 보인다. 오차는 `±(12 × (1 − market_intel/100))`이며 시장 정찰로 줄인다. 시계열 그래프는 v1에 없다(§13).
+
+**M6a 구현 메모**
+- **드리프트 적용 시점**: 분기가 시작되는 턴(7·20·33·46)에 한 번만 적용한다. 프리시즌 시작(턴 1)에는 적용하지 않는다. 이벤트 충격은 이벤트가 터진 턴에 즉시 더하며, 같은 턴에 분기가 시작되면 충격을 먼저 반영한 뒤 드리프트를 적용한다(§2.5의 3→4 순서).
+- **잡음 `N(0, 2)`**: 시드 RNG에서 균등 난수 둘을 뽑아 Box-Muller로 표준정규 z를 만들고 `2 × z`를 쓴다. 계수는 `data/config.json`의 `market.cycle`(`center` 50, `revert` 0.15, `noise_sd` 2)에 둔다. 드리프트는 분기마다 난수를 정확히 둘 쓴다.
+- **효과 반영**: 협상 계산(§7)은 이미 `state.market.index`를 읽으므로(반올림해서 `A_market`·`cf`·고객 공정가에 쓴다), M이 움직이면 별도 연결 없이 가격 하한과 가용 라인 상한이 바로 달라진다. 이 마일스톤에서 새로 연결하는 곳은 없다.
+- **분위기 전환 메일**: 라벨을 세 묶음(소프트 `M ≤ 40`, 중립, 하드 `M ≥ 61`)으로 보고, 묶음이 바뀌는 턴에 시장 리포트 메일을 한 통 보낸다(`config.market.family`). 본문에는 라벨만 쓰고 지수 숫자는 쓰지 않는다. 마지막으로 알린 묶음은 세이브(`market.band`)에 둔다. 묶음 경계에서 왔다 갔다 해도 메일은 한 턴에 한 통만 간다.
 
 ---
 
@@ -603,7 +609,7 @@ U = Σ w_k × score_k − structure_cut
 `js/negotiation.js`는 DOM·저장소를 모르는 순수 함수 모음이다. 계수는 모두 `data/config.json`의 `negotiation` 블록에 있다(§10.7). 상태를 바꾸는 일(인내심·관계 증감 적용, 제안 기록)은 M5b의 `placement.js`가 맡고, 여기서는 "얼마를 바꿔야 하는지"를 값으로만 돌려준다.
 
 - **함수**: `priceFloor`(7.1 F_r와 항별 내역) · `maxShare`(가용 라인 상한) · `respond`(7.2 응답) · `priceHint`(정성 힌트) · `bluffChance`(7.3 허세 탐지 확률) · `evaluatePackage`(7.5 고객 평가) · `manageExpectation`(7.6).
-- **N의 입력**: `신규재보험사`(만기 패널에 없던 곳) · `넓은 조건` · `당해 대손실`(불리언) · `prep_quality`. 사고 이벤트로 y₀에 더할 손해율(`lr_extra`)은 `당해 대손실`과 별개의 입력이다. 이벤트(M6)가 둘을 함께 켤지 정한다.
+- **N의 입력**: `신규재보험사`(만기 패널에 없던 곳) · `넓은 조건` · `당해 대손실`(불리언) · `prep_quality`. 사고 이벤트로 y₀에 더할 손해율(`lr_extra`)은 `당해 대손실`과 별개의 입력이다. 이벤트가 둘을 함께 켤지는 M6b에서 정한다(§8.2).
 - **레버**: 번들 약속 수(`A_bundle`), 진실한 경쟁 견적(`F −= min(2, 0.5 × (F − q))`), 구조 옵션 `f_adj`는 `priceFloor` 입력으로 반영된다. 허세 견적은 탐지 확률만 계산하고, 주사위는 호출자가 굴려 `roll`로 넘긴다. 관계 호의 사용(인내심 +1)은 상태 변경이라 M5에서 한다.
 - **시드 노이즈**: `respond`는 호출자가 준 `noise ∈ [−1, 1]`에 `noise_pp`(0.3)를 곱해 F_r에 더한다. 시험대는 (세이브 시드, 트리티, 재보험사, 제안값)의 해시로 노이즈를 뽑아서 같은 제안이면 같은 답이 나온다.
 - **정성 힌트**: `err_pp = 6 × (1 − s_price/100)`의 폭만큼 흔들린 격차(해시 고정)를 보고, 격차 ≥ 0이면 "받아줄 분위기", ≥ −`hint_near_pp`(2.0)이면 "근접", 그 아래면 "눈높이가 멀다"로 말한다. 스카우트 값이 낮을수록 폭이 커서 틀리기 쉽다.
@@ -634,6 +640,28 @@ U = Σ w_k × score_k − structure_cut
 각 이벤트는 (a) 즉시 효과(`effects_on_fire`), (b) 메일(`mail`) 속 **선택지**와 선택지별 효과, (c) 후속 예약(`followups`)으로 구성한다. 위기 대응 선택지는 해당 고객·재보험사의 **스카우트 값(특히 충성도)** 을 올리는 기회이기도 하다. 조건 타입은 닫힌 집합: `turn_between`, `quarter_is`, `market_gte`, `market_lte`, `flag_set`, `flag_absent`, `relationship_lt`, `relationship_gte`.
 
 > #8의 BOR 레터는 **고객이 경쟁 브로커로 옮겨가려는 사건**이다. 플레이어가 경쟁사로 이직하는 오퍼와는 별개이며 후자는 2차(§13).
+
+### 8.1 판정 규칙 (M6a)
+
+- **창구 판정**: `trigger.window`가 있는 이벤트는 창구가 시작되는 턴(`from_turn`)에 **딱 한 번** 판정한다. 시드 RNG에서 난수 둘을 뽑아, 첫째가 `prob` 미만이면 발생, 둘째로 발생 턴을 창구 안(`from_turn`~`to_turn`)에서 고르게 정한다. 발생하기로 한 이벤트는 예약 큐(`scheduled`)에 `{ turn, kind: "event", ref }`로 들어간다. `prob`이 1이어도 난수는 항상 둘 쓴다(확률만 바꿨을 때 이후 난수 흐름이 같게 하려고).
+- **발생 턴의 조건 확인**: 예약 큐에서 이벤트를 꺼낼 때 `conditions`를 다시 확인하고, 하나라도 거짓이거나 `once`인데 이미 발생했으면 조용히 버린다. 그래서 "M ≥ 62일 때 0.5"(#7)는 창구가 열릴 때 절반으로 뽑힌 뒤 발생 턴에 M이 62 미만이면 일어나지 않는다.
+- **창구 없는 이벤트**는 후속 예약(`followups`)이나 효과 `event_schedule`로만 일어난다. 예약에 `prob`이 있으면 꺼낼 때 한 번 굴린다. 후속 예약의 `delay_weeks`는 발생 턴 기준이다.
+- **발생 처리**: `fired_events`에 기록 → `effects_on_fire` 적용 → 메일(`mail`)을 같은 턴에 도착시킴 → 후속 예약 등록 순서다. Continue는 이벤트가 발생한 턴에 멈춘다(§2.1).
+- **조건 8종**(§8 본문의 닫힌 집합)을 모두 지원한다. 모양은 `turn_between { from, to }`, `quarter_is { quarter }`, `market_gte`·`market_lte { value }`, `flag_set`·`flag_absent { flag }`, `relationship_lt`·`relationship_gte { target: "client:<id>" | "reinsurer:<id>", value }`.
+- **옛 세이브**: 이 규칙은 창구 시작 턴에만 판정하므로, 이미 창구가 지난 턴의 세이브(v5)를 불러오면 지난 창구의 이벤트는 일어나지 않고 다음 창구부터 판정한다.
+
+### 8.2 M6a / M6b 분담
+
+M5처럼 M6도 둘로 나눈다. 나누는 기준은 "이벤트가 **새로운 규칙 장치**를 필요로 하는가"다.
+
+| 단계 | 이벤트 | 필요한 장치 |
+|---|---|---|
+| **M6a** (이번) | #3 글로벌 Cat 하드닝, #4 주롱섬 폭발, #6 말라카 충돌, #7 자본 유입, #9 몬순 홍수, #10 현지 출재 확대 | 이벤트 판정·예약(§8.1), 시장 사이클(§3), 효과 `event_schedule`, 메일 선택지의 `client:`·`reinsurer:` 대상. 모두 기존 장치(시장 지수·관계도·스카우트 값·플래그·메일)만으로 표현된다 |
+| **M6b** (다음) | #1 MAS 점검, #2 샤리아 상한 변경, #5 등급 강등, #8 BOR 레터, 그리고 #3·#4·#6의 남은 효과(용량 보정, 트리티 손해율, 항만 라인 축소) | 재보험사 등급·용량을 이벤트가 덮어쓰는 장치(`modifier_add`, 세이브에 덮어쓴 값), 고객 요구 조건(샤리아 상한) 덮어쓰기, `treaty:` 효과 대상, 점수에 따른 결과 분기와 과태료(재무와 닿음), 관계도 조건으로 고객을 고르는 이벤트 |
+
+- 이 분담 때문에 **"Q2 연쇄가 1/7에 영향"(M6 완료 기준)은 M6b에서 완성된다.** M6a만으로도 #3(M +14)과 #4(M +4)가 시장 지수를 올려 1/7 시즌(스트레이츠 포트)의 가격 하한과 가용 라인이 빡빡해지지만, 템스 키 강등으로 패널을 바꿔야 하는 압박은 #5와 함께 M6b에 온다.
+- M6a에서 #4의 후속 예약(#5)은 비워 둔다. #5가 데이터에 들어올 때 `followups`를 채운다.
+- M6a의 이벤트는 트리티 손해율(`y₀`)과 `lr_extra`를 건드리지 않는다. 1년짜리 v1에서는 이미 확정된 트리티의 손해율이 협상에 쓰일 곳이 없어서(§14 13번), 쓰임이 생기는 M6b에서 `big_loss`와 함께 정한다(§7.8).
 
 ---
 
@@ -769,7 +797,7 @@ U = Σ w_k × score_k − structure_cut
   "id": "evt_jurong_explosion",
   "category": "loss",                         // loss | regulatory | market | competition | sea
   "trigger": {
-    "window": { "from_turn": 22, "to_turn": 28 },
+    "window": { "from_turn": 22, "to_turn": 28 },   // 생략하면 후속 예약·event_schedule로만 일어난다(§8.1)
     "prob": 0.6,
     "once": true,
     "conditions": [ { "type": "flag_absent", "flag": "jurong_loss" } ]
@@ -785,6 +813,7 @@ U = Σ w_k × score_k − structure_cut
   ]
 }
 ```
+**M6a 로더 검증**: id(`evt_` 접두어, 중복 금지), `category`, 창구(`from_turn` ≤ `to_turn`, 1~총 턴), `prob`(0~1), 조건 8종의 모양, 효과(§10.8), `mail`이 `mails.json`에 있는지(그 메일에 `schedule`이 없어야 한다 — 이벤트 메일은 이벤트가 보낸다), `followups[].event`가 `events.json`에 있는지를 본다. 위 예시의 `treaty:` 대상과 `evt_reinsurer_downgrade`는 M6b에서 생기므로, M6a의 `events.json`에는 쓰지 않는다.
 
 ### 10.5 메일 `data/mails.json`
 ```jsonc
@@ -828,7 +857,12 @@ U = Σ w_k × score_k − structure_cut
 - 치환 변수는 M1에서 `{market.label}`, `{turn.label}`, `{player.firm}`만 쓴다.
 - 인스턴스(세이브)는 `{ id, template, turn, deadline_turn, read, answered, auto, thread }`. 마감 턴 `deadline_turn = 도착 턴 + deadline_weeks`는 **답할 수 있는 마지막 턴**이다. 마감 없는 메일은 `null`.
 
-**M1 효과(§10.8) 지원 범위**: `add` · `set` · `mul` · `flag_set` · `flag_clear` · `mail_send` · `cash`. `event_schedule`(M6)과 `modifier_add`는 해당 단계에서 추가하며, 그 전에 데이터에 쓰면 로더가 오류로 알려 준다. M1에서 `target`은 `player`와 `market`만 쓴다(`player` 필드: `reputation` `compliance` `board_confidence` `market_intel`, `market` 필드: `index`).
+**M6a에서 추가된 항목**
+- 이벤트 메일(`type: "event"`)과 시장 분위기 전환 메일(`type: "market_report"`)이 `schedule` 없이 엔진에 의해 도착한다. 두 종류 모두 `from.kind`는 자유(고객·재보험사·시장 등)다.
+- 선택지 효과의 `target`에 `client:<id>`·`reinsurer:<id>`를 쓸 수 있다. 필드는 `relationship`과 `scout.conservatism`·`scout.price_sensitivity`·`scout.loyalty`뿐이고, id가 실제 있는지는 로더가 본다. 숨은 속성의 **원값**은 메일 문구·결과 문구 어디에도 쓰지 않는다(효과로 올리기만 한다).
+- 메일 문구는 숫자(지수·% 같은 값)와 숨은 속성 이름(보수성·가격 민감도·충성도)을 쓰지 않는다. 사람의 말투로 상황만 전한다.
+
+**M1 효과(§10.8) 지원 범위**: `add` · `set` · `mul` · `flag_set` · `flag_clear` · `mail_send` · `cash`. `event_schedule`은 M6a에서, `modifier_add`는 M6b에서 추가하며, 그 전에 데이터에 쓰면 로더가 오류로 알려 준다. M1에서 `target`은 `player`와 `market`만 쓴다(`player` 필드: `reputation` `compliance` `board_confidence` `market_intel`, `market` 필드: `index`).
 
 ### 10.6 용어집 `data/glossary.json`
 ```jsonc
@@ -864,7 +898,10 @@ U = Σ w_k × score_k − structure_cut
   "market": { "intel_error_k": 12,
               "labels": [ { "max": 25, "label_ko": "매우 소프트" }, { "max": 40, "label_ko": "소프트" },
                           { "max": 60, "label_ko": "중립" }, { "max": 75, "label_ko": "하드" },
-                          { "max": 100, "label_ko": "매우 하드" } ] },
+                          { "max": 100, "label_ko": "매우 하드" } ],
+              "cycle": { "center": 50, "revert": 0.15, "noise_sd": 2 },                    // M6a: 분기 드리프트(§3)
+              "family": { "soft_max": 40, "hard_min": 61,                                  // M6a: 분위기 전환 메일(§3)
+                          "mails": { "soft": "mail_market_shift_soft", "neutral": "mail_market_shift_neutral", "hard": "mail_market_shift_hard" } } },
   "scouting": { "meeting_ap": 2, "meeting_focus_gain": 16, "meeting_other_gain": 5, "damping_divisor": 120,
                 "meeting_relationship_gain": 4, "relationship_damping": 130,
                 "stage_thresholds": { "blurred": 15, "sharp": 45, "exact": 85 }, "err_k": 30,
@@ -954,7 +991,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
 | `modifier_add` | `target`, `field`, `mult?`, `add?`, `duration_weeks` | 기간 한정 보정 |
 | `cash` | `value` | 현금 증감(USD m) |
 
-`target` 문법: `player` · `market` · `client:<id>` · `reinsurer:<id>` · `treaty:<id>`. `field`는 점 표기 경로(`scout.loyalty`, `loss_ratio_hist.2`). **M5b부터** `client:<id>`·`reinsurer:<id>`가 `add`/`set`/`mul`에서 동작한다(세이브의 `entities` 값을 고치고 범위 0~100 또는 `min`/`max`로 자른다). `treaty:<id>`는 아직 없다.
+`target` 문법: `player` · `market` · `client:<id>` · `reinsurer:<id>` · `treaty:<id>`. `field`는 점 표기 경로(`scout.loyalty`, `loss_ratio_hist.2`). **M5b부터** `client:<id>`·`reinsurer:<id>`가 `add`/`set`/`mul`에서 동작한다(세이브의 `entities` 값을 고치고 범위 0~100 또는 `min`/`max`로 자른다). **M6a부터** 메일·이벤트 데이터에서도 이 대상을 쓸 수 있고(로더가 id와 필드를 검증한다), `event_schedule`이 동작한다: 예약 큐에 `{ turn: 지금 + delay_weeks, kind: "event", ref: event, prob? }`를 넣고, 발생 판정(조건·`once`·`prob`)은 꺼낼 때 한다(§8.1). `treaty:<id>`와 `modifier_add`는 아직 없다(M6b).
 
 ### 10.9 세이브 상태 `localStorage`
 
@@ -967,7 +1004,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
   "turn": 12, "ap": 6,
   "player": { "firm": "Marina Bay Re Brokers", "cash_usd_m": 0.74, "reputation": 52,
               "compliance": 70, "board_confidence": 60, "market_intel": 20, "flags": ["jurong_loss"] },
-  "market": { "index": 41.2 },
+  "market": { "index": 41.2, "band": "neutral" },     // band = 마지막으로 알린 분위기 묶음(soft | neutral | hard), M6a
   "entities": {                               // 동적 상태만 저장
     "clients": { "cli_jurong_crest": {
         "relationship": 58, "meetings": 2, "notes": "",
@@ -987,13 +1024,14 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
       "final_rc": null, "obligations": [] } },
   "mails": [ { "id": "m_0001", "template": "mail_renewal_kickoff_c1", "turn": 1, "read": true,
                "answered": "assist", "thread": "t_01" } ],
-  "scheduled": [ { "turn": 15, "kind": "event", "ref": "evt_reinsurer_downgrade" } ],
+  "scheduled": [ { "turn": 15, "kind": "event", "ref": "evt_reinsurer_downgrade", "prob": 0.7 } ],     // kind: mail | event. prob은 이벤트 예약에만, 꺼낼 때 한 번 굴린다
   "fired_events": ["evt_mas_inspection"],
   "modifiers": [],
   "log": []
 }
 ```
 - `version` 불일치 시 `store.js`의 마이그레이션 체인(`migrate_1_to_2` …)을 거친다. 마이그레이션 없이 구조를 바꾸지 않는다.
+- **세이브 v6** (시장 사이클·이벤트, M6a): `market.band`를 더했다. `5→6` 변환은 저장된 `market.index`로 묶음을 계산해 채운다(그 시점의 분위기는 이미 알린 것으로 본다). 예약 큐 항목에는 `kind: "event"`와 선택 필드 `prob`이 새로 올 수 있고(`fired_events`는 그대로), 옛 세이브는 그대로 읽는다. 세이브에는 이벤트의 정적 내용을 넣지 않고 id만 둔다.
 - **세이브 v5** (반제 유효 기간): 패널 행마다 `counter_until`(반제를 쓸 수 있는 마지막 턴, 반제 상태가 아니면 `null`)을 더했다. `4→5` 변환은 반제 상태(`countered`) 행에는 저장된 `turn`을 `counter_until`로 넣고(옛 세이브의 반제는 그 주까지 유효), 나머지 행에는 `null`을 채운다. 협상 로그 항목의 `mode`에 `counter_expired`가 새로 생기며 옛 항목은 그대로 읽는다.
 - **세이브 v4** (이유 한 줄): 트리티에 `verdict_reason`(`price`·`security`·`continuity`·`terms`·`service`·`structure` 중 하나 또는 `null`)을 더했다. 고객 반응을 받을 때 채워지고, 문구는 `clients.json`에서 찾는다. `3→4` 변환은 모든 트리티에 `verdict_reason: null`을 채운다.
 - **M5b: 세이브 v3.** v2의 `treaties`는 비어 있었다. v3부터 새 게임이 시작될 때 트리티마다 `{ phase: "open", prep_quality: 0, target_rc, terms: 선호 조건, structure_option: "", panel: [], retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, final_rc: null, obligations: [] }`를 채운다. `phase`는 `open`(협상 중) → `placed`(고객이 수락해 확정). 재보험사의 `patience`는 `{ 트리티id: 남은 횟수 }`이고, 항목이 없으면 `patience_start`로 본다. `2→3` 변환은 v2 세이브에 빠진 트리티 상태만 같은 방식으로 채우고 나머지는 그대로 둔다.
@@ -1075,7 +1113,8 @@ reinsurance-broker-sim/
 | M4 | 협상 엔진(순수 함수) + `tests/` (+ 임시 시험대 화면 §6.8, 트리티 데이터) | §7.7 예시 수치 재현 |
 | M5a | **라인 구성 보드: 화면** — 100% 막대, 재보험사별 지분(5% 단위), 만기 고스트, 경고 칩, 의견 묻기·시험 제안(시험대와 같은 계산). 세이브·AP·관계도를 바꾸지 않는다 | 막대를 100%로 채울 수 있고, 제약 위반이 칩으로 보이며, 100% 미만이면 제출 버튼이 막힘 |
 | M5b | **라인 구성 보드: 제출·반영** — 제안 1 AP 차감, 인내심·관계도 반영, 수락 지분 확정과 저장(세이브 version↑), 고객에게 제출·고객 반응(§7.5), 시험대 삭제 | 1/1 시즌을 막대 100% 채우기로 끝까지 플레이 |
-| M6 | 이벤트 10개, 시장 사이클, 연쇄 | Q2 연쇄가 1/7에 영향 |
+| M6a | **이벤트 판정·시장 사이클** — 창구 판정·예약(§8.1), 분기 드리프트와 분위기 전환 메일(§3), 기존 장치로 되는 이벤트 6개(#3 #4 #6 #7 #9 #10), 이벤트 메일, 세이브 v6 | 시드가 같으면 같은 해에 같은 이벤트가 터지고, 시장이 하드/소프트로 바뀌면 협상 계산(가격 하한·가용 라인)이 달라짐 |
+| M6b | **규칙을 바꾸는 이벤트와 연쇄** — #1 #2 #5 #8, 등급·용량 덮어쓰기, `treaty:` 대상, 샤리아 상한 변경 | Q2 연쇄가 1/7에 영향 |
 | M7 | 재무, 순위표, 시즌·연말 리뷰, 이사회 | 한 해 완주 후 등급 산출 |
 | M8 | 밸런싱, 문구, 접근성 | 3회 플레이 모두 완주 가능하고 결과가 갈림 |
 
@@ -1125,3 +1164,6 @@ v1에서는 구현하지 않으며, 여기서는 항목만 정리한다.
 10. **(M5b에서 남김, 해결) 구조 옵션의 고객 감점**: `structure_options[].client_cons_penalty`를 `U`에서 직접 빼기로 했다(`structure_k × 보수성/100 × penalty`, §7.5). 담보 점수에 섞지 않은 이유는 감점이 어디서 왔는지 이유 한 줄("구조가 달라서 불안")로 따로 말해 주기 위해서다. 계수 `structure_k`(2.5)는 플레이 후 조정한다.
 11. **(M5b에서 남김, 일부 해결) 반제·재협상의 정보량**: 고객 반응에 이유 한 줄을 붙였다(§6.3, §7.5 "이유 고르기"). 이유는 실제 계산에서 고르므로 무엇을 고쳐야 하는지 알 수 있다. 다만 이유는 스카우트 값과 무관하게 항상 정확하다. 스카우트 값에 비례해 흐려지는 고객 기분 게이지(§7.5 끝)와, 인내심을 되살리는 관계 호의 레버(§7.3)는 아직 없다.
 12. **(마감 압박에서 남김) 반제 유효 기간의 길이**: 지금은 "그 주까지"(`counter_valid_weeks`=1)다. 같은 주에 AP가 남아 있으면 반제를 받고 고민할 시간이 있지만, 여러 주에 걸친 협상에서는 주를 넘길 때마다 반제가 사라져 AP를 다시 써야 한다. 너무 가혹한지는 플레이 후 `counter_valid_weeks`와 `urgent_weeks`로 조정한다. 사라진 반제 때문에 인내심을 깎는 안, 응답 대기(몇 주 뒤에 답이 오는 방식)는 만들지 않았다.
+13. **(M6a에서 남김) 이벤트가 트리티 손해율을 건드리지 않는다**: #4·#6·#9의 "손해율 가산"은 M6b로 미뤘다. v1은 첫 해만 다루므로 이미 확정된 트리티의 손해율은 쓰이지 않고(#4는 C1의 1/1 시즌이 이미 끝난 뒤에 일어난다), M6a에서는 관계 시험과 시장 지수만 반영한다. 다음 해 갱신(2차 확장)이나 M6b의 `treaty:` 대상이 생기면 다시 정한다.
+14. **(M6a에서 남김) 조건부 이벤트가 안 터질 수 있다**: #7(자본 유입)은 발생 턴에 `M ≥ 62`여야 한다. 평균 회귀 때문에 #3·#4가 모두 터지지 않으면 M이 62까지 오르지 않아 일어나지 않는다. 설계 의도("하드마켓의 자기 교정")이지만 한 해에 한 번도 못 볼 수 있다. 빈도는 플레이 후 `prob`·창구로 조정한다(수치는 `data/events.json`).
+15. **(M6a에서 남김) 사건 메일의 선택지 수치**: 관계도·스카우트 값 증감은 초안이다. 위기 대응의 보상이 AP 비용에 비해 적절한지는 플레이 후 `data/mails.json`에서 조정한다.
