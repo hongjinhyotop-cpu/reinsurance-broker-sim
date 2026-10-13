@@ -17,7 +17,7 @@
 index.html            진입점
 docs/design.md        설계 문서
 css/                  base.css(토큰·셸), screens.css
-js/                   main, loader, store, rng, calendar, market, negotiation, reveal,
+js/                   main, loader, store, rng, calendar, market, negotiation, placement, reveal,
                       scouting, glossary, anki, effects, events, mail, turn, finance, rivals
 js/ui/                components, shell, start, settings, inbox, database,
                       placement_view, glossary_view, calendar_view, standings, review
