@@ -8,7 +8,7 @@ import { h, toast } from './components.js';
 import { richText } from './glossary_view.js';
 
 const PRIORITY_LABEL = { urgent: '긴급', normal: '일반', low: '참고' };
-const FROM_KIND_LABEL = { client: '고객', reinsurer: '재보험사', regulator: '규제', market: '시장', board: '이사회', system: '시스템' };
+const FROM_KIND_LABEL = { client: '고객', reinsurer: '재보험사', regulator: '규제', market: '시장', board: '이사회', system: '시스템', mentor: '선배' };
 
 // 화면이 다시 그려져도 고른 메일·필터가 남도록 모듈에 둔다. 게임이 바뀌면(generation) 비운다.
 let uiGeneration = -1;

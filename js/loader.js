@@ -83,6 +83,13 @@ export function validateConfig(cfg, file = 'config.json') {
     c.int(cfg.turn.deadline_warning_weeks, 'turn.deadline_warning_weeks', 0, 10);
   }
 
+  // 길잡이(design.md §6.0.1, §6.3)
+  if (c.object(cfg.guide, 'guide')) {
+    c.int(cfg.guide.scout_min_meetings, 'guide.scout_min_meetings', 0, 99);
+    c.num(cfg.guide.counter_close_pp, 'guide.counter_close_pp', 0, 20);
+    c.int(cfg.guide.careful_patience, 'guide.careful_patience', 0, 9);
+  }
+
   if (c.object(cfg.scouting, 'scouting')) {
     const sc = cfg.scouting;
     c.int(sc.meeting_ap, 'scouting.meeting_ap', 0, 6);
@@ -274,8 +281,8 @@ export function validateCalendar(cal, file = 'calendar.json') {
 
 // ---------- 메일 (design.md §10.5, §10.8) ----------
 
-export const MAIL_TYPES = ['client_request', 'reinsurer_response', 'event', 'regulatory', 'market_report', 'board', 'system'];
-export const MAIL_FROM_KINDS = ['client', 'reinsurer', 'regulator', 'market', 'board', 'system'];
+export const MAIL_TYPES = ['client_request', 'reinsurer_response', 'event', 'regulatory', 'market_report', 'board', 'system', 'mentor'];
+export const MAIL_FROM_KINDS = ['client', 'reinsurer', 'regulator', 'market', 'board', 'system', 'mentor'];
 export const MAIL_PRIORITIES = ['urgent', 'normal', 'low'];
 // M1에서 쓸 수 있는 치환 변수. {client.*} 등은 해당 데이터가 생기는 마일스톤에서 추가한다.
 export const MAIL_VARS = ['market.label', 'turn.label', 'player.firm'];

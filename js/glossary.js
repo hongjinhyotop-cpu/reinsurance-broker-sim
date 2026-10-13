@@ -14,7 +14,7 @@ export const APPEARS_KO = { inbox: '인박스 메일', database: '고객·재보
 // UI에서 glossaryLink('gl_…')를 새로 쓰면 여기에도 적는다(테스트가 존재 여부를 검사한다).
 export const UI_TERM_IDS = [
   'gl_rate_change', 'gl_line', 'gl_panel', 'gl_inception', 'gl_treaty', 'gl_single_share', 'gl_rating', 'gl_capacity',
-  'gl_shariah', 'gl_ap', 'gl_cedant', 'gl_reinsurer', 'gl_retention', 'gl_xol', 'gl_quota_share', 'gl_counter_offer',
+  'gl_shariah', 'gl_ap', 'gl_cedant', 'gl_reinsurer', 'gl_retention', 'gl_xol', 'gl_quota_share', 'gl_counter_offer', 'gl_renewal',
 ];
 
 // ---------- [[id|표시문구]] 파싱 ----------
