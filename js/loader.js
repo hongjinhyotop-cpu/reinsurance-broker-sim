@@ -154,6 +154,13 @@ export function validateConfig(cfg, file = 'config.json') {
     }
   }
 
+  if (c.object(cfg.season, 'season') && c.object(cfg.season.gap, 'season.gap')) {
+    const g = cfg.season.gap; // 인셉션 다음 주 공백 벌칙(design.md §8.3 ⑤)
+    c.num(g.relationship, 'season.gap.relationship', -100, 0);
+    c.num(g.reputation, 'season.gap.reputation', -100, 0);
+    c.num(g.board_confidence, 'season.gap.board_confidence', -100, 0);
+    c.str(g.mail, 'season.gap.mail', 80);
+  }
   if (c.object(cfg.negotiation, 'negotiation')) validateNegotiation(c, cfg.negotiation);
   return errors;
 }
@@ -287,8 +294,8 @@ export const MAIL_PRIORITIES = ['urgent', 'normal', 'low'];
 // M1에서 쓸 수 있는 치환 변수. {client.*} 등은 해당 데이터가 생기는 마일스톤에서 추가한다.
 export const MAIL_VARS = ['market.label', 'turn.label', 'player.firm'];
 // 효과 연산자: 닫힌 집합(§10.8). 아직 구현하지 않은 연산자는 별도로 안내한다.
-export const EFFECT_OPS = ['add', 'set', 'mul', 'flag_set', 'flag_clear', 'mail_send', 'cash', 'event_schedule'];
-const LATER_OPS = { modifier_add: 'M6b' };
+export const EFFECT_OPS = ['add', 'set', 'mul', 'flag_set', 'flag_clear', 'mail_send', 'cash', 'event_schedule', 'modifier_add'];
+const LATER_OPS = {};
 // 효과가 닿을 수 있는 곳. player / market 은 수치 필드, client:<id> / reinsurer:<id> 는 관계도와 스카우트 값(M6a부터 데이터에서도 가능).
 export const EFFECT_FIELDS = {
   player: ['reputation', 'compliance', 'board_confidence', 'market_intel'],
@@ -296,6 +303,9 @@ export const EFFECT_FIELDS = {
 };
 const ENTITY_TARGET_RE = /^(client|reinsurer):([a-z][a-z0-9_]*)$/;
 const ENTITY_FIELD_RE = /^(relationship|scout\.(conservatism|price_sensitivity|loyalty))$/;
+const TREATY_TARGET_RE = /^treaty:(trt_[a-z0-9_]+)$/;
+const TREATY_FIELDS = ['lr_extra', 'big_loss', 'structure_option', 'phase'];
+const MODIFIER_FIELD_RE = /^(capacity(\.(property_energy|marine_cargo|takaful_general))?|max_single_share|price_floor)$/;
 const ID_RE = /^[a-z][a-z0-9_]*$/;
 
 // 용어 마크업 [[id|문구]] 검사. 짝이 안 맞거나 모르는 용어 id면 막는다(terms가 Set일 때만 id 존재를 본다).
@@ -336,7 +346,28 @@ function validateEffects(c, effects, path, mailIds) {
       c.fail(`${p}.op`, `알 수 없는 연산자예요(${EFFECT_OPS.join(' / ')} 중 하나)`, ef.op);
       return;
     }
-    if (ef.op === 'add' || ef.op === 'set' || ef.op === 'mul') {
+    if (ef.op === 'modifier_add') {
+      // 기간 한정 보정(design.md §8.3 ①): 재보험사만 대상이고 필드는 닫힌 집합이다.
+      if (typeof ef.target !== 'string' || !/^reinsurer:[a-z][a-z0-9_]*$/.test(ef.target)) c.fail(`${p}.target`, 'reinsurer:<id>여야 해요', ef.target);
+      if (!MODIFIER_FIELD_RE.test(String(ef.field))) c.fail(`${p}.field`, 'capacity · capacity.<라인> · max_single_share · price_floor 중 하나여야 해요', ef.field);
+      if (ef.mult === undefined && ef.add === undefined) c.fail(`${p}.mult`, 'mult와 add 중 하나는 있어야 해요');
+      if (ef.mult !== undefined) c.num(ef.mult, `${p}.mult`, 0, 10);
+      if (ef.add !== undefined) c.num(ef.add, `${p}.add`, -1000, 1000);
+      if ((ef.field === 'max_single_share' || ef.field === 'price_floor') && ef.mult !== undefined) c.fail(`${p}.mult`, `${ef.field}는 add만 쓸 수 있어요`, ef.mult);
+      c.int(ef.duration_weeks, `${p}.duration_weeks`, 1, 60);
+    } else if ((ef.op === 'add' || ef.op === 'set' || ef.op === 'mul') && typeof ef.target === 'string' && TREATY_TARGET_RE.test(ef.target)) {
+      // 트리티 대상(design.md §8.3 ②)
+      if (!TREATY_FIELDS.includes(ef.field)) c.fail(`${p}.field`, `트리티에서 쓸 수 있는 필드는 ${TREATY_FIELDS.join(' / ')}예요`, ef.field);
+      else if (ef.field === 'lr_extra') c.num(ef.value, `${p}.value`, 0, 100);
+      else if (ef.op !== 'set') c.fail(`${p}.op`, `${ef.field}는 set만 쓸 수 있어요`, ef.op);
+      else if (ef.field === 'big_loss' && typeof ef.value !== 'boolean') c.fail(`${p}.value`, 'true 또는 false여야 해요', ef.value);
+      else if (ef.field === 'structure_option' && typeof ef.value !== 'string') c.fail(`${p}.value`, '구조 옵션 id(또는 빈 글자)여야 해요', ef.value);
+      else if (ef.field === 'phase' && ef.value !== 'lost') c.fail(`${p}.value`, 'lost만 쓸 수 있어요', ef.value);
+    } else if ((ef.op === 'set') && typeof ef.target === 'string' && /^reinsurer:/.test(ef.target) && ef.field === 'rating') {
+      c.str(ef.value, `${p}.value`, 10); // 덮어쓰는 등급(글자)
+    } else if ((ef.op === 'set') && typeof ef.target === 'string' && /^client:/.test(ef.target) && ef.field === 'requirements.shariah_conventional_cap') {
+      c.num(ef.value, `${p}.value`, 0, 1);
+    } else if (ef.op === 'add' || ef.op === 'set' || ef.op === 'mul') {
       if (typeof ef.target === 'string' && ENTITY_TARGET_RE.test(ef.target)) {
         if (!ENTITY_FIELD_RE.test(String(ef.field))) c.fail(`${p}.field`, `${ef.target.split(':')[0]}에서 쓸 수 있는 필드는 relationship / scout.conservatism / scout.price_sensitivity / scout.loyalty예요`, ef.field);
       } else if (ef.target !== 'player' && ef.target !== 'market') {
@@ -759,6 +790,7 @@ export const EVENT_CATEGORIES = ['loss', 'regulatory', 'market', 'competition', 
 const CONDITION_FIELDS = {
   turn_between: ['from', 'to'], quarter_is: ['quarter'], market_gte: ['value'], market_lte: ['value'],
   flag_set: ['flag'], flag_absent: ['flag'], relationship_lt: ['target', 'value'], relationship_gte: ['target', 'value'],
+  compliance_gte: ['value'], compliance_lt: ['value'],
 };
 
 function validateCondition(c, cond, path, quarterIds, turns) {
@@ -771,6 +803,8 @@ function validateCondition(c, cond, path, quarterIds, turns) {
     if (a && b && cond.from > cond.to) c.fail(`${path}.from`, 'to보다 클 수 없어요', cond.from);
   } else if (cond.type === 'quarter_is') {
     if (c.str(cond.quarter, `${path}.quarter`, 40) && quarterIds && !quarterIds.has(cond.quarter)) c.fail(`${path}.quarter`, 'calendar.json에 없는 분기 id예요', cond.quarter);
+  } else if (cond.type === 'compliance_gte' || cond.type === 'compliance_lt') {
+    c.num(cond.value, `${path}.value`, 0, 100);
   } else if (cond.type === 'market_gte' || cond.type === 'market_lte') {
     c.num(cond.value, `${path}.value`, 0, 100);
   } else if (cond.type === 'flag_set' || cond.type === 'flag_absent') {
@@ -806,14 +840,41 @@ export function validateEvents(list, file = 'events.json', raw = {}) {
         const b = c.int(t.window.to_turn, `${label}.trigger.window.to_turn`, 2, turns);
         if (a && b && t.window.from_turn > t.window.to_turn) c.fail(`${label}.trigger.window.from_turn`, 'to_turn보다 클 수 없어요', t.window.from_turn);
       }
-      c.num(t.prob, `${label}.trigger.prob`, 0, 1);
+      if (t.pick_client !== undefined) {
+        // 고객 고르기(design.md §8.3 ④): 고정 확률(prob) 대신 고객마다 계산한다.
+        if (t.window === undefined) c.fail(`${label}.trigger.pick_client`, '창구(window)가 있는 이벤트에만 쓸 수 있어요');
+        if (c.object(t.pick_client, `${label}.trigger.pick_client`)) {
+          c.num(t.pick_client.base, `${label}.trigger.pick_client.base`, 0, 1);
+          c.num(t.pick_client.relationship_ref, `${label}.trigger.pick_client.relationship_ref`, 0, 100);
+        }
+        if (t.prob !== undefined) c.fail(`${label}.trigger.prob`, 'pick_client가 있으면 prob을 쓰지 않아요', t.prob);
+      } else {
+        c.num(t.prob, `${label}.trigger.prob`, 0, 1);
+      }
       if (t.once !== undefined && typeof t.once !== 'boolean') c.fail(`${label}.trigger.once`, 'true 또는 false여야 해요', t.once);
       if (t.conditions !== undefined && c.array(t.conditions, `${label}.trigger.conditions`)) {
         t.conditions.forEach((cond, j) => validateCondition(c, cond, `${label}.trigger.conditions[${j}]`, quarterIds, turns));
       }
     }
     validateEffects(c, e.effects_on_fire, `${label}.effects_on_fire`, mailIds);
-    c.str(e.mail, `${label}.mail`, 80); // 존재 여부는 validateCross가 본다
+    if (e.mail !== undefined) c.str(e.mail, `${label}.mail`, 80); // 존재 여부는 validateCross가 본다
+    if (e.mails_by_client !== undefined) {
+      if (c.object(e.mails_by_client, `${label}.mails_by_client`)) for (const [cid, mid] of Object.entries(e.mails_by_client)) c.str(mid, `${label}.mails_by_client.${cid}`, 80);
+    }
+    if (e.trigger?.pick_client !== undefined && !isObj(e.mails_by_client)) c.fail(`${label}.mails_by_client`, 'pick_client가 있으면 고객별 메일이 필요해요');
+    if (e.outcomes !== undefined && c.array(e.outcomes, `${label}.outcomes`, 1)) {
+      e.outcomes.forEach((o, j) => {
+        const op = `${label}.outcomes[${j}]`;
+        if (!c.object(o, op)) return;
+        if (c.array(o.conditions ?? [], `${op}.conditions`)) (o.conditions ?? []).forEach((cond, k) => validateCondition(c, cond, `${op}.conditions[${k}]`, quarterIds, turns));
+        validateEffects(c, o.effects, `${op}.effects`, mailIds);
+        c.str(o.mail, `${op}.mail`, 80);
+        const last = j === e.outcomes.length - 1;
+        if (last && (o.conditions ?? []).length > 0) c.fail(`${op}.conditions`, '마지막 결과는 조건이 없어야 해요(어느 것도 안 맞는 경우를 덮어요)');
+        if (!last && (o.conditions ?? []).length === 0) c.fail(`${op}.conditions`, '마지막이 아닌 결과에는 조건이 있어야 해요');
+      });
+    }
+    if (e.mail === undefined && e.mails_by_client === undefined && e.outcomes === undefined) c.fail(`${label}.mail`, 'mail · mails_by_client · outcomes 중 하나는 있어야 해요');
     if (e.followups !== undefined && c.array(e.followups, `${label}.followups`)) {
       e.followups.forEach((f, j) => {
         const fp = `${label}.followups[${j}]`;
@@ -828,7 +889,7 @@ export function validateEvents(list, file = 'events.json', raw = {}) {
 }
 
 // 이벤트·메일 효과가 가리키는 id가 실제로 있는지, 이벤트 메일이 존재하고 고정 도착 메일이 아닌지.
-function validateEventLinks({ config, events, mails, clients, reinsurers }) {
+function validateEventLinks({ config, events, mails, clients, reinsurers, treaties }) {
   const errors = [];
   const c = checker('events.json', errors);
   const mailById = new Map(mails.map((m) => [m.id, m]));
@@ -842,10 +903,17 @@ function validateEventLinks({ config, events, mails, clients, reinsurers }) {
     const known = m[1] === 'client' ? clientIds : reinsurerIds;
     if (clients && reinsurers && !known.has(m[2])) c.fail(path, `${m[1] === 'client' ? 'clients' : 'reinsurers'}.json에 없는 id예요`, target);
   };
+  const treatyIds = new Set((treaties ?? []).map((x) => x.id));
   const checkEffects = (effects, path) => {
     (effects ?? []).forEach((ef, i) => {
       if (!isObj(ef)) return;
       checkTarget(ef.target, `${path}[${i}].target`);
+      const tm = typeof ef.target === 'string' ? TREATY_TARGET_RE.exec(ef.target) : null;
+      if (tm && treaties && !treatyIds.has(tm[1])) c.fail(`${path}[${i}].target`, 'treaties.json에 없는 트리티 id예요', ef.target);
+      if (tm && ef.field === 'structure_option' && ef.value !== '' && treaties) {
+        const opts = treaties.find((x) => x.id === tm[1])?.structure_options ?? [];
+        if (!opts.some((o) => o.id === ef.value)) c.fail(`${path}[${i}].value`, '그 트리티에 없는 구조 옵션 id예요', ef.value);
+      }
       if (ef.op === 'event_schedule' && !eventIds.has(ef.event)) c.fail(`${path}[${i}].event`, 'events.json에 없는 이벤트 id예요', ef.event);
     });
   };
@@ -853,13 +921,24 @@ function validateEventLinks({ config, events, mails, clients, reinsurers }) {
   mails.forEach((m) => (m.choices ?? []).forEach((ch, j) => checkEffects(ch.effects, `mails.json › ${m.id}.choices[${j}].effects`)));
   events.forEach((e) => {
     const label = `${e.id}`;
-    const mail = mailById.get(e.mail);
-    if (!mail) c.fail(`${label}.mail`, 'mails.json에 없는 메일 id예요', e.mail);
-    else if (mail.schedule !== undefined) c.fail(`${label}.mail`, '이벤트 메일은 고정 턴(schedule)에 도착하면 안 돼요(이벤트가 보내요)', e.mail);
+    const checkMail = (id, path) => {
+      const mail = mailById.get(id);
+      if (!mail) c.fail(path, 'mails.json에 없는 메일 id예요', id);
+      else if (mail.schedule !== undefined) c.fail(path, '이벤트 메일은 고정 턴(schedule)에 도착하면 안 돼요(이벤트가 보내요)', id);
+    };
+    if (e.mail !== undefined) checkMail(e.mail, `${label}.mail`);
+    for (const [cid, mid] of Object.entries(e.mails_by_client ?? {})) {
+      if (clients && !clientIds.has(cid)) c.fail(`${label}.mails_by_client.${cid}`, 'clients.json에 없는 고객 id예요', cid);
+      checkMail(mid, `${label}.mails_by_client.${cid}`);
+    }
+    (e.outcomes ?? []).forEach((o, j) => { checkMail(o.mail, `${label}.outcomes[${j}].mail`); checkEffects(o.effects, `${label}.outcomes[${j}].effects`); });
     checkEffects(e.effects_on_fire, `${label}.effects_on_fire`);
     (e.trigger.conditions ?? []).forEach((cond, j) => checkTarget(cond.target, `${label}.trigger.conditions[${j}].target`));
     (e.followups ?? []).forEach((f, j) => { if (!eventIds.has(f.event)) c.fail(`${label}.followups[${j}].event`, 'events.json에 없는 이벤트 id예요', f.event); });
   });
+  const gapMail = mailById.get(config.season?.gap?.mail);
+  if (!gapMail) c.fail('config.json › season.gap.mail', 'mails.json에 없는 메일 id예요', config.season?.gap?.mail);
+  else if (gapMail.schedule !== undefined) c.fail('config.json › season.gap.mail', '공백 알림 메일은 고정 턴(schedule)에 도착하면 안 돼요', gapMail.id);
   for (const band of MARKET_BANDS) {
     const id = config.market.family.mails[band];
     const mail = mailById.get(id);
@@ -880,7 +959,7 @@ export function validateCross({ config, calendar, clients, reinsurers, treaties,
     c.fail('game.start_turn', `calendar.json의 turns(${calendar.turns}) 이하여야 해요`, config.game.start_turn);
   }
   if (treaties && clients && reinsurers) errors.push(...validateTreatyLinks({ treaties, clients, reinsurers, calendar }));
-  if (events && mails && config.market?.family) errors.push(...validateEventLinks({ config, events, mails, clients, reinsurers }));
+  if (events && mails && config.market?.family) errors.push(...validateEventLinks({ config, events, mails, clients, reinsurers, treaties }));
   return errors;
 }
 

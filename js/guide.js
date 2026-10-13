@@ -4,14 +4,15 @@
 // 상대의 속마음에 해당하는 값은 읽지도, 문구에 쓰지도 않는다(테스트가 이 파일에 그런 단어가 없는지 본다).
 
 import { findTemplate, needsReply } from './mail.js';
-import { submitBlockReason, actionBlockReason, counterWeeksLeft } from './placement.js';
+import { submitBlockReason, actionBlockReason, counterWeeksLeft, isClosed, ratingShort, signedCheck } from './placement.js';
+import { liveClient } from './live.js';
 
 const action = (id, text, route = null) => ({ id, text, route });
 
 // 열려 있는(아직 확정 안 된) 트리티 중 지금 시즌 창구 안에 있는 것
 function treatiesInWindow(data, state) {
   return data.treaties.filter((t) => {
-    if (state.treaties[t.id]?.phase === 'placed') return false;
+    if (isClosed(state.treaties[t.id] ?? { phase: 'open' })) return false;
     const s = seasonOf(data, t);
     return s && state.turn >= s.open_turn && state.turn <= s.inception_turn;
   });
@@ -67,15 +68,27 @@ export function nextAction(data, state) {
     if (counterDue) return action('counter_due', '플레이스먼트에서 이번 주까지인 반제를 받을지 정하기', 'placement');
     if (submitBlockReason(data, state, treaty.id) === null) return action('submit', '플레이스먼트에서 패키지를 고객에게 제출하기', 'placement');
     if (ap < Math.min(board.ask_ap, board.propose_ap)) return action('out_of_ap', '행동 점수를 다 썼어요 — Continue로 다음 주로 넘어가기');
+    // M6b: 사건이 규칙을 바꿨다면 그 사실을 알린다(공개 정보만 읽는다 — 등급·상한·패널).
+    const short = ratingShort(data, state, treaty);
+    if (short.length > 0) {
+      return action('swap_panel', `플레이스먼트에서 등급이 낮아진 ${short.map((r) => r.name_ko).join('·')} 대신 다른 재보험사로 지분을 채우기 — 이 고객의 최소 등급에 못 미쳐요`, 'placement');
+    }
+    if (signedCheck(data, state, treaty.id).blockers.includes('shariah_cap')) {
+      return action('over_shariah_cap', '플레이스먼트에서 일반 재보험사 지분을 줄이거나 샤리아 재보험사로 옮기기 — 샤리아 상한을 넘었어요', 'placement');
+    }
     if (ts.panel.length === 0 && ap >= meetingAp && meetingsFor(data, state, treaty) < data.config.guide.scout_min_meetings) {
       return action('scout', '고객·재보험사 DB에서 상대와 미팅하기', 'database');
     }
-    return action('fill', '플레이스먼트에서 지분을 채워 제출하기', 'placement');
+    const client = liveClient(state, data.clients.find((c) => c.id === treaty.client));
+    const cap = client.requirements.shariah_required ? client.requirements.shariah_conventional_cap : null;
+    const staticCap = data.clients.find((c) => c.id === treaty.client).requirements.shariah_conventional_cap;
+    const capNote = cap !== null && cap < staticCap ? ` — 샤리아 상한이 줄어서 일반 재보험사 합은 ${Math.round(cap * 100)}% 이하여야 해요` : '';
+    return action('fill', `플레이스먼트에서 지분을 채워 제출하기${capNote}`, 'placement');
   }
 
   const overdue = data.treaties.some((t) => {
     const s = seasonOf(data, t);
-    return s && state.turn > s.inception_turn && state.treaties[t.id]?.phase !== 'placed';
+    return s && state.turn > s.inception_turn && state.treaties[t.id]?.phase === 'open';
   });
   if (overdue) return action('overdue', '시즌이 지났는데 확정되지 않은 트리티가 있어요 — 플레이스먼트에서 확인하기', 'placement');
 

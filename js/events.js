@@ -1,9 +1,9 @@
 // 이벤트 판정 순수 함수(design.md §8.1). DOM·저장소를 모르고, 난수는 호출자가 시드 RNG에서 뽑아 넘긴다.
 // 상태 변경(발생 기록·효과 적용·예약)은 turn.js가 store.commit 안에서 한다.
 
-export const CONDITION_TYPES = ['turn_between', 'quarter_is', 'market_gte', 'market_lte', 'flag_set', 'flag_absent', 'relationship_lt', 'relationship_gte'];
+export const CONDITION_TYPES = ['turn_between', 'quarter_is', 'market_gte', 'market_lte', 'flag_set', 'flag_absent', 'relationship_lt', 'relationship_gte', 'compliance_gte', 'compliance_lt'];
 
-// view = { turn, quarterId, marketIndex, flags: string[], relationshipOf: (target) => number|null }
+// view = { turn, quarterId, marketIndex, compliance, flags: string[], relationshipOf: (target) => number|null }
 export function conditionMet(cond, view) {
   switch (cond.type) {
     case 'turn_between': return view.turn >= cond.from && view.turn <= cond.to;
@@ -18,6 +18,8 @@ export function conditionMet(cond, view) {
       if (r === null || r === undefined) return false;
       return cond.type === 'relationship_lt' ? r < cond.value : r >= cond.value;
     }
+    case 'compliance_gte': return view.compliance >= cond.value;
+    case 'compliance_lt': return view.compliance < cond.value;
     default: return false;
   }
 }
@@ -41,4 +43,21 @@ export function pickFireTurn(window, u) {
 export function canFire(event, firedIds, view) {
   if (event.trigger.once !== false && firedIds.includes(event.id)) return false;
   return conditionsMet(event.trigger.conditions, view);
+}
+
+// 첫 번째로 조건이 모두 맞는 결과(outcomes, design.md §8.3 ③). 없으면 null.
+export function pickOutcome(outcomes, view) {
+  return (outcomes ?? []).find((o) => conditionsMet(o.conditions, view)) ?? null;
+}
+
+// BOR 같은 "고객 고르기" 이벤트의 한 고객 확률(§8.3 ④). 관계도가 기준 이상이면 후보가 아니라 0.
+// 충성도는 숨은 값이지만 계산에만 쓰고 화면·메일에는 내지 않는다.
+export function pickClientProb(spec, { loyalty, relationship }) {
+  if (relationship >= spec.relationship_ref) return 0;
+  return Math.min(1, Math.max(0, spec.base * (1 - loyalty / 100) * (1 + (spec.relationship_ref - relationship) / 100)));
+}
+
+// 고객 고르기 이벤트가 이 시점에 아직 유효한가(그 사이 관계를 고쳤으면 버려진다).
+export function pickClientStillValid(spec, relationship) {
+  return relationship < spec.relationship_ref;
 }

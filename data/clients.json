@@ -185,7 +185,7 @@
       }
     ],
     "requirements": {
-      "min_rating": "BBB+",
+      "min_rating": "A-",
       "max_single_share": 0.5,
       "preferred_terms": "standard",
       "shariah_required": false,

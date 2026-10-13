@@ -4,7 +4,8 @@
 
 import * as store from './store.js';
 import { applyEffects } from './effects.js';
-import { quoteProposal, evaluateSigned, boardCheck } from './negotiation.js';
+import { quoteProposal, evaluateSigned, boardCheck, ratingScore } from './negotiation.js';
+import { liveReinsurers, liveReinsurer, liveClient } from './live.js';
 
 const HISTORY_MAX = 10;
 const round2 = (x) => Math.round(x * 100) / 100;
@@ -17,6 +18,11 @@ const ceilRc = (x) => Math.ceil(x * 10 - 1e-9) / 10;
 
 export function findTreaty(data, treatyId) {
   return data.treaties.find((t) => t.id === treatyId) ?? null;
+}
+
+// 더 협상할 수 없는 트리티: 고객이 수락했거나(placed), 경쟁 브로커로 옮겨 갔다(lost, M6b).
+export function isClosed(t) {
+  return t.phase !== 'open';
 }
 
 // 인셉션까지 남은 주(1~시즌 창구 길이로 자름). 반제 폭 계산에 쓴다.
@@ -34,7 +40,7 @@ export function patienceOf(data, state, reId, treatyId) {
 
 // 서두름 띠를 띄울지. 반제 폭 규칙(weeks_left/6)이 이미 쓰는 같은 weeksLeft를 보여 줄 뿐이다.
 export function isUrgent(data, state, treaty) {
-  if (state.treaties[treaty.id]?.phase === 'placed') return false;
+  if (state.treaties[treaty.id] && isClosed(state.treaties[treaty.id])) return false;
   return treatyTiming(data, state, treaty).weeksLeft <= data.config.negotiation.board.urgent_weeks;
 }
 
@@ -58,9 +64,9 @@ export function signedShares(state, treatyId) {
 // 확정 지분만으로 본 제약 점검. 제출 가능 여부는 이 결과로 정한다(§7.4).
 export function signedCheck(data, state, treatyId) {
   const treaty = findTreaty(data, treatyId);
-  const client = data.clients.find((c) => c.id === treaty.client);
+  const client = liveClient(state, data.clients.find((c) => c.id === treaty.client));
   const req = client.requirements;
-  const ordered = data.reinsurers.filter((r) => r.capacity_usd_m[treaty.line] > 0 || treaty.expiring.panel.some((m) => m.re === r.id));
+  const ordered = liveReinsurers(state, data.reinsurers).filter((r) => r.capacity_usd_m[treaty.line] > 0 || treaty.expiring.panel.some((m) => m.re === r.id));
   return boardCheck({
     shares: signedShares(state, treatyId),
     members: ordered.map((r) => ({ id: r.id, rating: r.rating, shariahOk: r.shariah_ok, maxSingleShare: r.behavior.max_single_share })),
@@ -80,6 +86,7 @@ export function actionBlockReason(data, state, kind, treatyId, reId, form = null
   const t = state.treaties[treatyId];
   const cfg = data.config.negotiation.board;
   if (t.phase === 'placed') return '이미 고객이 수락해 확정된 트리티예요';
+  if (t.phase === 'lost') return '고객이 경쟁 브로커로 옮겨 가서 더 협상할 수 없어요';
   if (patienceOf(data, state, reId, treatyId) <= 0) return `${reinsurer.name_ko}은(는) 이 트리티에서 더 협상하지 않아요 (인내심이 바닥났어요)`;
   const row = rowOf(state, treatyId, reId);
 
@@ -127,17 +134,17 @@ function pushHistory(t, row, turn, entry) {
 
 function quoteFor(data, state, treatyId, reId, form) {
   const treaty = findTreaty(data, treatyId);
-  const client = data.clients.find((c) => c.id === treaty.client);
-  const reinsurer = data.reinsurers.find((r) => r.id === reId);
+  const client = liveClient(state, data.clients.find((c) => c.id === treaty.client));
+  const reinsurer = liveReinsurer(state, data.reinsurers.find((r) => r.id === reId));
   const t = state.treaties[treatyId];
   const dyn = state.entities.reinsurers[reId];
   const timing = treatyTiming(data, state, treaty);
-  // 이벤트(M6)·번들·자료 준비는 아직 없어서 0이다. prep_quality만 세이브에서 읽는다.
+  // 번들은 아직 없어서 0이다. 사건이 올린 손해율(lr_extra)과 당해 대손실(big_loss, M6b)은 트리티 상태에서 읽는다.
   return quoteProposal({
     treaty, client, reinsurer, relationship: dyn.relationship, scoutPrice: dyn.scout.price_sensitivity, seed: state.seed,
   }, {
     market: Math.round(state.market.index), p: form.rc, sReq: form.share, weeksLeft: timing.weeksLeft, terms: t.terms,
-    structureOption: t.structure_option || null, bundles: 0, lrExtra: 0, bigLoss: false, prepQuality: t.prep_quality,
+    structureOption: t.structure_option || null, bundles: 0, lrExtra: t.lr_extra ?? 0, bigLoss: Boolean(t.big_loss), prepQuality: t.prep_quality,
   }, data.config.negotiation);
 }
 
@@ -285,7 +292,7 @@ export function editRow(treatyId, reId) {
   const state = store.getState();
   const row = rowOf(state, treatyId, reId);
   if (!row || (row.status === 'draft' && row.last === null)) return false;
-  if (state.treaties[treatyId].phase === 'placed') return false;
+  if (isClosed(state.treaties[treatyId])) return false;
   store.commit((s) => { resetRow(rowOf(s, treatyId, reId)); }, { quiet: true });
   return true;
 }
@@ -294,7 +301,7 @@ export function editRow(treatyId, reId) {
 export function setOptions(treatyId, { terms, structureOption }) {
   const state = store.getState();
   const t = state.treaties[treatyId];
-  if (!t || t.phase === 'placed') return false;
+  if (!t || isClosed(t)) return false;
   const nextTerms = terms ?? t.terms;
   const nextOpt = structureOption ?? t.structure_option;
   if (nextTerms === t.terms && nextOpt === t.structure_option) return false;
@@ -313,6 +320,7 @@ export function submitBlockReason(data, state, treatyId) {
   const t = state.treaties[treatyId];
   if (!t) return '없는 트리티예요';
   if (t.phase === 'placed') return '이미 고객이 수락해 확정된 트리티예요';
+  if (t.phase === 'lost') return '고객이 경쟁 브로커로 옮겨 갔어요';
   if (state.turn < t.retry_turn) return `고객이 생각할 시간이 필요해요. 턴 ${t.retry_turn}(다음 주)부터 다시 제출할 수 있어요`;
   const check = signedCheck(data, state, treatyId);
   if (!check.canSubmit) return 'blockers';
@@ -328,11 +336,11 @@ export function submit(treatyId) {
 
   const cfg = data.config.negotiation;
   const treaty = findTreaty(data, treatyId);
-  const client = data.clients.find((c) => c.id === treaty.client);
+  const client = liveClient(state, data.clients.find((c) => c.id === treaty.client));
   const t = state.treaties[treatyId];
   const panel = t.panel.filter((r) => r.status === 'accepted').map((r) => ({ re: r.re, share: r.share_signed, rc: r.rc_req, terms: t.terms }));
   const ev = evaluateSigned({
-    treaty, client, clientRelationship: state.entities.clients[client.id].relationship, reinsurers: data.reinsurers,
+    treaty, client, clientRelationship: state.entities.clients[client.id].relationship, reinsurers: liveReinsurers(state, data.reinsurers),
   }, { market: Math.round(state.market.index), targetRc: t.target_rc, panel, structureOption: t.structure_option || null }, cfg);
   if (ev.verdict === 'invalid') return { ok: false, error: '고객의 조건에 맞지 않는 패키지예요' };
 
@@ -357,4 +365,59 @@ export function submit(treatyId) {
   });
   store.autosave();
   return { ok: true, verdict: ev.verdict, reason: ev.reason, placed, reward };
+}
+
+// ---------- 사건이 규칙을 바꾼 뒤의 정리 (design.md §8.3 ⑤⑥) ----------
+
+// 열린 트리티에서 확정·반제 행의 재보험사가 고객의 최소 등급 아래로 내려갔으면 그 행을 지운다. 지운 { treaty, re } 목록을 돌려준다.
+// 인내심·관계도는 건드리지 않는다. 호출하는 쪽이 store.commit 안에서 부른다.
+export function voidInvalidRows(data, state) {
+  const voided = [];
+  for (const treaty of data.treaties) {
+    const t = state.treaties[treaty.id];
+    if (!t || isClosed(t)) continue;
+    const client = liveClient(state, data.clients.find((c) => c.id === treaty.client));
+    const minScore = ratingScore(client.requirements.min_rating, data.config.negotiation);
+    for (const row of [...t.panel]) {
+      if (row.status !== 'accepted' && row.status !== 'countered') continue;
+      const re = liveReinsurer(state, data.reinsurers.find((r) => r.id === row.re));
+      if (ratingScore(re.rating, data.config.negotiation) >= minScore) continue;
+      t.panel.splice(t.panel.indexOf(row), 1);
+      t.moves += 1;
+      voided.push({ treaty: treaty.id, re: row.re });
+    }
+  }
+  return voided;
+}
+
+// 인셉션 턴이 지난 첫 주에 열린 트리티가 있으면 한 번만 공백 벌칙을 준다. 벌칙을 준 트리티 id 목록을 돌려준다.
+export function applyGap(data, state) {
+  const gap = data.config.season.gap;
+  const hit = [];
+  for (const treaty of data.treaties) {
+    const t = state.treaties[treaty.id];
+    const season = data.calendar.seasons.find((x) => x.id === treaty.season);
+    if (!t || t.phase !== 'open' || t.gap_applied || state.turn !== season.inception_turn + 1) continue;
+    t.gap_applied = true;
+    applyEffects(state, [
+      { op: 'add', target: `client:${treaty.client}`, field: 'relationship', value: gap.relationship },
+      { op: 'add', target: 'player', field: 'reputation', value: gap.reputation },
+      { op: 'add', target: 'player', field: 'board_confidence', value: gap.board_confidence },
+      { op: 'mail_send', mail: gap.mail },
+    ]);
+    hit.push(treaty.id);
+  }
+  return hit;
+}
+
+// 안내띠·보드용: 열린 트리티에서 고객의 최소 등급에 못 미치는데 아직 쓰이고 있는 재보험사(지금 값).
+// "쓰이고 있다" = 저장된 행이 있거나, 패널이 비어 있고 만기 패널에 있음.
+export function ratingShort(data, state, treaty) {
+  const t = state.treaties[treaty.id];
+  const client = liveClient(state, data.clients.find((c) => c.id === treaty.client));
+  const minScore = ratingScore(client.requirements.min_rating, data.config.negotiation);
+  const inPlay = new Set(t.panel.filter((r) => r.share_req > 0 || r.share_signed > 0).map((r) => r.re));
+  if (t.panel.length === 0) for (const m of treaty.expiring.panel) inPlay.add(m.re);
+  return liveReinsurers(state, data.reinsurers)
+    .filter((re) => inPlay.has(re.id) && ratingScore(re.rating, data.config.negotiation) < minScore);
 }

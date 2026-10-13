@@ -5,8 +5,8 @@ import * as store from './store.js';
 import { applyEffects } from './effects.js';
 import { describeTurn, turnLabel, isQuarterStart } from './calendar.js';
 import { describeMarket, driftIndex, gaussian, marketBand } from './market.js';
-import { windowStarters, pickFireTurn, canFire } from './events.js';
-import { expireCounters } from './placement.js';
+import { windowStarters, pickFireTurn, canFire, pickOutcome, pickClientProb, pickClientStillValid } from './events.js';
+import { expireCounters, voidInvalidRows, applyGap } from './placement.js';
 import { TOPICS, applyMeeting, relationshipAfterMeeting, newlyUnlocked } from './scouting.js';
 import {
   fillText, findTemplate, deadlineTurn, scheduledFor, nextMailId, needsReply, choiceBlockReason,
@@ -63,18 +63,27 @@ function eventView(data, state) {
   };
   return {
     turn: state.turn, quarterId: describeTurn(data.calendar, state.turn).quarter.id, marketIndex: state.market.index,
-    flags: state.player.flags, relationshipOf,
+    compliance: state.player.compliance, flags: state.player.flags, relationshipOf,
   };
 }
 
-// 발생 처리: 기록 → 즉시 효과 → 메일 도착 예약(같은 턴) → 후속 예약.
-function fireEvent(state, event) {
+// 발생 처리: 기록 → 즉시 효과 → 결과 분기(M6b) → 메일 도착 예약(같은 턴) → 후속 예약.
+// client: 고객 고르기 이벤트(BOR)의 대상 고객. forceFollowups: 시험대에서 후속 예약의 확률을 건너뛴다.
+export function fireEvent(data, state, event, { client = null, forceFollowups = false } = {}) {
   if (!state.fired_events.includes(event.id)) state.fired_events.push(event.id);
   applyEffects(state, event.effects_on_fire);
-  state.scheduled.push({ turn: state.turn, kind: 'mail', ref: event.mail });
+  const mailIds = [];
+  if (event.mail) mailIds.push(event.mail);
+  if (client && event.mails_by_client?.[client]) mailIds.push(event.mails_by_client[client]);
+  const outcome = pickOutcome(event.outcomes, eventView(data, state));
+  if (outcome) {
+    applyEffects(state, outcome.effects);
+    if (outcome.mail) mailIds.push(outcome.mail);
+  }
+  for (const ref of mailIds) state.scheduled.push({ turn: state.turn, kind: 'mail', ref });
   for (const f of event.followups ?? []) {
     const item = { turn: state.turn + f.delay_weeks, kind: 'event', ref: f.event };
-    if (f.prob !== undefined) item.prob = f.prob;
+    if (f.prob !== undefined && !forceFollowups) item.prob = f.prob;
     state.scheduled.push(item);
   }
 }
@@ -84,6 +93,17 @@ function runEvents(data, state) {
   const events = data.events ?? [];
   const byId = new Map(events.map((e) => [e.id, e]));
   for (const ev of windowStarters(events, state.turn)) {
+    const spec = ev.trigger.pick_client;
+    if (spec) {
+      // 고객 고르기: 데이터 순서대로 고객마다 난수 둘을 항상 쓴다(§8.3 ④).
+      for (const c of data.clients) {
+        const dyn = state.entities.clients[c.id];
+        const hit = store.random() < pickClientProb(spec, { loyalty: c.hidden.loyalty, relationship: dyn.relationship });
+        const pick = store.random();
+        if (hit) state.scheduled.push({ turn: pickFireTurn(ev.trigger.window, pick), kind: 'event', ref: ev.id, client: c.id });
+      }
+      continue;
+    }
     const hit = store.random() < ev.trigger.prob;
     const pick = store.random();
     if (hit) state.scheduled.push({ turn: pickFireTurn(ev.trigger.window, pick), kind: 'event', ref: ev.id });
@@ -99,7 +119,8 @@ function runEvents(data, state) {
       if (!ev) continue;
       if (q.prob !== undefined && !(store.random() < q.prob)) continue;
       if (!canFire(ev, state.fired_events, eventView(data, state))) continue;
-      fireEvent(state, ev);
+      if (q.client && !pickClientStillValid(ev.trigger.pick_client, state.entities.clients[q.client].relationship)) continue;
+      fireEvent(data, state, ev, { client: q.client ?? null });
       fired.push(ev.id);
     }
   }
@@ -145,6 +166,7 @@ export function answer(mailId, choiceId) {
     mail.answered = choiceId;
     mail.read = true;
     applyEffects(s, choice.effects);
+    voidInvalidRows(data, s);
     deliverDue(data, s); // mail_send(지연 0)가 바로 도착하도록
   });
   store.autosave();
@@ -233,16 +255,20 @@ function stepWeek(data, state) {
     autoResolved.push(mail.id);
   }
 
+  state.modifiers = state.modifiers.filter((m) => state.turn < m.until_turn); // 기간이 끝난 보정을 지운다(§2.5 1단계)
   const expiredCounters = expireCounters(state); // 반제는 그 주만 유효하다(§6.3 마감 압박)
   const fired = runEvents(data, state);
+  const voided = voidInvalidRows(data, state); // 등급 강등 등으로 무효가 된 확정 지분(§8.3 ⑥)
+  const gaps = applyGap(data, state); // 인셉션이 지났는데 열린 트리티(§8.3 ⑤)
   stepMarket(data, state);
   const arrived = deliverDue(data, state);
-  return { arrived, autoResolved, expiredCounters, fired };
+  return { arrived, autoResolved, expiredCounters, fired, voided, gaps };
 }
 
 // 멈춰야 하는 이유(없으면 null). 설계 §2.1: 새 메일, 마감 임박, 시즌 단계 전환.
-export function stopReason(data, state, arrived, fired = []) {
+export function stopReason(data, state, arrived, fired = [], gaps = []) {
   if (fired.length > 0) return 'event';
+  if (gaps.length > 0) return 'mail';
   if (arrived.length > 0) return 'mail';
   const warn = data.config.turn.deadline_warning_weeks;
   const near = unansweredMails(data, state).some(({ mail }) => mail.deadline_turn !== null && mail.deadline_turn - state.turn <= warn);
@@ -258,7 +284,7 @@ export function advance() {
   const reason = continueBlockReason(data, store.getState());
   if (reason) return { ok: false, error: reason };
 
-  const summary = { ok: true, fromTurn: store.getState().turn, arrived: [], autoResolved: [], expiredCounters: 0, events: [], stop: null };
+  const summary = { ok: true, fromTurn: store.getState().turn, arrived: [], autoResolved: [], expiredCounters: 0, events: [], voided: [], gaps: [], stop: null };
   store.commit((s) => {
     // 끝없는 반복 방지: 전체 턴 수를 넘길 수 없다.
     for (let guard = 0; guard < data.calendar.turns; guard += 1) {
@@ -267,7 +293,9 @@ export function advance() {
       summary.autoResolved.push(...step.autoResolved);
       summary.expiredCounters += step.expiredCounters;
       summary.events.push(...step.fired);
-      summary.stop = stopReason(data, s, step.arrived, step.fired);
+      summary.voided.push(...step.voided);
+      summary.gaps.push(...step.gaps);
+      summary.stop = stopReason(data, s, step.arrived, step.fired, step.gaps);
       if (summary.stop) break;
     }
   });
@@ -275,4 +303,23 @@ export function advance() {
   const saved = store.autosave();
   if (!saved.ok) summary.saveError = saved.error;
   return summary;
+}
+
+// ---------- 사건 시험대 (연습용, design.md §8.3 ⑧) ----------
+
+// 창구·확률·조건·once를 건너뛰고 사건을 지금 일으킨다. 쓴 게임에는 debug_events_used 플래그가 붙는다.
+export function forceEvent(eventId, { client = null, cascade = false } = {}) {
+  const data = store.getData();
+  const ev = data.events.find((e) => e.id === eventId);
+  if (!ev) return { ok: false, error: '없는 사건이에요' };
+  if (ev.trigger.pick_client && !client) return { ok: false, error: '이 사건은 고객을 골라야 해요' };
+  let voided = [];
+  store.commit((s) => {
+    if (!s.player.flags.includes('debug_events_used')) s.player.flags.push('debug_events_used');
+    fireEvent(data, s, ev, { client, forceFollowups: cascade });
+    voided = voidInvalidRows(data, s);
+    deliverDue(data, s);
+  });
+  store.autosave();
+  return { ok: true, voided };
 }

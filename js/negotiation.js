@@ -56,9 +56,10 @@ export function priceFloor(input, cfg) {
     rel: goodwill(input.relationship, input.loyalty, cfg) / 100 * cfg.rel_k,
     bundle: Math.min(cfg.bundle_max, cfg.bundle_each * (input.bundles ?? 0)),
     structure: input.structureAdj ?? 0,
+    event: input.eventAdj ?? 0, // 사건이 올린 이 재보험사의 가격선(M6b, design.md §7.1 A_event)
     quote: 0,
   };
-  let floor = parts.market + parts.line + parts.loss + parts.cons + parts.terms - parts.rel - parts.bundle + parts.structure;
+  let floor = parts.market + parts.line + parts.loss + parts.cons + parts.terms - parts.rel - parts.bundle + parts.structure + parts.event;
   if (input.quote !== undefined && input.quote !== null) {
     parts.quote = -Math.min(cfg.quote_cap, Math.max(0, cfg.quote_k * (floor - input.quote)));
     floor += parts.quote;
@@ -242,7 +243,7 @@ export function quoteProposal({ treaty, client, reinsurer, relationship, scoutPr
   const floor = priceFloor({
     market: form.market, line, lossHist: treaty.loss_ratio_hist, lrExtra: form.lrExtra, targetLr: reinsurer.target_lr,
     conservatism: reinsurer.hidden.conservatism, loyalty: reinsurer.hidden.loyalty, relationship, terms: form.terms,
-    newReinsurer, bigLoss: form.bigLoss, prepQuality: form.prepQuality, bundles: form.bundles, structureAdj: option?.f_adj ?? 0,
+    newReinsurer, bigLoss: form.bigLoss, prepQuality: form.prepQuality, bundles: form.bundles, structureAdj: option?.f_adj ?? 0, eventAdj: reinsurer.floor_add ?? 0,
   }, cfg);
   const cap = maxShare({
     capacity: reinsurer.capacity_usd_m[line], appetite: reinsurer.appetite[line], marketIndex: form.market,

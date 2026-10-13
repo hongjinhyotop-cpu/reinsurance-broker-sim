@@ -58,6 +58,8 @@ function onContinue() {
   if (res.arrived.length > 0) parts.push(`새 메일 ${res.arrived.length}통`);
   if (res.events.length > 0) parts.push(`사건 ${res.events.length}건`);
   if (res.autoResolved.length > 0) parts.push(`마감이 지나 자동 처리된 메일 ${res.autoResolved.length}통`);
+  if (res.voided.length > 0) parts.push(`등급 강등으로 취소된 확정 지분 ${res.voided.length}건`);
+  if (res.gaps.length > 0) parts.push('계약 공백이 생겼어요(인셉션이 지났는데 확정되지 않은 트리티)');
   if (res.expiredCounters > 0) parts.push(`유효 기간이 지나 사라진 반제 ${res.expiredCounters}건`);
   if (res.stop && STOP_TEXT[res.stop]) parts.push(STOP_TEXT[res.stop]);
   if (res.toTurn - res.fromTurn > 1) parts.splice(1, 0, `${res.toTurn - res.fromTurn}주를 건너뛰었어요`);

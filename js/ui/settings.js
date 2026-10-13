@@ -5,6 +5,7 @@ import * as store from '../store.js';
 import { getCodex, progressOf, resetCodex } from '../glossary.js';
 import { describeTurn, turnLabel } from '../calendar.js';
 import { getPrefs, setPref } from '../prefs.js';
+import { forceEvent } from '../turn.js';
 import { h, toast, confirmDialog, navigate, formatUsdM, formatDateTime } from './components.js';
 
 const SLOT_NAMES = { auto: '자동 저장', 1: '슬롯 1', 2: '슬롯 2', 3: '슬롯 3' };
@@ -193,6 +194,44 @@ function renderGuideSetting() {
   );
 }
 
+// 사건 시험대(design.md §6.9, §8.3 ⑧): 창구·확률·조건을 건너뛰고 사건을 지금 일으켜 본다. 정식 규칙이 아니라 점검용이다.
+const LAB_EVENTS = [
+  { id: 'evt_mas_inspection', label: 'MAS 점검 (컴플라이언스 점수로 통과/경고/과태료)', opts: {} },
+  { id: 'evt_shariah_ruling', label: '샤리아 상한 변경 (누산타라, 일반 재보험사 합 상한이 줄어듦)', opts: {} },
+  { id: 'evt_jurong_explosion', label: '주롱섬 폭발 → 3주 뒤 템스 키 강등까지 확정', opts: { cascade: true } },
+  { id: 'evt_reinsurer_downgrade', label: '템스 키 강등 바로 일으키기 (A- → BBB+)', opts: {} },
+];
+
+function renderEventLab() {
+  const data = store.getData();
+  const state = store.getState();
+  const used = state.player.flags.includes('debug_events_used');
+  const fire = async (ev, extra = {}, what = ev.label) => {
+    const yes = await confirmDialog({ title: '사건을 지금 일으킬까요?', message: `${what}\n이 게임은 시험용으로 표시되고, 되돌릴 수 없어요. 연습하려면 새 게임이나 저장 슬롯을 따로 쓰세요.`, confirmLabel: '일으키기', danger: true });
+    if (!yes) return;
+    const res = forceEvent(ev.id, { ...ev.opts, ...extra });
+    if (!res.ok) { toast(res.error, 'error'); return; }
+    const voided = res.voided.length > 0 ? ` · 확정이 취소된 지분 ${res.voided.length}건` : '';
+    toast(`사건을 일으켰어요 — 인박스에 새 메일이 와 있어요${voided}`, 'ok');
+  };
+  const clientSel = h('select', { id: 'lab-client', class: 'pl-select', 'aria-label': 'BOR 레터를 받을 고객' },
+    data.clients.map((c) => h('option', { value: c.id }, c.name_ko)));
+  return h('details', { class: 'card dev-card' },
+    h('summary', {}, h('strong', {}, '사건 시험대 (연습용)')),
+    h('p', { class: 'dim' }, '사건이 실제로 플레이를 바꾸는지 눌러서 확인하는 곳이에요. 누르면 창구·확률을 건너뛰고 사건이 지금 일어나요.'),
+    used ? h('p', { class: 'notice notice-warn', role: 'status' }, '이 게임은 사건 시험대를 써서 시험용으로 표시됐어요.') : null,
+    h('ul', { class: 'plain-list' }, LAB_EVENTS.map((ev) => h('li', {},
+      h('button', { class: 'btn', type: 'button', onclick: () => fire(ev) }, ev.label)))),
+    h('div', { class: 'row' },
+      h('label', { for: 'lab-client' }, 'BOR 레터(경쟁 브로커의 변경 요청)를 받을 고객'),
+      clientSel,
+      h('button', {
+        class: 'btn', type: 'button',
+        onclick: () => fire({ id: 'evt_bor_letter', opts: {} }, { client: clientSel.value }, `${clientSel.selectedOptions[0].textContent}에 BOR 레터 도착`),
+      }, 'BOR 레터 일으키기')),
+  );
+}
+
 export function renderSettings() {
   const state = store.getState();
   const { calendar } = store.getData();
@@ -235,6 +274,7 @@ export function renderSettings() {
     ),
     renderGuideSetting(),
     renderCodexReset(),
+    renderEventLab(),
     renderDevPanel(),
     h('section', { class: 'card' },
       h('h2', {}, '시작 화면으로'),
