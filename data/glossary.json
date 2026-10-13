@@ -196,7 +196,7 @@
     "id": "gl_capacity",
     "term_ko": "용량",
     "term_en": "Capacity",
-    "gloss_ko": "재보험사가 맡을 수 있는 크기",
+    "gloss_ko": "맡을 수 있는 크기",
     "aliases": [
       "인수 용량",
       "capacity"
@@ -641,7 +641,7 @@
     "id": "gl_rating",
     "term_ko": "재무 등급",
     "term_en": "Financial strength rating",
-    "gloss_ko": "돈을 낼 능력의 성적표",
+    "gloss_ko": "지급 능력 성적표",
     "aliases": [
       "등급",
       "신용등급",
