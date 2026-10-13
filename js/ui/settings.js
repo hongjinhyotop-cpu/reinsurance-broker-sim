@@ -7,6 +7,7 @@ import { describeTurn, turnLabel } from '../calendar.js';
 import { getPrefs, setPref } from '../prefs.js';
 import { forceEvent } from '../turn.js';
 import { h, toast, confirmDialog, navigate, formatUsdM, formatDateTime } from './components.js';
+import { glossaryLink } from './glossary_view.js';
 
 const SLOT_NAMES = { auto: '자동 저장', 1: '슬롯 1', 2: '슬롯 2', 3: '슬롯 3' };
 const slotName = (slot) => SLOT_NAMES[slot];
@@ -219,6 +220,7 @@ function renderEventLab() {
   return h('details', { class: 'card dev-card' },
     h('summary', {}, h('strong', {}, '사건 시험대 (연습용)')),
     h('p', { class: 'dim' }, '사건이 실제로 플레이를 바꾸는지 눌러서 확인하는 곳이에요. 누르면 창구·확률을 건너뛰고 사건이 지금 일어나요.'),
+    h('p', { class: 'dim' }, '연습할 수 있는 사건: ', glossaryLink('gl_regulatory_inspection', { label: '금융감독 점검' }), ', ', glossaryLink('gl_shariah_board', { label: '샤리아 위원회' }), ' 결정, ', glossaryLink('gl_downgrade', { label: '재보험사 등급 강등' }), ', ', glossaryLink('gl_bor_letter', { label: 'BOR 레터' }), '예요.'),
     used ? h('p', { class: 'notice notice-warn', role: 'status' }, '이 게임은 사건 시험대를 써서 시험용으로 표시됐어요.') : null,
     h('ul', { class: 'plain-list' }, LAB_EVENTS.map((ev) => h('li', {},
       h('button', { class: 'btn', type: 'button', onclick: () => fire(ev) }, ev.label)))),

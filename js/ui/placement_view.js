@@ -526,7 +526,7 @@ export function renderPlacement() {
           }, [h('option', { value: '' }, '없음'), ...trt.structure_options.map((o) => h('option', { value: o.id, selected: o.id === ctx.t.structure_option ? true : null }, o.label_ko))]))),
       locked ? null : h('p', { class: 'dim pl-small' }, '조건이나 구조 옵션을 바꾸면 가격 하한이 달라져서, 이미 받은 수락·반제·거절은 모두 "미제안"으로 돌아가요(쓴 행동 점수는 돌아오지 않아요).'),
       h('p', {},
-        h('strong', {}, ctx.client.name_ko), ` · ${LINE_KO[trt.line]} · 한도 $${trt.limit_usd_m}m (`, glossaryLink('gl_retention', { label: '부담' }), ` $${trt.attachment_usd_m}m 초과) · 만기 보험료 $${trt.expiring.premium_usd_m}m · `,
+        h('strong', {}, ctx.client.name_ko), ` · ${LINE_KO[trt.line]} · `, glossaryLink('gl_limit', { label: '한도' }), ` $${trt.limit_usd_m}m (`, glossaryLink('gl_retention', { label: '부담' }), ` $${trt.attachment_usd_m}m 초과) · `, glossaryLink('gl_expiring', { label: '만기' }), ' ', glossaryLink('gl_premium', { label: '보험료' }), ` $${trt.expiring.premium_usd_m}m · `,
         `${ctx.season.label} 시즌 · `, timingNodes(ctx), desc ? ` · 지금 ${desc.quarter.label_ko} ${desc.weekInQuarter}주차` : ''),
       h('p', { class: 'dim' }, '고객 요구: ', requirementLine(ctx)),
       h('p', { class: 'dim pl-small' }, glossaryLink('gl_treaty', { label: '트리티' }), '는 ', glossaryLink(STRUCTURE_TERM[trt.structure][0], { label: STRUCTURE_TERM[trt.structure][1] }), ' 방식이에요.'));
@@ -556,7 +556,7 @@ export function renderPlacement() {
           }, '비우기'))),
       barTrack(ctx, state, data, check),
       h('p', { class: 'pl-legend dim' },
-        '위쪽 흐린 띠는 만기 때 ', glossaryLink('gl_panel', { label: '패널' }), '(고스트)이고, 아래쪽이 지금 구성이에요. 점선=아직 제안 전, 실선=수락(확정), 주황 테두리=',
+        '위쪽 흐린 띠는 만기 때 ', glossaryLink('gl_panel', { label: '패널' }), '(고스트)이고, 아래쪽이 지금 구성이에요. 점선=아직 제안 전, 실선=수락(', glossaryLink('gl_signed_line', { label: '확정 지분' }), '), 주황 테두리=',
         glossaryLink('gl_counter_offer', { label: '반제' }), ', 빗금=거절이에요.'),
       h('p', { class: 'pl-sum' },
         h('strong', { class: check.over ? 'pl-over' : '' }, `입력 합계 ${total}% / 100%`),

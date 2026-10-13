@@ -357,13 +357,13 @@ label  = 범위 전체가 한 구간(<35 낮음 / 35–65 보통 / >65 높음)�
 |---|---|---|
 | 인박스 사건 메일 | 본문 속 첫 등장 | MAS 점검 `gl_client_money`·`gl_conflict_of_interest`·`gl_fine`, 연간 자체점검서 `gl_compliance`·`gl_client_money`, 지진 `gl_cat`, 충돌 `gl_accumulation`·`gl_loss_ratio`, 자본 유입 `gl_ils`·`gl_market_cycle`, 샤리아 `gl_shariah_board`, 현지 출재 `gl_local_retention`, 시장 전환 메일 `gl_market_cycle`, 공백 안내 `gl_cover_gap`, 이사회 메일 `gl_board_trust`·`gl_reputation`·`gl_report_card` |
 | 순위표 | 표 머리 "평판", 이사회 신뢰 안내 줄 | `gl_reputation`, `gl_board_trust` (플레이스드 프리미엄·브로커리지·컴플라이언스는 이미 있음) |
-| 시즌 리뷰 | 돈 요약, 성적표 머리, 이사회 신뢰 줄, 계약 한눈에 | `gl_overhead`·`gl_fine`·`gl_receivable`·`gl_cover_gap`, `gl_report_card`, `gl_board_trust`, `gl_expiring`(만기 대비 열) |
-| 플레이스먼트 보드 | 트리티 머리의 "한도"·"만기 보험료", 확정 지분 | `gl_limit`, `gl_expiring`, `gl_premium` |
+| 시즌 리뷰 | 돈 요약, 성적표 머리 태그, 이사회 신뢰 줄, 계약 한눈에의 "공백" 태그, 시즌 카드·비교 표의 "RC"·"패널"·"만기 대비" | `gl_overhead`·`gl_fine`·`gl_receivable`·`gl_cover_gap`, `gl_report_card`, `gl_board_trust`, `gl_expiring`, `gl_rate_change`, `gl_panel` |
+| 플레이스먼트 보드 | 트리티 머리의 "한도"·"만기 보험료", 범례의 "수락(확정 지분)" | `gl_limit`, `gl_expiring`, `gl_premium`, `gl_signed_line` |
 | 고객·재보험사 DB | 소개 줄 | `gl_primary_insurer`(출재사 설명) |
-| 캘린더 | 지금 위치 문장·범례는 이미 `gl_inception`·`gl_renewal`이 달려 있다(§6.4). 이번 묶음에 맞는 새 용어가 없어 바꾸지 않는다 | — |
+| 캘린더 | 지금 위치 문장·범례는 이미 달려 있다(§6.4). 새 용어는 없고, 선택한 주 요약의 시즌 문구에도 같은 링크를 단다(위쪽에서 이미 링크된 용어는 글자로만 남는다) | `gl_inception`, `gl_renewal` |
 | 설정 | 사건 시험대 설명·BOR 라벨 | `gl_regulatory_inspection`, `gl_shariah_board`, `gl_downgrade`, `gl_bor_letter` (버튼 안에는 달지 않는다) |
 
-버튼·`<summary>` 안의 글에는 용어 버튼을 넣지 않는다(버튼 안의 버튼). 설정의 사건 시험대 버튼 라벨은 그대로 두고 그 위 설명 문단에만 단다. 위 목록의 `UI_TERM_IDS` 추가분: `gl_limit`, `gl_expiring`, `gl_premium`, `gl_overhead`, `gl_fine`, `gl_receivable`, `gl_cover_gap`, `gl_board_trust`, `gl_reputation`, `gl_report_card`, `gl_regulatory_inspection`, `gl_shariah_board`, `gl_downgrade`, `gl_bor_letter`, `gl_primary_insurer`.
+버튼·`<summary>` 안의 글에는 용어 버튼을 넣지 않는다(버튼 안의 버튼). 설정의 사건 시험대 버튼 라벨은 그대로 두고 그 위 설명 문단에만 단다. 위 목록의 `UI_TERM_IDS` 추가분: `gl_limit`, `gl_expiring`, `gl_premium`, `gl_overhead`, `gl_fine`, `gl_receivable`, `gl_cover_gap`, `gl_signed_line`, `gl_board_trust`, `gl_reputation`, `gl_report_card`, `gl_regulatory_inspection`, `gl_shariah_board`, `gl_downgrade`, `gl_bor_letter`, `gl_primary_insurer`, `gl_rate_change`.
 
 ### 5.4 도감 (수집)
 
@@ -372,7 +372,7 @@ label  = 범위 전체가 한 구간(<35 낮음 / 35–65 보통 / >65 높음)�
 - **상태**: 미발견(`???`, 카테고리와 `appears_in` 기반 "이런 곳에서 만날 수 있어요" 힌트만 표시) / 발견 / 마스터.
 - 새 용어 수집 시 토스트 "새 용어 수집! (12/26)". 분모는 `glossary.json`의 용어 수.
 - 도감 화면: 진행률, 카테고리 필터, 검색(`term_ko` · `term_en` · `aliases`), 발견/마스터 필터, 상세. 미발견 용어는 검색해도 이름이 드러나지 않는다(`???`).
-- **50개 규모의 읽기 편의 (M7c)**: ① 카테고리 칩에 개수를 적는다("기본 11"), 발견한 수가 아니라 전체 수다. ② 목록 칸은 화면 높이 안에서 따로 스크롤하고 상세 패널은 위에 고정(sticky)해, 아래쪽 용어를 눌러도 상세가 화면 밖으로 사라지지 않는다. ③ 검색 중에는 "n개" 결과 수를 알리고, 못 찾으면 안내 문구를 보인다. ④ 필터가 바뀌어도 선택한 용어는 유지하되 목록에 없으면 상세만 남는다.
+- **50개 규모의 읽기 편의 (M7c)**: ① 카테고리 칩에 개수를 적는다("기본 11"), 발견한 수가 아니라 전체 수다. ② 목록 칸은 화면 높이 안에서 따로 스크롤하고 상세 패널은 위에 고정(sticky)해, 아래쪽 용어를 눌러도 상세가 화면 밖으로 사라지지 않는다. ③ 검색 중에는 "n개" 결과 수를 알리고, 못 찾으면 안내 문구를 보인다. ④ 필터가 바뀌어도 선택한 용어는 유지하되 목록에 없으면 상세만 남는다. ⑤ 카드를 눌러 화면이 다시 그려져도 목록 스크롤 자리를 지키고, 필터·검색을 바꾸면 맨 위로 돌아간다. 목록 칸은 키보드로 포커스해 스크롤할 수 있다(`role="region"`, `tabindex=0`). 좁은 화면(900px 이하)에서는 예전처럼 한 줄로 쌓는다.
 - **저장**: 세이브와 별도 키 `rbs:codex:v1`. 새 게임을 시작하거나 다른 세이브를 불러와도 도감은 유지된다(학습 자산). 설정 화면에서 수동 초기화(확인 창)할 수 있다.
   ```jsonc
   { "version": 1, "entries": { "gl_line": { "levels": 3, "first_seen": "2026-10-13T09:12:00.000Z" } } }

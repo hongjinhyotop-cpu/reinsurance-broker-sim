@@ -100,10 +100,10 @@ function renderSeasonCard(data, row) {
   return h('section', { class: 'card season-card' },
     h('h3', {}, `${row.season.label} 갱신 시즌 — ${row.client.name_ko}`,
       h('span', { class: `tag ${row.phase === 'placed' ? 'tag-ok' : row.phase === 'lost' ? 'tag-bad' : 'tag-warn'}` }, STATUS_KO[row.phase]),
-      row.gap ? h('span', { class: 'tag tag-warn' }, '공백이 있었어요') : null),
+      row.gap ? h('span', { class: 'tag tag-warn' }, glossaryLink('gl_cover_gap', { label: '공백' }), '이 있었어요') : null),
     h('dl', { class: 'info-list' },
-      dl('최종 RC', rcText(row.final_rc)),
-      dl('확정 패널', panelText(row.panel)),
+      dl(['최종 ', glossaryLink('gl_rate_change', { label: 'RC' })], rcText(row.final_rc)),
+      dl(['확정 ', glossaryLink('gl_panel', { label: '패널' })], panelText(row.panel)),
       dl(['확정 ', glossaryLink('gl_brokerage', { label: '브로커리지' })], grossText(row)),
       dl('고객 반응', VERDICT_KO[row.verdict] ?? '—')),
     lateNote,
@@ -139,10 +139,11 @@ function renderSeasonCompare(data, state) {
   if (rows.length === 0) return null;
   const texts = data.report.season;
   const sum = (pick) => rows.reduce((s, r) => s + (r.review && pick(r.review) !== null ? pick(r.review) : 0), 0);
-  const heads = ['시즌 · 고객', '결과', '최종 RC', '확정 브로커리지', '만기 대비', '고객 반응', '관계 변화(고객)', '스카우팅 진전', '새 용어', '이사회 평가'];
+  const note = richText(texts.compare_note_ko); // 화면 위쪽 글이 용어 첫 등장을 먼저 가져가도록 표 머리보다 먼저 만든다
+  const heads = ['시즌 · 고객', '결과', ['최종 ', glossaryLink('gl_rate_change', { label: 'RC' })], ['확정 ', glossaryLink('gl_brokerage', { label: '브로커리지' })], [glossaryLink('gl_expiring', { label: '만기' }), ' 대비'], '고객 반응', '관계 변화(고객)', '스카우팅 진전', '새 용어', '이사회 평가'];
   return h('section', { class: 'card' },
     h('h2', {}, texts.compare_title_ko),
-    h('p', { class: 'dim' }, richText(texts.compare_note_ko)),
+    h('p', { class: 'dim' }, note),
     h('div', { class: 'table-wrap' },
       h('table', { class: 'table' },
         h('thead', {}, h('tr', {}, heads.map((t) => h('th', { scope: 'col' }, t)))),
@@ -203,7 +204,7 @@ function renderContracts(data, state) {
           const client = data.clients.find((c) => c.id === t.client);
           return h('tr', {},
             h('th', { scope: 'row' }, client.name_ko),
-            h('td', {}, STATUS_KO[ts.phase], ts.gap_applied ? h('span', { class: 'tag tag-warn' }, '공백이 있었어요') : null),
+            h('td', {}, STATUS_KO[ts.phase], ts.gap_applied ? h('span', { class: 'tag tag-warn' }, glossaryLink('gl_cover_gap', { label: '공백' }), '이 있었어요') : null),
             h('td', {}, ts.final_rc === null ? '—' : `${ts.final_rc > 0 ? '+' : ''}${ts.final_rc.toFixed(1)}%`),
             h('td', {}, booked ? formatUsdM(booked.brokerage_usd_m) : ts.phase === 'placed' ? '인셉션에 확정돼요' : '—'));
         })))));
@@ -215,12 +216,12 @@ function renderMoney(f) {
     h('h2', {}, '돈 요약'),
     h('dl', { class: 'info-list' },
       row(['확정한 ', glossaryLink('gl_brokerage', { label: '브로커리지' })], formatUsdM(f.brokerage_usd_m)),
-      row('낸 고정비', formatUsdM(f.overhead_usd_m)),
-      row('낸 과태료', formatUsdM(f.fines_usd_m)),
+      row(['낸 ', glossaryLink('gl_overhead')], formatUsdM(f.overhead_usd_m)),
+      row(['낸 ', glossaryLink('gl_fine')], formatUsdM(f.fines_usd_m)),
       f.gap_cut_usd_m > 0 ? row('공백으로 줄어든 수수료', formatUsdM(f.gap_cut_usd_m)) : null,
       row('지금 현금', formatUsdM(f.cash_usd_m)),
-      row('아직 받을 돈', formatUsdM(f.receivable_usd_m)),
-      row('계약 공백', `${f.gaps}건`)));
+      row(glossaryLink('gl_receivable'), formatUsdM(f.receivable_usd_m)),
+      row(['계약 ', glossaryLink('gl_cover_gap', { label: '공백' })], `${f.gaps}건`)));
 }
 
 function newGameButton() {
@@ -245,7 +246,7 @@ function confidenceLine(report, data) {
   if (report.partial) return null;
   const delta = data.config.board.grade_delta[report.grade];
   const sign = delta > 0 ? `+${delta}` : String(delta);
-  return h('p', { class: 'dim' }, `이사회 신뢰: ${Math.round(report.confidence_before)}점 → ${Math.round(report.confidence_after)}점 (${report.grade} 등급 평가 ${sign})`);
+  return h('p', { class: 'dim' }, [glossaryLink('gl_board_trust'), `: ${Math.round(report.confidence_before)}점 → ${Math.round(report.confidence_after)}점 (${report.grade} 등급 평가 ${sign})`]);
 }
 
 export function renderReview() {
@@ -276,7 +277,7 @@ export function renderReview() {
   return h('div', { class: 'screen screen-wide' },
     h('h1', {}, '시즌 리뷰'),
     h('section', { class: `card report-head${fired ? ' report-fired' : ''}` },
-      h('p', { class: 'badge-line' }, h('span', { class: `tag ${fired ? 'tag-bad' : 'tag-ok'}` }, fired ? '게임 오버 — 해고' : '연말 성적표')),
+      h('p', { class: 'badge-line' }, h('span', { class: `tag ${fired ? 'tag-bad' : 'tag-ok'}` }, fired ? '게임 오버 — 해고' : glossaryLink('gl_report_card'))),
       h('h2', {}, text.title_ko),
       gradeBadge(report, fired),
       text.summary_ko.map((line) => h('p', { class: 'chair-note' }, richText(line))),

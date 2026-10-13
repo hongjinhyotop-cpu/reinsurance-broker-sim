@@ -81,7 +81,7 @@ function renderSummary(data, state, deadlines) {
 
   return h('section', { class: 'card cal-summary', 'aria-live': 'polite' },
     h('h2', {}, `${turnLabel(desc)} · 턴 ${turn}/${desc.totalTurns}`),
-    h('p', { class: 'dim' }, seasonLabel(desc)),
+    h('p', { class: 'dim' }, linkWords(seasonLabel(desc), [['인셉션', 'gl_inception'], ['갱신', 'gl_renewal']])),
     h('p', {}, todo),
     h('h3', {}, '이 주에 도착한 메일'),
     arrived.length === 0
