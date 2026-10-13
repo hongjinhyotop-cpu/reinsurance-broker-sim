@@ -55,6 +55,7 @@ function onContinue() {
   const parts = [`${turnLabel(to)}(턴 ${res.toTurn})로 넘어왔어요`];
   if (res.arrived.length > 0) parts.push(`새 메일 ${res.arrived.length}통`);
   if (res.autoResolved.length > 0) parts.push(`마감이 지나 자동 처리된 메일 ${res.autoResolved.length}통`);
+  if (res.expiredCounters > 0) parts.push(`유효 기간이 지나 사라진 반제 ${res.expiredCounters}건`);
   if (res.stop && STOP_TEXT[res.stop]) parts.push(STOP_TEXT[res.stop]);
   if (res.toTurn - res.fromTurn > 1) parts.splice(1, 0, `${res.toTurn - res.fromTurn}주를 건너뛰었어요`);
   toast(parts.join(' · '), 'ok');

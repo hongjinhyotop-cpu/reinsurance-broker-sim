@@ -166,6 +166,8 @@ function validateNegotiation(c, n) {
     const b = n.board;
     for (const k of ['ask_ap', 'propose_ap', 'retry_weeks']) c.num(b[k], `${P}.board.${k}`, 0, 20);
     c.num(b.patience_start, `${P}.board.patience_start`, 1, 20);
+    c.num(b.urgent_weeks, `${P}.board.urgent_weeks`, 0, 20);
+    c.num(b.counter_valid_weeks, `${P}.board.counter_valid_weeks`, 1, 20);
     if (c.object(b.verdict_effects, `${P}.board.verdict_effects`)) {
       for (const v of ['delighted', 'accept']) {
         if (!c.object(b.verdict_effects[v], `${P}.board.verdict_effects.${v}`)) continue;

@@ -5,6 +5,7 @@ import * as store from './store.js';
 import { applyEffects } from './effects.js';
 import { describeTurn, turnLabel } from './calendar.js';
 import { describeMarket } from './market.js';
+import { expireCounters } from './placement.js';
 import { TOPICS, applyMeeting, relationshipAfterMeeting, newlyUnlocked } from './scouting.js';
 import {
   fillText, findTemplate, deadlineTurn, scheduledFor, nextMailId, needsReply, choiceBlockReason,
@@ -162,8 +163,9 @@ function stepWeek(data, state) {
     autoResolved.push(mail.id);
   }
 
+  const expiredCounters = expireCounters(state); // 반제는 그 주만 유효하다(§6.3 마감 압박)
   const arrived = deliverDue(data, state);
-  return { arrived, autoResolved };
+  return { arrived, autoResolved, expiredCounters };
 }
 
 // 멈춰야 하는 이유(없으면 null). 설계 §2.1: 새 메일, 마감 임박, 시즌 단계 전환.
@@ -183,13 +185,14 @@ export function advance() {
   const reason = continueBlockReason(data, store.getState());
   if (reason) return { ok: false, error: reason };
 
-  const summary = { ok: true, fromTurn: store.getState().turn, arrived: [], autoResolved: [], stop: null };
+  const summary = { ok: true, fromTurn: store.getState().turn, arrived: [], autoResolved: [], expiredCounters: 0, stop: null };
   store.commit((s) => {
     // 끝없는 반복 방지: 전체 턴 수를 넘길 수 없다.
     for (let guard = 0; guard < data.calendar.turns; guard += 1) {
       const step = stepWeek(data, s);
       summary.arrived.push(...step.arrived);
       summary.autoResolved.push(...step.autoResolved);
+      summary.expiredCounters += step.expiredCounters;
       summary.stop = stopReason(data, s, step.arrived);
       if (summary.stop) break;
     }

@@ -451,6 +451,13 @@ UI 톤: 표 중심의 고밀도 레이아웃, 다크 기본. 색·간격은 CSS 
 - **저장**: 의견 묻기·제안·반제 수락·제출을 할 때마다 자동 저장한다. 행 전체는 `treaty.panel[]`(§10.9)에 남고, 아직 제안하지 않은 입력 중인 숫자는 화면에만 있다(다시 열면 마지막 제안값에서 시작).
 - 구조 옵션의 `client_cons_penalty`는 이제 고객 평가식에 들어간다(§7.5 "구조 옵션 감점"). 화면에는 숫자 없이 "보수적인 고객에게는 부담일 수 있어요"라는 안내만 띄운다.
 
+**마감 압박 (M5b 후속)**
+- **서두름 띠**: 인셉션까지 남은 주(`weeks_left`, §7.2와 같은 값)가 `board.urgent_weeks`(기본 2) 이하이면 보드 맨 위에 띠와 문구를 띄운다. 문구는 "재보험사들이 서두르고 있어요 — 마감이 가까워서 반제 폭이 좁아졌어요"처럼 **이미 있는 규칙**(반제 폭 `m = weeks_left/6`, §7.2)을 눈에 보이게 하는 것뿐이고, 계산은 바꾸지 않는다. 띠는 색만이 아니라 글자와 아이콘 모양(⏰)으로도 구분되고, 확정(`placed`)된 트리티에는 띄우지 않는다. 인셉션 주(0주)와 이미 지난 뒤에도 `weeks_left`가 1로 잘리므로 띠는 계속 뜬다.
+- **반제 유효 기간**: 반제를 받으면 행에 `counter_until`(그 반제를 쓸 수 있는 마지막 턴)이 붙는다. `counter_until = 받은 턴 + counter_valid_weeks − 1`이고 기본 `counter_valid_weeks`는 1이라 **"이번 주까지"** 다. 주를 넘겨 `턴 > counter_until`이 되면 반제는 사라지고 그 행은 "미제안"으로 돌아가 처음부터 다시 제안해야 한다. **인내심·관계도는 깎지 않는다**(쓴 AP도 그대로, 돌려주지도 않는다). 사라질 때 협상 로그에 "반제 만료" 한 줄이 남는다.
+- **화면**: 반제 행에 남은 기한 칩(예: "⏳ 이번 주까지")을 붙이고, 반제 수락 버튼에도 같이 적는다. 막대의 주황 반제 세그먼트 제목에도 기한이 들어간다. 기한이 남은 주가 2주 이상이면 "N주 남음"으로 쓴다(`counter_valid_weeks`를 올렸을 때).
+- 반제 수락·재제안·지분/RC 수정으로 반제가 없어지면 `counter_until`은 `null`로 돌아간다. 만료 처리는 주가 넘어가는 순간(턴 파이프라인)에 하고, 반제 수락 검사도 `턴 > counter_until`이면 막는다(저장소를 직접 고쳐도 안전하게).
+- 이 기능은 재보험사 응답을 기다리는 시간(응답 대기)과는 무관하다. 응답은 여전히 같은 턴에 즉답이다.
+
 **목소리와 이유 한 줄 (M5b 후속)**
 - **재보험사 목소리**: 제안 응답(수락/반제/거절)에는 그 재보험사의 말투로 한두 줄이 붙는다. 문구는 `reinsurers.json`의 `response_lines`(§10.2)에 있고, 응답 종류로 골라 보여 줄 뿐 세이브에는 저장하지 않는다. 숨은 성격 이름이나 숫자는 쓰지 않는다. 식욕 없음·샤리아 불가 같은 사유 있는 거절과 의견 묻기에는 붙이지 않는다(사유 문구가 이미 있다).
 - **고객 이유 한 줄**: 제출 결과(매우 만족/수락/재협상/거부)에는 고객이 자기 말투로 이유를 한 줄 말한다. 어떤 이유인지는 실제 평가 계산에서 정한다(§7.5 "이유 고르기"). 문구는 `clients.json`의 `verdict_reasons`(§10.1)에 있고, 고른 이유 종류(`verdict_reason`)만 세이브에 남는다.
@@ -514,6 +521,7 @@ max_share  = min( max_line_r / treaty.limit , R.max_single_share , client.max_si
 | `−θ ≤ gap < 0` | **반제**: RC = `F_r + m`, `m = weeks_left/6` (마감이 가까울수록 양보). 지분은 `min(s_req, max_share)` |
 | `gap < −θ` | **거절**. 인내심 −1, 관계 −2 (저가 제안은 비용이 있다) |
 
+- **반제는 그 주만 유효**하다(`counter_valid_weeks`, §6.3 "마감 압박"). 주를 넘기면 반제는 사라지고 처음부터 다시 제안해야 하며, 이때 인내심은 깎이지 않는다.
 - 인내심 `patience`(기본 3)가 0이 되면 해당 트리티에서 협상 중단. 관계 호의를 써야 재개.
 - 부분 용량: 응답 지분 = `min(s_req, max_share)`; 모자라면 "라인이 제한된다" 메시지.
 - 응답에 **시드 노이즈**를 약간 섞고(±0.3), 플레이어에게는 정확한 F_r 대신 **정성 힌트**("눈높이가 멀다"/"근접")를 보여준다. 힌트의 오차는 `err_pp = 6 × (1 − s_price/100)`, `s_price`는 해당 재보험사의 가격 민감도 스카우트 값. **스카우팅이 곧 협상 정보량이다.**
@@ -901,6 +909,8 @@ U = Σ w_k × score_k − structure_cut
   "board": {                                              // M5b: 라인 구성 보드가 상태를 바꿀 때 쓰는 값
     "ask_ap": 1, "propose_ap": 1, "patience_start": 3,
     "retry_weeks": 1,                                     // 재협상·거부 뒤 다시 제출할 수 있기까지 걸리는 주
+    "urgent_weeks": 2,                                    // 인셉션까지 이 주 이하이면 "서두름 띠"를 띄운다(규칙은 그대로, 표시만)
+    "counter_valid_weeks": 1,                             // 반제가 유효한 주 수. 1 = "이번 주까지"
     "verdict_effects": {                                  // 고객 반응별 보상(§7.5)
       "delighted": { "client_relationship": 4, "reputation": 2 },
       "accept": { "client_relationship": 2, "reputation": 0 }
@@ -972,7 +982,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
       "panel": [ { "re": "re_alpenglow", "share_req": 0.30, "share_signed": 0.30, "rc_req": -1.0,
                    "terms": "standard", "status": "accepted",       // draft | accepted | countered | rejected
                    "last": { "mode": "propose", "kind": "accept", "rc": -1.0, "share": 0.30, "hint": "near", "err_pp": 3.0, "limited": false, "reason": null },
-                   "cap_known": 0.38, "history": [ { "n": 1, "turn": 3, "mode": "propose", "kind": "accept", "rc": -1.0, "share": 0.30 } ] } ],   // n = 트리티 안에서 몇 번째 행동인지(로그 순서)
+                   "counter_until": null, "cap_known": 0.38, "history": [ { "n": 1, "turn": 3, "mode": "propose", "kind": "accept", "rc": -1.0, "share": 0.30 } ] } ],   // n = 트리티 안에서 몇 번째 행동인지(로그 순서)
       "retry_turn": 0, "renegotiations": 0, "rejections": 0, "moves": 1, "verdict": null, "verdict_reason": null,
       "final_rc": null, "obligations": [] } },
   "mails": [ { "id": "m_0001", "template": "mail_renewal_kickoff_c1", "turn": 1, "read": true,
@@ -984,6 +994,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
 }
 ```
 - `version` 불일치 시 `store.js`의 마이그레이션 체인(`migrate_1_to_2` …)을 거친다. 마이그레이션 없이 구조를 바꾸지 않는다.
+- **세이브 v5** (반제 유효 기간): 패널 행마다 `counter_until`(반제를 쓸 수 있는 마지막 턴, 반제 상태가 아니면 `null`)을 더했다. `4→5` 변환은 반제 상태(`countered`) 행에는 저장된 `turn`을 `counter_until`로 넣고(옛 세이브의 반제는 그 주까지 유효), 나머지 행에는 `null`을 채운다. 협상 로그 항목의 `mode`에 `counter_expired`가 새로 생기며 옛 항목은 그대로 읽는다.
 - **세이브 v4** (이유 한 줄): 트리티에 `verdict_reason`(`price`·`security`·`continuity`·`terms`·`service`·`structure` 중 하나 또는 `null`)을 더했다. 고객 반응을 받을 때 채워지고, 문구는 `clients.json`에서 찾는다. `3→4` 변환은 모든 트리티에 `verdict_reason: null`을 채운다.
 - **M5b: 세이브 v3.** v2의 `treaties`는 비어 있었다. v3부터 새 게임이 시작될 때 트리티마다 `{ phase: "open", prep_quality: 0, target_rc, terms: 선호 조건, structure_option: "", panel: [], retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, final_rc: null, obligations: [] }`를 채운다. `phase`는 `open`(협상 중) → `placed`(고객이 수락해 확정). 재보험사의 `patience`는 `{ 트리티id: 남은 횟수 }`이고, 항목이 없으면 `patience_start`로 본다. `2→3` 변환은 v2 세이브에 빠진 트리티 상태만 같은 방식으로 채우고 나머지는 그대로 둔다.
 - **M3: 세이브 v2.** M1의 `entities`는 비어 있었다. v2부터 새 게임이 시작될 때 고객·재보험사마다 `{ relationship, meetings, notes, scout }`(재보험사는 `patience: {}`도)를 `initial`에서 채워 넣는다. v1 세이브는 `1→2` 변환에서 같은 방식으로 채운다.
@@ -1113,3 +1124,4 @@ v1에서는 구현하지 않으며, 여기서는 항목만 정리한다.
    확정은 소수의 핵심 상대에게만 가능하고, 선명까지는 대부분 가능하게 하려는 의도다. 협상·마케팅에도 AP가 들어가므로 실제로는 더 빡빡하다. 이 곡선이 "어디에 AP를 쓸지"의 선택이 되는지, 아니면 너무 비싼지는 플레이 후 `data/config.json`의 `scouting` 계수로 조정한다.
 10. **(M5b에서 남김, 해결) 구조 옵션의 고객 감점**: `structure_options[].client_cons_penalty`를 `U`에서 직접 빼기로 했다(`structure_k × 보수성/100 × penalty`, §7.5). 담보 점수에 섞지 않은 이유는 감점이 어디서 왔는지 이유 한 줄("구조가 달라서 불안")로 따로 말해 주기 위해서다. 계수 `structure_k`(2.5)는 플레이 후 조정한다.
 11. **(M5b에서 남김, 일부 해결) 반제·재협상의 정보량**: 고객 반응에 이유 한 줄을 붙였다(§6.3, §7.5 "이유 고르기"). 이유는 실제 계산에서 고르므로 무엇을 고쳐야 하는지 알 수 있다. 다만 이유는 스카우트 값과 무관하게 항상 정확하다. 스카우트 값에 비례해 흐려지는 고객 기분 게이지(§7.5 끝)와, 인내심을 되살리는 관계 호의 레버(§7.3)는 아직 없다.
+12. **(마감 압박에서 남김) 반제 유효 기간의 길이**: 지금은 "그 주까지"(`counter_valid_weeks`=1)다. 같은 주에 AP가 남아 있으면 반제를 받고 고민할 시간이 있지만, 여러 주에 걸친 협상에서는 주를 넘길 때마다 반제가 사라져 AP를 다시 써야 한다. 너무 가혹한지는 플레이 후 `counter_valid_weeks`와 `urgent_weeks`로 조정한다. 사라진 반제 때문에 인내심을 깎는 안, 응답 대기(몇 주 뒤에 답이 오는 방식)는 만들지 않았다.

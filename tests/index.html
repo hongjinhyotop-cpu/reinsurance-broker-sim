@@ -223,7 +223,7 @@
 
     test('store: 새 게임의 모양이 설계(§10.9)와 시작값(config)을 따른다', () => {
       fresh(); const s = store.newGame({ seed: 777 });
-      eq(s.version, 4); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
+      eq(s.version, 5); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
       eq(s.player, { firm: 'Marina Bay Re Brokers', cash_usd_m: 1, reputation: 50, compliance: 70, board_confidence: 60, market_intel: 0, flags: [] });
       eq(s.market, { index: 42 });
       eq(Object.keys(s.entities.clients), data.clients.map((c) => c.id)); eq(Object.keys(s.entities.reinsurers), data.reinsurers.map((r) => r.id));
@@ -297,7 +297,7 @@
       fresh(); store.newGame({ seed: 9 }); const base = clone(store.getState());
       const parse = (v) => { const s = clone(base); if (v === undefined) delete s.version; else s.version = v; return store.parseSave(JSON.stringify(s)); };
       for (const v of [undefined, 0, 1.5, '1', null]) check(!parse(v).ok, `version ${String(v)}`);
-      const future = parse(5); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
+      const future = parse(6); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
     });
     test('store: 마이그레이션 체인 (v1→v2→v3), 규칙 누락·실패 처리', () => {
       const raw = { version: 1, x: 1 };
@@ -305,7 +305,7 @@
       check(ok.ok); eq([ok.state.version, ok.state.a, ok.state.b], [3, 1, 2]);
       check(!store.migrate(raw, { current: 3, migrations: { 1: (s) => s } }).ok, '규칙 누락');
       check(!store.migrate(raw, { current: 2, migrations: { 1: () => null } }).ok, '변환 실패');
-      eq(store.SAVE_VERSION, 4); eq(store.migrate({ version: 1 }).ok, true);
+      eq(store.SAVE_VERSION, 5); eq(store.migrate({ version: 1 }).ok, true);
     });
     test('store: __proto__ 키가 든 세이브를 가져와도 오염되지 않는다', () => {
       fresh(); store.newGame({ seed: 4 });
@@ -639,7 +639,7 @@
       fresh(); store.newGame({ seed: 3 });
       const old = clone(store.getState()); old.version = 1; old.entities = { clients: {}, reinsurers: {} };
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 4); eq(Object.keys(r.state.treaties).length, 3);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 5); eq(Object.keys(r.state.treaties).length, 3);
       eq(Object.keys(r.state.entities.clients).length, 3); eq(Object.keys(r.state.entities.reinsurers).length, 5);
       eq(r.state.entities.reinsurers.re_alpenglow.scout, data.reinsurers[0].initial.scout);
     });
@@ -1142,13 +1142,13 @@
       old.version = 2; old.treaties = {}; old.ap = 3; old.entities.clients.cli_jurong_crest.relationship = 61;
       for (const r of Object.values(old.entities.reinsurers)) delete r.patience;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 4);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 5);
       eq(Object.keys(r.state.treaties), data.treaties.map((t) => t.id)); eq(r.state.treaties[JR].phase, 'open'); eq(r.state.treaties[JR].panel, []);
       eq(r.state.ap, 3); eq(r.state.entities.clients.cli_jurong_crest.relationship, 61); eq(r.state.entities.reinsurers.re_nur.patience, {});
       eq(store.validateState(r.state), []);
       // 실제 슬롯 불러오기도 같은 길을 지난다
       const st = fresh(); st.map.set('rbs:save:v1:1', JSON.stringify(old));
-      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 4);
+      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 5);
     });
 
     test('세이브 v3: 트리티 상태가 틀린 세이브는 거부(상태 값·재보험사 id·중복 행·인내심)', () => {
@@ -1383,13 +1383,94 @@
       startBoard(5); const old = clone(store.getState());
       old.version = 3; for (const t of Object.values(old.treaties)) delete t.verdict_reason;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 4); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 5); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
+    });
+
+    test('반제 유효 기간: 반제를 받은 주에는 "이번 주까지"(counter_until = 그 턴), 주를 넘기면 미제안으로 돌아가고 인내심·관계도·AP는 그대로', () => {
+      startBoard(1, 20); const s = store.getState();
+      const c = PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }); check(c.status === 'countered', JSON.stringify(c));
+      let row = PL.rowOf(s, JR, 're_alpenglow');
+      eq(row.counter_until, s.turn); eq(PL.counterWeeksLeft(row, s.turn), 1);
+      const pat = reState('re_alpenglow').patience[JR] ?? data.config.negotiation.board.patience_start, rel = reState('re_alpenglow').relationship;
+      const r = turn.advance(); check(r.ok, r.error); eq(r.expiredCounters, 1);
+      row = PL.rowOf(store.getState(), JR, 're_alpenglow');
+      eq([row.status, row.last, row.share_signed, row.counter_until], ['draft', null, 0, null]);
+      eq(PL.patienceOf(data, store.getState(), 're_alpenglow', JR), pat); eq(reState('re_alpenglow').relationship, rel);
+      eq(row.history[row.history.length - 1].mode, 'counter_expired');
+      eq(PL.acceptCounter(JR, 're_alpenglow').ok, false);
+      check(PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }).ok, '처음부터 다시 제안할 수 있다');
+    });
+
+    test('반제 유효 기간: 같은 주 안에 수락하면 확정되고, 이미 만료된 반제(저장소를 직접 고친 경우)는 수락이 막힌다', () => {
+      startBoard(1, 20); const s = store.getState();
+      PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 });
+      check(PL.acceptCounter(JR, 're_alpenglow').ok); eq(PL.rowOf(s, JR, 're_alpenglow').counter_until, null);
+      startBoard(1, 20); const s2 = store.getState();
+      PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }); s2.turn += 1;
+      const blocked = PL.acceptCounter(JR, 're_alpenglow'); check(!blocked.ok && blocked.error.includes('유효 기간'), JSON.stringify(blocked));
+    });
+
+    test('반제 유효 기간: 수락·거절·고친 행에는 counter_until이 없고, 만료는 반제 행에만 일어난다(수락 지분은 유지)', () => {
+      startBoard(1, 20); const s = store.getState();
+      PL.propose(JR, 're_alpenglow', { share: 0.4, rc: 5 }); // 수락
+      PL.propose(JR, 're_thames_quay', { share: 0.3, rc: -30 }); // 거절
+      PL.propose(JR, 're_kallang', { share: 0.3, rc: -3 }); // 반제 또는 수락
+      for (const id of ['re_alpenglow', 're_thames_quay']) eq(PL.rowOf(s, JR, id).counter_until, null);
+      PL.propose(JR, 're_kallang', { share: 0.3, rc: -3 }).ok;
+      turn.advance();
+      const st = store.getState();
+      eq(PL.rowOf(st, JR, 're_alpenglow').status, 'accepted'); eq(PL.rowOf(st, JR, 're_thames_quay').status, 'rejected');
+      eq(store.validateState(st), []);
+    });
+
+    test('반제 유효 기간: counter_valid_weeks=2면 2주 유효("2주 남음" → 1주 남음 → 만료)', () => {
+      startBoard(1, 20); const s = store.getState();
+      const two = clone(data); two.config.negotiation.board.counter_valid_weeks = 2;
+      store.configure(two);
+      try {
+        PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 });
+        const row = PL.rowOf(s, JR, 're_alpenglow'); eq(PL.counterWeeksLeft(row, s.turn), 2);
+        turn.advance(); eq(PL.rowOf(store.getState(), JR, 're_alpenglow').status, 'countered');
+        eq(PL.counterWeeksLeft(PL.rowOf(store.getState(), JR, 're_alpenglow'), store.getState().turn), 1);
+        turn.advance(); eq(PL.rowOf(store.getState(), JR, 're_alpenglow').status, 'draft');
+      } finally { store.configure(data); }
+    });
+
+    test('서두름 띠: 인셉션까지 2주 이하(weeksLeft ≤ urgent_weeks)일 때만, 확정된 트리티에는 없다', () => {
+      startBoard(1, 20); const s = store.getState();
+      const trt = data.treaties.find((t) => t.id === JR);
+      const season = data.calendar.seasons.find((x) => x.id === trt.season);
+      const at = (turnNo) => { s.turn = turnNo; return PL.isUrgent(data, s, trt); };
+      eq(at(season.inception_turn - 3), false); eq(at(season.inception_turn - 2), true); eq(at(season.inception_turn - 1), true);
+      eq(at(season.inception_turn), true);
+      s.turn = season.inception_turn - 2; s.treaties[JR].phase = 'placed'; eq(PL.isUrgent(data, s, trt), false);
+    });
+
+    test('세이브 v5: v4 세이브(counter_until 없음)를 불러오면 반제 행은 저장된 턴까지 유효, 나머지는 null이다', () => {
+      startBoard(5, 20); PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }); PL.propose(JR, 're_kallang', { share: 0.3, rc: 5 });
+      const old = clone(store.getState()); old.version = 4; old.turn = 3;
+      for (const t of Object.values(old.treaties)) for (const row of t.panel) delete row.counter_until;
+      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r)); eq(r.state.version, 5);
+      const rows = r.state.treaties[JR].panel;
+      eq(rows.find((x) => x.re === 're_alpenglow').counter_until, 3);
+      eq(rows.filter((x) => x.status !== 'countered').every((x) => x.counter_until === null), true);
+      eq(store.validateState(r.state), []);
+    });
+
+    test('세이브 v5: counter_until이 틀린 세이브는 거부, 새 게임 저장은 그대로 왕복', () => {
+      startBoard(5, 20); PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 });
+      const bad = clone(store.getState()); bad.treaties[JR].panel[0].counter_until = 'x';
+      check(!store.parseSave(JSON.stringify(bad)).ok);
+      const ok = store.parseSave(JSON.stringify(store.getState())); check(ok.ok, JSON.stringify(ok));
+      eq(ok.state.treaties[JR].panel[0].counter_until, store.getState().turn);
     });
 
     test('보드: 설정 검증 — negotiation.board 값이 틀리면 로더가 거절', () => {
       const bad = (mut) => { const c = clone(data.config); mut(c.negotiation.board); return validateConfig(c); };
       check(has(bad((b) => { b.patience_start = 0; }), 'patience_start'));
       check(has(bad((b) => { b.ask_ap = -1; }), 'ask_ap'));
+      check(has(bad((b) => { b.counter_valid_weeks = 0; }), 'counter_valid_weeks'));
+      check(has(bad((b) => { delete b.urgent_weeks; }), 'urgent_weeks'));
       check(has(bad((b) => { delete b.verdict_effects.accept; }), 'verdict_effects.accept'));
       eq(validateConfig(data.config), []);
     });

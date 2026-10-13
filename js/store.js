@@ -3,7 +3,7 @@
 
 import { nextFloat, normalizeSeed } from './rng.js';
 
-export const SAVE_VERSION = 4; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
+export const SAVE_VERSION = 5; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
 export const SLOTS = ['auto', '1', '2', '3'];
 export const MANUAL_SLOTS = ['1', '2', '3'];
 const KEY_PREFIX = 'rbs:save:v1:'; // 키 형식 버전(구조 버전과 별개)
@@ -13,6 +13,7 @@ const MAX_SAVE_CHARS = 2_000_000; // 가져오기 파일 크기 방어선
 // v1→v2(M3): 비어 있던 entities에 고객·재보험사의 동적 상태를 채운다.
 // v2→v3(M5b): 비어 있던 treaties에 트리티별 협상 상태를 채우고, 재보험사에 patience 자리를 보장한다.
 // v3→v4: 트리티에 고객 반응의 이유 종류(verdict_reason)를 더한다.
+// v4→v5: 패널 행에 반제 유효 기간(counter_until)을 더한다. 옛 반제는 저장된 그 주까지 유효하다.
 export const MIGRATIONS = {
   1: (s) => fillEntities({ ...s, entities: { clients: { ...s.entities?.clients }, reinsurers: { ...s.entities?.reinsurers } } }),
   2: (s) => fillTreaties({
@@ -23,6 +24,13 @@ export const MIGRATIONS = {
   3: (s) => ({
     ...s,
     treaties: Object.fromEntries(Object.entries(s.treaties ?? {}).map(([id, t]) => [id, { verdict_reason: null, ...t }])),
+  }),
+  4: (s) => ({
+    ...s,
+    treaties: Object.fromEntries(Object.entries(s.treaties ?? {}).map(([id, t]) => [id, {
+      ...t,
+      panel: (t.panel ?? []).map((r) => ({ counter_until: r.status === 'countered' ? s.turn : null, ...r })),
+    }])),
   }),
 };
 
@@ -228,6 +236,7 @@ function validateTreatyStates(s, bad) {
       if (!isNum(row.share_signed, 0, 1)) bad(`${q}.share_signed`, '0~1 사이 숫자여야 해요');
       if (!isNum(row.rc_req, -100, 100)) bad(`${q}.rc_req`, '숫자여야 해요');
       if (!ROW_STATUSES.includes(row.status)) bad(`${q}.status`, `${ROW_STATUSES.join(' / ')} 중 하나여야 해요`);
+      if (row.counter_until !== null && !isInt(row.counter_until, 0, 999)) bad(`${q}.counter_until`, '턴 번호이거나 null이어야 해요');
       if (row.cap_known !== null && !isNum(row.cap_known, 0, 1)) bad(`${q}.cap_known`, '0~1 사이 숫자 또는 null이어야 해요');
       if (!Array.isArray(row.history)) bad(`${q}.history`, '목록이어야 해요');
     });

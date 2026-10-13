@@ -32,6 +32,18 @@ export function patienceOf(data, state, reId, treatyId) {
   return p === undefined ? data.config.negotiation.board.patience_start : p;
 }
 
+// 서두름 띠를 띄울지. 반제 폭 규칙(weeks_left/6)이 이미 쓰는 같은 weeksLeft를 보여 줄 뿐이다.
+export function isUrgent(data, state, treaty) {
+  if (state.treaties[treaty.id]?.phase === 'placed') return false;
+  return treatyTiming(data, state, treaty).weeksLeft <= data.config.negotiation.board.urgent_weeks;
+}
+
+// 반제가 앞으로 며칠(주)더 유효한지. 1이면 "이번 주까지", 0 이하면 이미 만료.
+export function counterWeeksLeft(row, turn) {
+  if (row?.status !== 'countered' || row.counter_until === null || row.counter_until === undefined) return null;
+  return row.counter_until - turn + 1;
+}
+
 export function rowOf(state, treatyId, reId) {
   return state.treaties[treatyId]?.panel.find((r) => r.re === reId) ?? null;
 }
@@ -73,6 +85,7 @@ export function actionBlockReason(data, state, kind, treatyId, reId, form = null
 
   if (kind === 'accept_counter') {
     if (row?.status !== 'countered' || !row.last) return '받아들일 반제가 없어요';
+    if (counterWeeksLeft(row, state.turn) <= 0) return '반제의 유효 기간이 지났어요. 처음부터 다시 제안해 주세요';
     return null;
   }
   const cost = kind === 'ask' ? cfg.ask_ap : cfg.propose_ap;
@@ -96,7 +109,7 @@ export function actionBlockReason(data, state, kind, treatyId, reId, form = null
 function upsertRow(t, reId, form) {
   let row = t.panel.find((r) => r.re === reId);
   if (!row) {
-    row = { re: reId, share_req: 0, share_signed: 0, rc_req: 0, terms: t.terms, status: 'draft', last: null, cap_known: null, history: [] };
+    row = { re: reId, share_req: 0, share_signed: 0, rc_req: 0, terms: t.terms, status: 'draft', last: null, counter_until: null, cap_known: null, history: [] };
     t.panel.push(row);
   }
   row.share_req = form.share;
@@ -157,6 +170,7 @@ export function ask(treatyId, reId, rawForm) {
     const row = upsertRow(t, reId, form);
     row.status = 'draft';
     row.share_signed = 0;
+    row.counter_until = null;
     row.last = last;
     row.cap_known = round4(q.maxShare);
     pushHistory(t, row, s.turn, { mode: 'ask', kind: last.kind, rc: form.rc, share: form.share, hint: last.hint });
@@ -194,12 +208,14 @@ export function propose(treatyId, reId, rawForm) {
 
   const startPatience = data.config.negotiation.board.patience_start;
   const curPatience = patienceOf(data, state, reId, treatyId);
+  const counterValidWeeks = data.config.negotiation.board.counter_valid_weeks;
   store.commit((s) => {
     const t = s.treaties[treatyId];
     s.ap -= data.config.negotiation.board.propose_ap;
     const row = upsertRow(t, reId, form);
     row.status = status;
     row.share_signed = status === 'accepted' ? signed : 0;
+    row.counter_until = status === 'countered' ? s.turn + counterValidWeeks - 1 : null;
     row.last = last;
     row.cap_known = round4(q.maxShare);
     pushHistory(t, row, s.turn, { mode: 'propose', kind: last.kind, rc: last.rc ?? form.rc, share: last.share, hint: last.hint });
@@ -230,6 +246,7 @@ export function acceptCounter(treatyId, reId) {
     row.rc_req = rc;
     row.share_signed = share;
     row.status = 'accepted';
+    row.counter_until = null;
     row.last = { ...row.last, mode: 'counter_accept', kind: 'accept', rc, share };
     pushHistory(t, row, s.turn, { mode: 'counter_accept', kind: 'accept', rc, share });
   });
@@ -242,7 +259,25 @@ export function acceptCounter(treatyId, reId) {
 function resetRow(row) {
   row.status = 'draft';
   row.share_signed = 0;
+  row.counter_until = null;
   row.last = null;
+}
+
+// 주가 넘어간 직후(state.turn은 이미 새 턴) 유효 기간이 끝난 반제를 지운다. 인내심·관계도는 건드리지 않는다.
+// 호출하는 쪽(turn.js)이 store.commit 안에서 부른다. 사라진 반제 개수를 돌려준다.
+export function expireCounters(state) {
+  let n = 0;
+  for (const t of Object.values(state.treaties)) {
+    for (const row of t.panel) {
+      if (row.status !== 'countered' || counterWeeksLeft(row, state.turn) > 0) continue;
+      resetRow(row);
+      t.moves += 1;
+      row.history.push({ n: t.moves, turn: state.turn, mode: 'counter_expired', kind: 'expired', rc: row.rc_req, share: row.share_req });
+      if (row.history.length > HISTORY_MAX) row.history.splice(0, row.history.length - HISTORY_MAX);
+      n += 1;
+    }
+  }
+  return n;
 }
 
 // 지분이나 RC를 바꿨을 때(조용히 저장하고, 화면은 호출한 쪽이 다시 그린다). 제안했던 행은 "미제안"으로 돌아가고 확정 지분도 사라진다. 바뀐 게 없으면 false.

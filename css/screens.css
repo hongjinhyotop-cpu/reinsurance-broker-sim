@@ -232,6 +232,10 @@
 .pl-unit { color: var(--text-dim); }
 .pl-line { margin: 6px 0 0; }
 .pl-voice { font-style: italic; color: var(--text-dim, inherit); }
+.pl-deadline { font-size: 0.8rem; font-weight: 700; padding: 1px 10px; border-radius: 999px; border: 2px solid var(--warn); color: var(--text); background: color-mix(in srgb, var(--warn) 18%, transparent); }
+.pl-urgent { display: flex; gap: 12px; align-items: center; margin-bottom: var(--gap); padding: 10px 14px; border-radius: var(--radius); border: 2px solid var(--warn); border-left-width: 10px; background: color-mix(in srgb, var(--warn) 16%, var(--bg-elev)); }
+.pl-urgent p { margin: 2px 0 0; }
+.pl-urgent-icon { font-size: 1.6rem; }
 .pl-resp { font-weight: 700; padding-left: 10px; border-left: 4px solid var(--border); }
 .pl-resp-accept { border-left-color: var(--ok); }
 .pl-resp-counter { border-left-color: var(--warn); }
