@@ -3165,6 +3165,67 @@
     // ---------- 실행 ----------
     const results = document.getElementById('results');
     let passed = 0;
+    // ---------- M7c: 용어집 53개 확장 ----------
+    const M7C_IDS = ['gl_primary_insurer', 'gl_premium', 'gl_overhead', 'gl_receivable', 'gl_limit', 'gl_signed_line', 'gl_expiring', 'gl_cover_gap', 'gl_loss_ratio', 'gl_market_cycle', 'gl_cat', 'gl_accumulation', 'gl_ils', 'gl_client_money', 'gl_conflict_of_interest', 'gl_fine', 'gl_shariah_board', 'gl_local_retention', 'gl_board_trust', 'gl_reputation', 'gl_report_card'];
+    test('M7c 용어집: 새 용어 21개가 모두 있고 전체가 50개를 넘으며, 예문 규칙(영어 예문은 업계 용어만)을 지킨다', () => {
+      const ids = new Set(data.glossary.map((t) => t.id));
+      for (const id of M7C_IDS) check(ids.has(id), `${id} 없음`);
+      check(data.glossary.length >= 50, `${data.glossary.length}개`);
+      eq(ids.size, data.glossary.length, 'id 중복 없음');
+      for (const id of M7C_IDS) { const t = data.glossary.find((x) => x.id === id); check(t.level3.game_example_ko.length > 0 && t.gloss_ko.length <= 20, `${id}: 예시·gloss`); }
+      for (const id of ['gl_board_trust', 'gl_reputation', 'gl_report_card']) eq(data.glossary.find((x) => x.id === id).category, 'game');
+    });
+    test('M7c 용어집: 새 용어를 화면 고정 문구로 쓰는 id는 UI_TERM_IDS에 적혀 있다(미사용 경고가 없다)', () => {
+      for (const id of ['gl_limit', 'gl_expiring', 'gl_premium', 'gl_overhead', 'gl_fine', 'gl_receivable', 'gl_cover_gap', 'gl_board_trust', 'gl_reputation', 'gl_report_card', 'gl_shariah_board', 'gl_primary_insurer']) check(gl.UI_TERM_IDS.includes(id), id);
+      eq(loaded.warnings, []);
+    });
+    test('M7c 도감: 53개여도 카테고리 칩에 개수가 적히고 합이 전체와 같으며, 목록은 따로 스크롤되는 영역이다', () => {
+      freshCodex(); store.configure(data); showInCodex(null);
+      const root = renderCodex(); document.body.append(root);
+      try {
+        const chips = [...root.querySelectorAll('[aria-label="카테고리"] .chip')];
+        eq(chips[0].textContent, `전체 ${data.glossary.length}`);
+        eq(chips.slice(1).reduce((n, c) => n + Number(c.textContent.split(' ').pop()), 0), data.glossary.length, '카테고리별 개수의 합');
+        const host = root.querySelector('.codex-list-host');
+        eq(host.getAttribute('role'), 'region'); eq(host.getAttribute('tabindex'), '0');
+        eq(root.querySelectorAll('.codex-card').length, data.glossary.length);
+        gl.collect('gl_cat', 1, 'T'); gl.collect('gl_hard_market', 1, 'T');
+        const input = root.querySelector('#codex-search');
+        input.value = 'catastrophe'; input.dispatchEvent(new Event('input'));
+        eq([...root.querySelectorAll('.codex-card')].map((c) => c.dataset.term), ['gl_cat'], '영어 이름으로 찾기');
+        input.value = '집적'; input.dispatchEvent(new Event('input'));
+        eq(root.querySelectorAll('.codex-card').length, 0, '못 만난 용어(집적)는 검색해도 안 나온다');
+        input.value = ''; input.dispatchEvent(new Event('input')); showInCodex(null);
+      } finally { root.remove(); }
+    });
+    test('M7c 화면: 순위표·시즌 리뷰·설정·보드·DB에 새 용어가 달리고, 한 화면에서 같은 용어는 한 번만 링크다', () => {
+      const linkIds = (root) => [...root.querySelectorAll('.term')].map((b) => b.dataset.term);
+      const onlyOnce = (root, label) => { const ids = linkIds(root); eq(new Set(ids).size, ids.length, `${label}: 같은 용어가 두 번 링크됨 ${ids}`); };
+      startScreens(); const s = store.getState(); allPlaced(s); runYear(s); resetTermScope();
+      let root = renderStandings(); document.body.append(root);
+      try { check(linkIds(root).includes('gl_reputation') && linkIds(root).includes('gl_board_trust'), `순위표 ${linkIds(root)}`); onlyOnce(root, '순위표'); } finally { root.remove(); }
+      resetTermScope(); root = renderReview(); document.body.append(root);
+      try {
+        const ids = linkIds(root);
+        for (const id of ['gl_report_card', 'gl_board_trust', 'gl_overhead', 'gl_fine', 'gl_receivable', 'gl_cover_gap']) check(ids.includes(id), `시즌 리뷰에 ${id}`);
+        onlyOnce(root, '시즌 리뷰');
+      } finally { root.remove(); }
+      resetTermScope(); root = renderSettings(); document.body.append(root);
+      try {
+        for (const id of ['gl_regulatory_inspection', 'gl_shariah_board', 'gl_downgrade', 'gl_bor_letter']) check(linkIds(root).includes(id), `설정에 ${id}`);
+        onlyOnce(root, '설정'); eq(root.querySelectorAll('button .term, summary .term').length, 0, '버튼·summary 안에는 용어 버튼이 없다');
+      } finally { root.remove(); }
+      startScreens(); resetTermScope(); root = renderPlacement(); document.body.append(root);
+      try { for (const id of ['gl_limit', 'gl_expiring', 'gl_premium']) check(linkIds(root).includes(id), `보드에 ${id}`); onlyOnce(root, '보드'); } finally { root.remove(); }
+    });
+    test('M7c 콘텐츠: 사건 메일에 새 용어 마크업이 달려 있다(메일 한 통 안에서 같은 용어는 되풀이해도 한 번만 링크)', () => {
+      const find = (id) => JSON.stringify(data.mails.find((m) => m.id === id));
+      check(find('mail_evt_mas_fine').includes('[[gl_fine|') && find('mail_evt_mas_fine').includes('gl_client_money'), 'MAS 과태료 메일');
+      check(find('mail_evt_shariah_ruling').includes('gl_shariah_board'), '샤리아 위원회 메일');
+      check(find('mail_evt_malacca_collision').includes('gl_accumulation'), '집적 메일');
+      check(find('mail_gap_notice').includes('gl_cover_gap') && find('mail_board_report_a').includes('gl_report_card'), '공백·성적표 메일');
+    });
+
     const failures = [];
     const startupFailed = !loaded.ok;
 

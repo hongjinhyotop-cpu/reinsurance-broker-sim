@@ -1006,5 +1006,653 @@
       "standings",
       "review"
     ]
+  },
+  {
+    "id": "gl_primary_insurer",
+    "term_ko": "원보험사",
+    "term_en": "Primary insurer",
+    "gloss_ko": "보험을 직접 파는 회사",
+    "aliases": [
+      "직접보험사",
+      "수재 전 보험사",
+      "direct insurer",
+      "primary"
+    ],
+    "category": "basic",
+    "level1_ko": "기업과 개인에게 보험을 직접 팔고 사고 보험금을 주는 보험회사예요.",
+    "level2_ko": "동네에서 자동차보험이나 화재보험을 파는 보험회사예요. 그 회사가 다시 재보험사에 보험을 드는 거예요.",
+    "level3": {
+      "industry_ko": "원보험사(primary insurer, direct insurer)는 고객에게 보험을 직접 팔고 보험금을 지급하는 회사입니다. 맡은 위험이 너무 크거나 한곳에 몰리면 일부를 재보험사에 넘기는데, 이렇게 넘기는 쪽을 [[gl_cedant|출재사]]라고 부릅니다.",
+      "industry_en": [
+        "\"The primary insurer keeps the first part of every loss.\"",
+        "\"Direct insurers buy reinsurance to protect their capital.\""
+      ],
+      "game_example_ko": "이 게임의 고객 보험회사 세 곳이 원보험사예요. 자기 고객에게서 받은 보험료를 바탕으로, 큰 사고에 대비한 재보험을 사러 플레이어를 찾아와요."
+    },
+    "related": [
+      "gl_cedant",
+      "gl_reinsurance"
+    ],
+    "appears_in": [
+      "database"
+    ]
+  },
+  {
+    "id": "gl_premium",
+    "term_ko": "보험료",
+    "term_en": "Premium",
+    "gloss_ko": "보험의 값",
+    "aliases": [
+      "프리미엄",
+      "보험 가격",
+      "premium"
+    ],
+    "category": "basic",
+    "level1_ko": "보험으로 보호를 받는 대가로 내는 돈이에요.",
+    "level2_ko": "놀이공원 자유이용권 값처럼, 사고가 났을 때 보장받을 권리를 미리 사는 값이에요.",
+    "level3": {
+      "industry_ko": "보험료(premium)는 보장을 받는 대가로 보험에 내는 돈입니다. 재보험에서는 출재사가 위험을 넘기는 대가로 재보험사에 내는 돈을 뜻하고, 브로커의 수수료도 보통 이 보험료를 기준으로 계산합니다.",
+      "industry_en": [
+        "\"The annual premium for the treaty is USD 4 million.\"",
+        "\"Premium is payable in quarterly installments.\""
+      ],
+      "game_example_ko": "플레이스먼트 보드 머리에 이 트리티의 만기 보험료가 보여요. 올해 보험료는 거기에 가격 변화를 반영해 정해지고, 브로커리지도 이 보험료에서 나와요."
+    },
+    "related": [
+      "gl_brokerage",
+      "gl_rate_change",
+      "gl_expiring"
+    ],
+    "appears_in": [
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_overhead",
+    "term_ko": "고정비",
+    "term_en": "Overhead",
+    "gloss_ko": "매주 나가는 운영비",
+    "aliases": [
+      "운영비",
+      "경비",
+      "사무실 비용",
+      "overhead",
+      "fixed cost"
+    ],
+    "category": "basic",
+    "level1_ko": "계약이 있든 없든 회사를 굴리느라 매주 나가는 돈이에요.",
+    "level2_ko": "가게 문을 열어 두는 한 월세와 전기세는 나가요. 손님이 없는 날도 마찬가지예요.",
+    "level3": {
+      "industry_ko": "고정비(overhead)는 사무실 임대료, 인건비, 시스템 이용료처럼 매출과 상관없이 드는 운영 비용입니다. 중개회사는 수수료가 계약 시즌에 몰려 들어오기 때문에, 수입이 없는 기간의 고정비를 현금으로 버틸 수 있는지가 중요합니다.",
+      "industry_en": [
+        "\"Our overhead stays about the same all year.\"",
+        "\"Brokerage income is seasonal, but overhead is not.\""
+      ],
+      "game_example_ko": "취임 다음 주부터 매주 일정한 돈이 현금에서 빠져나가요. 시즌 리뷰의 돈 요약에서 올해 낸 고정비를 볼 수 있어요."
+    },
+    "related": [
+      "gl_brokerage",
+      "gl_receivable"
+    ],
+    "appears_in": [
+      "review"
+    ]
+  },
+  {
+    "id": "gl_receivable",
+    "term_ko": "아직 받을 돈",
+    "term_en": "Receivable",
+    "gloss_ko": "장부엔 있고 입금 전",
+    "aliases": [
+      "미수금",
+      "미수 수수료",
+      "receivable",
+      "accounts receivable"
+    ],
+    "category": "basic",
+    "level1_ko": "이미 벌었지만 아직 통장에 들어오지 않은 돈이에요.",
+    "level2_ko": "아르바이트를 마쳤는데 월급날이 아직 안 온 상태와 같아요. 일은 했고 돈은 곧 들어와요.",
+    "level3": {
+      "industry_ko": "미수금(receivable)은 계약이 확정되어 수익으로 잡았지만 아직 현금으로 받지 못한 금액입니다. 브로커리지는 보험료가 정산된 뒤에 입금되는 경우가 많아 확정과 입금 사이에 시차가 생기고, 그동안에도 고정비는 계속 나갑니다.",
+      "industry_en": [
+        "\"Brokerage receivable is usually settled within a few weeks.\"",
+        "\"Cash was tight while receivables were still outstanding.\""
+      ],
+      "game_example_ko": "브로커리지는 확정하고 4주 뒤에 현금으로 들어와요. 시즌 리뷰 돈 요약의 '아직 받을 돈'은 그 사이에 걸려 있는 금액이에요."
+    },
+    "related": [
+      "gl_brokerage",
+      "gl_overhead"
+    ],
+    "appears_in": [
+      "review"
+    ]
+  },
+  {
+    "id": "gl_limit",
+    "term_ko": "보장 한도",
+    "term_en": "Limit",
+    "gloss_ko": "보험이 물어 주는 최대액",
+    "aliases": [
+      "한도",
+      "보상 한도",
+      "limit",
+      "리미트"
+    ],
+    "category": "structure",
+    "level1_ko": "한 번의 사고에서 이 계약이 최대로 물어 주는 금액이에요.",
+    "level2_ko": "체크카드에 일일 한도가 있듯이, 아무리 큰 사고여도 보험은 여기까지만 보장해요.",
+    "level3": {
+      "industry_ko": "한도(limit)는 한 트리티가 사고 하나에 대해 재보험사들에게 보장받을 수 있는 최대 금액입니다. 보통 출재사가 먼저 떠안는 구간([[gl_retention|부담]])이 끝나는 지점에서 시작해 한도까지의 구간을 재보험사들이 나눠 맡고, 한도를 넘는 손실은 다시 출재사가 부담합니다.",
+      "industry_en": [
+        "\"The treaty provides a limit of USD 20 million in excess of the retention.\"",
+        "\"Losses above the limit revert to the cedant.\""
+      ],
+      "game_example_ko": "플레이스먼트 보드 머리의 '한도 $…m'가 이 트리티의 한도예요. 그 옆에 적힌 부담 금액을 넘는 구간에서 시작해 한도까지를 재보험사들이 나눠 맡아요."
+    },
+    "related": [
+      "gl_retention",
+      "gl_xol",
+      "gl_treaty"
+    ],
+    "appears_in": [
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_signed_line",
+    "term_ko": "확정 지분",
+    "term_en": "Signed line",
+    "gloss_ko": "최종 확정된 지분",
+    "aliases": [
+      "서명 지분",
+      "확정 라인",
+      "signed",
+      "written line"
+    ],
+    "category": "placement",
+    "level1_ko": "협상이 끝나고 재보험사가 실제로 맡기로 확정된 지분이에요.",
+    "level2_ko": "회식 때 '나 20% 낼게요' 하고 말한 몫이, 계산을 마친 뒤 진짜 낼 몫으로 굳어지는 것과 비슷해요.",
+    "level3": {
+      "industry_ko": "확정 지분(signed line)은 청약을 마감한 뒤 재보험사에 최종 배정된 [[gl_line|지분]]입니다. 처음 제시한 지분(written line)의 합이 100%를 넘으면 비례해서 줄이고, 모자라면 다른 재보험사를 더 찾아야 합니다.",
+      "industry_en": [
+        "\"Our signed line is 12.5% of the layer.\"",
+        "\"Orders were scaled back so the program signed at 100%.\""
+      ],
+      "game_example_ko": "보드에서 실선으로 채워진 막대가 확정 지분이에요. 모든 확정 지분의 합이 100%가 되어야 인셉션 전에 계약을 제출할 수 있어요."
+    },
+    "related": [
+      "gl_line",
+      "gl_panel"
+    ],
+    "appears_in": [
+      "placement",
+      "review"
+    ]
+  },
+  {
+    "id": "gl_expiring",
+    "term_ko": "만기 조건",
+    "term_en": "Expiring terms",
+    "gloss_ko": "이번에 끝나는 계약 조건",
+    "aliases": [
+      "만기",
+      "기존 조건",
+      "expiring",
+      "expiring terms"
+    ],
+    "category": "placement",
+    "level1_ko": "곧 끝나는, 지금까지 쓰던 재보험 계약의 조건이에요.",
+    "level2_ko": "휴대폰 약정이 끝나 갈 때, 지금 요금제를 기준으로 새 요금을 따져 보는 것과 비슷해요.",
+    "level3": {
+      "industry_ko": "만기(expiring) 조건은 이번에 끝나는 계약의 보험료, 한도, 참여 재보험사 구성을 가리킵니다. 갱신 협상은 대개 이 조건을 기준선으로 삼아 '얼마나 올랐나, 내렸나'를 이야기합니다.",
+      "industry_en": [
+        "\"Expiring terms are the starting point of every renewal discussion.\"",
+        "\"We are asking for a 5% reduction on expiring.\""
+      ],
+      "game_example_ko": "플레이스먼트 보드의 '만기 보험료'·'만기 지분'과 흐린 고스트 막대가 모두 만기 조건이에요. 시즌 리뷰의 '만기 대비'는 만기와 견준 비율이에요."
+    },
+    "related": [
+      "gl_renewal",
+      "gl_rate_change",
+      "gl_premium"
+    ],
+    "appears_in": [
+      "placement",
+      "review"
+    ]
+  },
+  {
+    "id": "gl_cover_gap",
+    "term_ko": "보장 공백",
+    "term_en": "Gap in cover",
+    "gloss_ko": "보호가 끊긴 기간",
+    "aliases": [
+      "계약 공백",
+      "공백",
+      "cover gap",
+      "gap"
+    ],
+    "category": "placement",
+    "level1_ko": "계약이 시작될 때까지 재보험이 다 정해지지 못해 보호가 비는 기간이에요.",
+    "level2_ko": "우산을 사기도 전에 소나기가 쏟아지는 것과 같아요. 그 사이에 맞은 비는 아무도 대신 막아 주지 않아요.",
+    "level3": {
+      "industry_ko": "보장 공백(gap in cover)은 기존 재보험이 끝났는데 새 재보험이 아직 확정되지 않아 출재사가 위험을 모두 안고 있는 상태입니다. 고객에게 큰 불안을 주고 브로커의 신뢰에도 상처가 되므로, [[gl_inception|인셉션]] 전에 패널을 다 채우는 것이 기본 원칙입니다.",
+      "industry_en": [
+        "\"There must be no gap in cover at inception.\"",
+        "\"The cedant was left uncovered for two weeks.\""
+      ],
+      "game_example_ko": "인셉션까지 지분을 100% 채우지 못하면 공백이 생겨요. 고객 관계, 평판, 이사회 신뢰가 깎이고, 늦게 확정하면 브로커리지도 줄어요."
+    },
+    "related": [
+      "gl_inception",
+      "gl_line",
+      "gl_panel"
+    ],
+    "appears_in": [
+      "inbox",
+      "review"
+    ]
+  },
+  {
+    "id": "gl_loss_ratio",
+    "term_ko": "손해율",
+    "term_en": "Loss ratio",
+    "gloss_ko": "번 돈 중 사고에 쓴 비율",
+    "aliases": [
+      "손해 비율",
+      "로스레이쇼",
+      "loss ratio",
+      "LR"
+    ],
+    "category": "pricing",
+    "level1_ko": "걷은 보험료 중에서 사고 보상에 나간 돈의 비율이에요.",
+    "level2_ko": "용돈 10만 원 중 8만 원을 썼다면 80%예요. 이 비율이 높을수록 남는 돈이 적어요.",
+    "level3": {
+      "industry_ko": "손해율(loss ratio)은 지급한 보험금(손해)을 받은 보험료로 나눈 비율입니다. 손해율이 높은 계약은 재보험사에 부담이라 다음 [[gl_renewal|갱신]]에서 가격이 오르거나 조건이 까다로워지기 쉽습니다.",
+      "industry_en": [
+        "\"The treaty ran at a high loss ratio last year.\"",
+        "\"A deteriorating loss ratio will put pressure on renewal terms.\""
+      ],
+      "game_example_ko": "큰 사고가 나면 그 고객 트리티의 손해율이 나빠져요. 그러면 다음 갱신 협상에서 재보험사들이 더 비싸게 부르려는 분위기가 생기기 쉬워요."
+    },
+    "related": [
+      "gl_premium",
+      "gl_claim",
+      "gl_rate_change"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_market_cycle",
+    "term_ko": "시장 사이클",
+    "term_en": "Market cycle",
+    "gloss_ko": "가격이 오르내리는 물결",
+    "aliases": [
+      "언더라이팅 사이클",
+      "시장 순환",
+      "market cycle",
+      "underwriting cycle"
+    ],
+    "category": "market",
+    "level1_ko": "재보험 가격과 조건이 몇 해에 걸쳐 오르고 내리기를 되풀이하는 흐름이에요.",
+    "level2_ko": "과일 값이 풍년이면 싸고 흉년이면 비싼 것과 비슷해요. 시장에도 풍년과 흉년이 번갈아 와요.",
+    "level3": {
+      "industry_ko": "시장 사이클(market cycle, underwriting cycle)은 재보험 공급(용량)과 수요에 따라 가격이 오르는 [[gl_hard_market|하드마켓]]과 내리는 [[gl_soft_market|소프트마켓]]이 번갈아 나타나는 흐름입니다. 큰 재해나 새 자본의 유입 같은 사건이 방향을 바꾸는 계기가 됩니다.",
+      "industry_en": [
+        "\"The market cycle turned after a series of large losses.\"",
+        "\"We are late in the soft part of the cycle.\""
+      ],
+      "game_example_ko": "화면 위쪽의 '시장' 칸이 지금 분위기를 라벨로 보여 줘요. 대형 재해나 자본 유입 같은 사건이 분위기를 바꾸면, 재보험사들이 부르는 가격과 내줄 수 있는 지분도 달라져요."
+    },
+    "related": [
+      "gl_hard_market",
+      "gl_soft_market",
+      "gl_capacity"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_cat",
+    "term_ko": "대형 재해",
+    "term_en": "Catastrophe (Cat)",
+    "gloss_ko": "한꺼번에 큰 피해를 내는 재해",
+    "aliases": [
+      "캣",
+      "재해",
+      "대재해",
+      "cat",
+      "catastrophe"
+    ],
+    "category": "market",
+    "level1_ko": "지진·태풍·대형 폭발처럼 한꺼번에 큰 피해를 내는 재해예요.",
+    "level2_ko": "소나기는 우산 하나로 되지만, 홍수는 동네 전체가 잠겨요. 보험회사 한 곳이 혼자 감당하기 어려운 크기예요.",
+    "level3": {
+      "industry_ko": "Cat(catastrophe)은 지진, 태풍, 홍수 같은 자연재해나 대형 사고처럼 많은 계약에 동시에 큰 손실을 내는 사건입니다. 이런 사건에서 원보험사를 지키는 것이 재보험의 가장 중요한 역할이고, 큰 Cat 뒤에는 시장 전체의 가격이 오르는 일이 흔합니다.",
+      "industry_en": [
+        "\"Cat losses from the earthquake exceeded early estimates.\"",
+        "\"A large cat event often hardens the market.\""
+      ],
+      "game_example_ko": "환태평양 지진처럼 큰 Cat이 터지면 글로벌 재보험사들이 몸을 사려 시장이 단단해져요. 협상 자리에서 재보험사들이 내주는 지분이 줄어들 수 있어요."
+    },
+    "related": [
+      "gl_hard_market",
+      "gl_accumulation",
+      "gl_capacity"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_accumulation",
+    "term_ko": "손실 집적",
+    "term_en": "Accumulation",
+    "gloss_ko": "한곳에 몰린 위험",
+    "aliases": [
+      "집적",
+      "위험 집적",
+      "accumulation",
+      "aggregation"
+    ],
+    "category": "market",
+    "level1_ko": "서로 다른 계약인데 한 사고로 한꺼번에 손실이 나도록 한곳에 몰린 위험이에요.",
+    "level2_ko": "달걀을 한 바구니에 담았다가 바구니를 떨어뜨리면 전부 깨지는 것과 같아요.",
+    "level3": {
+      "industry_ko": "집적(accumulation)은 같은 지역이나 같은 사건으로 여러 계약이 함께 손실을 입을 수 있는 상태입니다. 항만 야드나 산업단지처럼 자산이 몰린 곳은 한 번의 화재·충돌로 손실이 겹치기 쉬워서, 재보험사는 한 지역에 위험이 얼마나 쌓였는지를 따로 관리합니다.",
+      "industry_en": [
+        "\"We monitor accumulation in the port area closely.\"",
+        "\"High accumulation in one zone limits the capacity we can offer.\""
+      ],
+      "game_example_ko": "말라카 해협 충돌로 항만 야드의 화물이 한꺼번에 손실을 낸 사건이 집적의 예예요. 이런 일이 터지면 재보험사들이 그 지역에 내줄 수 있는 용량을 잠시 줄여요."
+    },
+    "related": [
+      "gl_cat",
+      "gl_capacity",
+      "gl_claim"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_ils",
+    "term_ko": "대체자본(ILS)",
+    "term_en": "Insurance-linked securities (ILS)",
+    "gloss_ko": "투자자가 맡는 재해 위험",
+    "aliases": [
+      "ILS",
+      "재해채권",
+      "캣본드",
+      "cat bond",
+      "alternative capital",
+      "대체자본"
+    ],
+    "category": "market",
+    "level1_ko": "연기금 같은 투자자가 재보험사 대신 재해 위험을 맡는 돈이에요.",
+    "level2_ko": "곗돈을 모아 급한 집을 돕는 계처럼, 투자자들이 돈을 모아 큰 재해에 대비해요. 사고가 안 나면 이자를 받아요.",
+    "level3": {
+      "industry_ko": "ILS(insurance-linked securities)는 재해채권(cat bond) 같은 상품으로 투자자의 돈을 재보험 시장에 끌어오는 방식입니다. 새 자본이 들어오면 공급이 늘어 가격 압력이 줄고, 큰 재해 뒤의 [[gl_hard_market|하드마켓]]이 풀리는 계기가 되기도 합니다.",
+      "industry_en": [
+        "\"Alternative capital continues to flow into the cat market.\"",
+        "\"ILS investors were drawn in by the higher returns after the hardening.\""
+      ],
+      "game_example_ko": "'자본 유입' 사건으로 연기금·대체자본이 들어오면 재보험사들의 태도가 풀리고 시장이 부드러운 쪽으로 움직여요."
+    },
+    "related": [
+      "gl_capacity",
+      "gl_soft_market",
+      "gl_market_cycle",
+      "gl_cat"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_shariah_board",
+    "term_ko": "샤리아 위원회",
+    "term_en": "Shariah supervisory board",
+    "gloss_ko": "이슬람 율법 심사 위원회",
+    "aliases": [
+      "샤리아 감독 위원회",
+      "율법 위원회",
+      "shariah committee",
+      "Shariah board"
+    ],
+    "category": "takaful",
+    "level1_ko": "계약이 이슬람 율법에 맞는지 심사하고 허락 여부를 정하는 전문가 위원회예요.",
+    "level2_ko": "할랄 인증 심사원처럼, 이 계약이 율법에 맞는지 먼저 확인한 뒤에야 도장을 찍어 줘요.",
+    "level3": {
+      "industry_ko": "샤리아 위원회(Shariah supervisory board)는 타카풀 회사나 이슬람 금융회사에서 상품과 거래가 [[gl_shariah|샤리아]]에 맞는지 판단하는 독립 학자 위원회입니다. 위원회의 결정은 회사가 어떤 재보험사와 얼마의 비율로 거래할 수 있는지를 바꿔서 계약 구조에 직접 영향을 줍니다.",
+      "industry_en": [
+        "\"The Shariah board approved the retakaful arrangement.\"",
+        "\"Any change to the contract needs the Shariah board's sign-off.\""
+      ],
+      "game_example_ko": "누산타라의 위원회가 일반(비샤리아) 재보험사에 맡길 수 있는 비율의 상한을 낮추면, 그 고객의 패널을 다시 짜야 해요."
+    },
+    "related": [
+      "gl_shariah",
+      "gl_takaful",
+      "gl_retakaful"
+    ],
+    "appears_in": [
+      "inbox",
+      "settings"
+    ]
+  },
+  {
+    "id": "gl_client_money",
+    "term_ko": "고객 자금 분리",
+    "term_en": "Client money (segregation)",
+    "gloss_ko": "고객 돈은 따로 보관",
+    "aliases": [
+      "고객 자금",
+      "분리 관리",
+      "client money",
+      "segregation"
+    ],
+    "category": "security",
+    "level1_ko": "고객 돈을 회사 돈과 섞지 않고 따로 보관해 두는 규칙이에요.",
+    "level2_ko": "친구들에게 걷은 회비를 내 용돈과 섞지 않고 회비 통장에 따로 모아 두는 것과 같아요.",
+    "level3": {
+      "industry_ko": "브로커는 고객이 재보험사에 보낼 보험료나 재보험사가 고객에게 줄 보험금을 잠시 맡아 전달하는 일이 있습니다. 이 돈은 회사 자금과 섞지 않고 별도 계좌에서 관리해야 하며, 입출금 기록이 비어 있으면 [[gl_regulatory_inspection|감독 점검]]에서 지적받기 쉽습니다.",
+      "industry_en": [
+        "\"Client money must be held in a segregated account.\"",
+        "\"We reconcile the client money account every month.\""
+      ],
+      "game_example_ko": "감독 점검에서 고객 자금을 옮긴 날의 기록이 비어 있으면 경고를 받을 수 있어요. 평소에 기록을 꼼꼼히 챙겨 두면 점검 결과가 좋아져요."
+    },
+    "related": [
+      "gl_compliance",
+      "gl_regulatory_inspection",
+      "gl_conflict_of_interest"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_conflict_of_interest",
+    "term_ko": "이해상충",
+    "term_en": "Conflict of interest",
+    "gloss_ko": "양쪽 편을 동시에 들 때",
+    "aliases": [
+      "이해 상충",
+      "이해관계 충돌",
+      "conflict of interest"
+    ],
+    "category": "security",
+    "level1_ko": "한 사람이 두 쪽의 이익 사이에서 누구 편을 들어야 할지 곤란해지는 상황이에요.",
+    "level2_ko": "축구 심판이 자기 동생 팀 경기를 맡는 것과 같아요. 공정하게 해도 공정해 보이지 않아요.",
+    "level3": {
+      "industry_ko": "브로커는 고객의 대리인인데 수수료는 거래 상대인 재보험사 쪽에서 나오는 구조라, 어떤 재보험사를 권하는지와 수수료 사이에 이해상충이 생길 수 있습니다. 그래서 수수료와 관계를 투명하게 알리는 이해상충 공시가 요구됩니다.",
+      "industry_en": [
+        "\"We disclose any conflict of interest to the client in writing.\"",
+        "\"Please confirm there is no conflict of interest in this placement.\""
+      ],
+      "game_example_ko": "감독 점검에서는 이해상충을 제대로 알렸는지도 봐요. 접대가 지나치거나 경쟁 견적을 흘리는 선택은 이 신뢰를 갉아먹어 컴플라이언스 점수가 깎여요."
+    },
+    "related": [
+      "gl_compliance",
+      "gl_client_money",
+      "gl_brokerage"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_fine",
+    "term_ko": "과태료",
+    "term_en": "Regulatory fine",
+    "gloss_ko": "규칙을 어겨 내는 벌금",
+    "aliases": [
+      "벌금",
+      "과징금",
+      "범칙금",
+      "fine",
+      "penalty"
+    ],
+    "category": "security",
+    "level1_ko": "규칙을 어겼을 때 당국에 내는 벌금이에요.",
+    "level2_ko": "학교 앞에서 속도를 어기면 내는 범칙금처럼, 어긴 만큼 지갑에서 바로 빠져나가요.",
+    "level3": {
+      "industry_ko": "과태료(fine)는 감독 규정을 반복해서 어기거나 시정을 소홀히 했을 때 당국이 부과하는 금전 제재입니다. 금액보다 더 큰 부담은 결과가 이사회와 고객, 업계에 알려져 평판이 깎이는 것입니다.",
+      "industry_en": [
+        "\"The regulator imposed a financial penalty for repeated breaches.\"",
+        "\"The fine was settled promptly.\""
+      ],
+      "game_example_ko": "점검에서 컴플라이언스 점수가 낮으면 과태료가 붙어 현금이 빠지고, 평판과 이사회 신뢰도 내려가요. 낸 과태료는 시즌 리뷰 돈 요약에 따로 적혀요."
+    },
+    "related": [
+      "gl_regulatory_inspection",
+      "gl_compliance"
+    ],
+    "appears_in": [
+      "inbox",
+      "review"
+    ]
+  },
+  {
+    "id": "gl_local_retention",
+    "term_ko": "현지 출재",
+    "term_en": "Local retention (local cession)",
+    "gloss_ko": "자국 재보험사에 먼저 넘기기",
+    "aliases": [
+      "현지 몫",
+      "국내 출재",
+      "local cession",
+      "local retention",
+      "compulsory cession"
+    ],
+    "category": "sg",
+    "level1_ko": "나라가 보험 위험의 일부를 자국 재보험사에 먼저 넘기게 하는 방식이에요.",
+    "level2_ko": "농사지은 쌀의 일정 몫을 동네 방앗간에 먼저 맡기라는 규칙처럼, 해외로 나가기 전에 국내에 먼저 나눠 줘요.",
+    "level3": {
+      "industry_ko": "일부 국가는 자국 재보험 산업을 키우려고 출재 보험료의 일정 비율을 현지 재보험사에 먼저 넘기도록 요구합니다. 그러면 해외 재보험사의 몫이 줄어 기존 패널 구성을 바꿔야 합니다.",
+      "industry_en": [
+        "\"A local cession requirement applies to treaties placed from the country.\"",
+        "\"Local reinsurers will be offered a first share of the program.\""
+      ],
+      "game_example_ko": "인도네시아 당국의 움직임(가상)으로 누산타라가 다음 갱신에서 현지 몫을 떼어 달라는 요구를 받게 돼요. 사건 메일에서 고른 대응이 다음 갱신의 준비 상태를 바꿔요."
+    },
+    "related": [
+      "gl_panel",
+      "gl_renewal",
+      "gl_cedant"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_board_trust",
+    "term_ko": "이사회 신뢰",
+    "gloss_ko": "이사회가 나를 믿는 정도",
+    "aliases": [
+      "신뢰",
+      "이사회 점수",
+      "board confidence"
+    ],
+    "category": "game",
+    "level1_ko": "이사회가 플레이어를 믿고 이 자리를 맡기는 정도를 0~100점으로 보여 주는 점수예요.",
+    "level2_ko": "담임 선생님이 반장에게 거는 믿음 같아요. 잘하면 쌓이고, 큰 실수가 이어지면 빠르게 줄어요.",
+    "level3": {
+      "industry_ko": "현실에서도 책임자는 이사회의 신임을 얻어야 자리를 지킬 수 있습니다. 실적이 나쁘거나 규정 위반, 고객 이탈이 이어지면 교체 이야기가 나옵니다. 이 게임은 그 신임을 점수 하나로 단순하게 보여 줘요.",
+      "industry_en": [],
+      "game_example_ko": "화면 위쪽에 늘 보여요. 점검 결과, 계약 공백, 시즌 성적, 연말 성적표에 따라 오르내리고, 20점 아래로 내려가면 해고돼요."
+    },
+    "related": [
+      "gl_report_card",
+      "gl_compliance",
+      "gl_reputation"
+    ],
+    "appears_in": [
+      "standings",
+      "review",
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_reputation",
+    "term_ko": "평판",
+    "gloss_ko": "업계에서의 평이 어떤가",
+    "aliases": [
+      "업계 평판",
+      "평가",
+      "reputation"
+    ],
+    "category": "game",
+    "level1_ko": "업계 사람들이 이 회사를 얼마나 믿을 만하게 보는지를 나타내는 점수예요.",
+    "level2_ko": "동네에서 '저 가게는 믿을 만하다'는 소문이 퍼지는 것과 같아요. 쌓이는 건 느리고 깎이는 건 순식간이에요.",
+    "level3": {
+      "industry_ko": "현실의 브로커에게 평판은 고객과 재보험사가 먼저 연락해 오는지를 가르는 무형 자산입니다. 약속을 지키고 위기에 곁을 지킨 이력이 쌓여 만들어지고, 규정 위반이나 계약 공백 같은 일로 쉽게 깎입니다.",
+      "industry_en": [],
+      "game_example_ko": "순위표 맨 오른쪽 칸과 연말 성적표의 한 항목이에요. 평판이 충분히 높으면 경쟁 중개회사 수익의 일부가 순위 계산에 우리 몫으로 더해져요(장부 수익과 현금은 그대로예요)."
+    },
+    "related": [
+      "gl_board_trust",
+      "gl_report_card",
+      "gl_cover_gap"
+    ],
+    "appears_in": [
+      "standings",
+      "review",
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_report_card",
+    "term_ko": "연말 성적표",
+    "gloss_ko": "한 해 평가를 모은 표",
+    "aliases": [
+      "성적표",
+      "등급",
+      "S~D 등급",
+      "report card"
+    ],
+    "category": "game",
+    "level1_ko": "한 해의 결과를 S부터 D까지 등급 하나로 모아 보여 주는 이사회의 평가표예요.",
+    "level2_ko": "학교 통지표처럼 과목별 점수를 받고 총평이 붙어요. 잘한 과목과 아쉬운 과목이 한눈에 보여요.",
+    "level3": {
+      "industry_ko": "현실에서는 연말 인사 평가나 이사회 보고가 비슷한 역할을 합니다. 이 게임에서는 수익, 고객 유지, 순위, 컴플라이언스, 평판 다섯 항목을 보고, '왜 이 등급인가'와 '다음 해에 바꿔 볼 곳'까지 쉬운 말로 적어 줘요.",
+      "industry_en": [],
+      "game_example_ko": "마지막 주(턴 58)에 나오고, 연말 전에는 시즌 리뷰 화면에서 '중간 점검'으로 미리 볼 수 있어요. 등급은 이사회 신뢰를 한 번 더 움직여요."
+    },
+    "related": [
+      "gl_board_trust",
+      "gl_reputation",
+      "gl_compliance",
+      "gl_brokerage"
+    ],
+    "appears_in": [
+      "review",
+      "inbox"
+    ]
   }
 ]

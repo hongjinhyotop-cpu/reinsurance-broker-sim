@@ -109,7 +109,7 @@ function renderProfile(def, dyn, kind) {
     h('p', { class: 'db-intro' }, richText(intro)),
     h('dl', { class: 'info-list' }, info),
     kind === 'client'
-      ? h('p', { class: 'dim' }, '이 고객은 재보험을 사는 쪽, 곧 ', glossaryLink('gl_cedant'), '예요.')
+      ? h('p', { class: 'dim' }, '이 고객은 보험을 직접 파는 ', glossaryLink('gl_primary_insurer'), '이고, 재보험을 사는 쪽, 곧 ', glossaryLink('gl_cedant'), '예요.')
       : h('p', { class: 'dim' }, '이곳은 위험을 넘겨받는 ', glossaryLink('gl_reinsurer'), '예요.'),
     h('p', { class: 'dim' }, '이름과 회사는 모두 가상이에요.'));
 }

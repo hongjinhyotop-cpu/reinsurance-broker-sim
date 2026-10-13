@@ -16,6 +16,10 @@ export const UI_TERM_IDS = [
   'gl_rate_change', 'gl_line', 'gl_panel', 'gl_inception', 'gl_treaty', 'gl_single_share', 'gl_rating', 'gl_capacity',
   'gl_shariah', 'gl_ap', 'gl_cedant', 'gl_reinsurer', 'gl_retention', 'gl_xol', 'gl_quota_share', 'gl_counter_offer', 'gl_renewal',
   'gl_brokerage', 'gl_placed_premium', 'gl_compliance',
+  // M7c: 순위표·시즌 리뷰·보드·DB·설정의 고정 문구
+  'gl_limit', 'gl_expiring', 'gl_premium', 'gl_signed_line', 'gl_overhead', 'gl_fine', 'gl_receivable', 'gl_cover_gap',
+  'gl_board_trust', 'gl_reputation', 'gl_report_card', 'gl_regulatory_inspection', 'gl_shariah_board', 'gl_downgrade',
+  'gl_bor_letter', 'gl_primary_insurer', 'gl_rate_change',
 ];
 
 // ---------- [[id|표시문구]] 파싱 ----------

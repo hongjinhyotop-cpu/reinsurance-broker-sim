@@ -274,6 +274,12 @@
 .codex-stars { color: var(--warn); letter-spacing: 2px; font-size: 0.85rem; }
 .codex-unseen .codex-stars { color: var(--border); }
 .codex-sub { font-size: 0.78rem; }
+/* 용어가 50개를 넘어도 상세가 화면 밖으로 사라지지 않게: 넓은 화면에서는 목록만 따로 스크롤하고 상세는 위에 붙인다. */
+@media (min-width: 901px) {
+  .codex-list-host { max-height: calc(100vh - 14rem); min-height: 12rem; overflow-y: auto; padding-right: 4px; }
+  .codex-detail { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto; }
+}
+.codex-list-host:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 900px) { .codex { grid-template-columns: minmax(0, 1fr); } }
 /* 표 머리에 쉬운 말이 붙어 길어져도 이름 칸이 찌그러지지 않게 머리만 줄바꿈을 허용한다. */
 .db-table thead th { white-space: normal; max-width: 8.5em; vertical-align: bottom; }

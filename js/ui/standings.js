@@ -33,7 +33,7 @@ function renderLeague(data, state) {
       h('th', { scope: 'col' }, '전분기 대비'),
       h('th', { scope: 'col' }, glossaryLink('gl_placed_premium', { label: '플레이스드 프리미엄' })),
       h('th', { scope: 'col' }, '고객 수'),
-      h('th', { scope: 'col' }, '평판')));
+      h('th', { scope: 'col' }, glossaryLink('gl_reputation'))));
   if (!rows) {
     return h('section', { class: 'card' },
       h('h2', {}, '브로커 리그'),
@@ -75,7 +75,7 @@ function renderGoals(data, state) {
         goalRow(`순위 ${f.rank_max}위 이내`, f.rank === null ? '아직 결산 전' : `${f.rank}위 (${f.rank_of}곳 중)`, f.rank === null ? null : f.rank <= f.rank_max),
         goalRow(`고객 ${t.targets.clients_kept}곳 유지`, `${f.clients_kept}곳`, f.clients_kept >= t.targets.clients_kept),
         goalRow([glossaryLink('gl_compliance', { label: '컴플라이언스' }), ` ${f.compliance_min}점 이상`], `${f.compliance}점 (${complianceStatus(state.player.compliance)})`, state.player.compliance >= f.compliance_min))),
-    h('p', { class: 'dim goal-note' }, `이사회 신뢰는 지금 ${Math.round(state.player.board_confidence)}점이에요. ${t.fired_below}점 아래로 내려가면 해고돼요.`));
+    h('p', { class: 'dim goal-note' }, glossaryLink('gl_board_trust'), `는 지금 ${Math.round(state.player.board_confidence)}점이에요. ${t.fired_below}점 아래로 내려가면 해고돼요.`));
 }
 
 export function renderStandings() {

@@ -166,6 +166,7 @@ let codexCategory = 'all';
 let codexStatus = 'all';
 let codexQuery = '';
 let codexSelected = null;
+let codexScroll = 0; // 카드를 눌러 화면이 다시 그려져도 목록 스크롤 자리를 지킨다
 
 export function showInCodex(id) {
   codexSelected = id;
@@ -241,9 +242,11 @@ export function renderCodex() {
   const search = h('input', {
     type: 'search', id: 'codex-search', class: 'codex-search', value: codexQuery, placeholder: '용어·영어·다른 말로 찾기',
     'aria-label': '도감 검색',
-    oninput: (ev) => { codexQuery = ev.target.value; drawList(); },
+    oninput: (ev) => { codexQuery = ev.target.value; codexScroll = 0; listHost.scrollTop = 0; drawList(); },
   });
-  const listHost = h('div', { class: 'codex-list-host' });
+  const listHost = h('div', { class: 'codex-list-host', role: 'region', 'aria-label': '용어 목록', tabindex: '0' });
+  listHost.addEventListener('scroll', () => { codexScroll = listHost.scrollTop; });
+  requestAnimationFrame(() => { listHost.scrollTop = codexScroll; });
   const chips = (items, current, set) => items.map(([id, label]) => h('button', {
     type: 'button', class: `chip${current === id ? ' is-active' : ''}`, 'aria-pressed': current === id ? 'true' : 'false',
     onclick: () => { set(id); store.refresh(); },
@@ -266,8 +269,8 @@ export function renderCodex() {
       h('p', {}, h('strong', {}, `발견 ${prog.seen} / ${prog.total}`), h('span', { class: 'dim' }, ` · 마스터 ${prog.mastered}`)),
       gauge(pct)),
     h('div', { class: 'filters', role: 'group', 'aria-label': '카테고리' },
-      chips([['all', '전체'], ...CATEGORIES.filter((c) => list.some((t) => t.category === c)).map((c) => [c, CATEGORY_KO[c]])], codexCategory, (v) => { codexCategory = v; })),
-    h('div', { class: 'filters', role: 'group', 'aria-label': '상태' }, chips(STATUS_FILTERS, codexStatus, (v) => { codexStatus = v; })),
+      chips([['all', `전체 ${list.length}`], ...CATEGORIES.filter((c) => list.some((t) => t.category === c)).map((c) => [c, `${CATEGORY_KO[c]} ${list.filter((t) => t.category === c).length}`])], codexCategory, (v) => { codexCategory = v; codexScroll = 0; })),
+    h('div', { class: 'filters', role: 'group', 'aria-label': '상태' }, chips(STATUS_FILTERS, codexStatus, (v) => { codexStatus = v; codexScroll = 0; })),
     h('div', { class: 'field codex-search-field' }, h('label', { for: 'codex-search' }, '검색'), search),
     h('div', { class: 'codex' }, listHost, detailPanel(terms)));
 }
