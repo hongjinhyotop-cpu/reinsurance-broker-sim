@@ -107,7 +107,7 @@ function drawCard(dlg, st) {
     body.push(levelSection('③', '실무 표현과 게임 속 예시',
       h('p', {}, richText(l3.industry_ko, { scope: inner })),
       l3.industry_en.length > 0 ? h('ul', { class: 'term-en-list', lang: 'en' }, l3.industry_en.map((e) => h('li', {}, e))) : null,
-      h('p', { class: 'term-game' }, h('strong', {}, '이 게임에서는 '), richText(l3.game_example_ko, { scope: inner }))));
+      h('p', { class: 'term-game' }, h('strong', {}, '게임 속 예시 '), richText(l3.game_example_ko, { scope: inner }))));
   }
   const related = term.related.map((id) => terms.get(id)).filter(Boolean);
   const actions = [
@@ -204,7 +204,7 @@ function detailPanel(terms) {
     levelSection('③', '실무 표현과 게임 속 예시',
       h('p', {}, richText(l3.industry_ko, { scope: inner })),
       l3.industry_en.length > 0 ? h('ul', { class: 'term-en-list', lang: 'en' }, l3.industry_en.map((e) => h('li', {}, e))) : null,
-      h('p', { class: 'term-game' }, h('strong', {}, '이 게임에서는 '), richText(l3.game_example_ko, { scope: inner }))),
+      h('p', { class: 'term-game' }, h('strong', {}, '게임 속 예시 '), richText(l3.game_example_ko, { scope: inner }))),
     term.aliases.length > 0 ? h('p', { class: 'dim' }, `다른 말: ${term.aliases.join(', ')}`) : null,
     related.length > 0 ? h('div', { class: 'term-related' },
       h('span', { class: 'dim' }, '관련 용어'),

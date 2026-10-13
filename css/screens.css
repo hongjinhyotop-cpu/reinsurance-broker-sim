@@ -273,3 +273,6 @@
 .codex-unseen .codex-stars { color: var(--border); }
 .codex-sub { font-size: 0.78rem; }
 @media (max-width: 900px) { .codex { grid-template-columns: minmax(0, 1fr); } }
+/* 표 머리에 쉬운 말이 붙어 길어져도 이름 칸이 찌그러지지 않게 머리만 줄바꿈을 허용한다. */
+.db-table thead th { white-space: normal; max-width: 8.5em; vertical-align: bottom; }
+.db-table tbody th { min-width: 7em; }

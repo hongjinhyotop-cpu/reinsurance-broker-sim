@@ -1929,7 +1929,7 @@
           eq(step().textContent, '실무 표현 보기 ▾'); step().click();
           eq([dlg.querySelectorAll('.term-level').length, gl.getCodex().entries.gl_line.levels, step()], [3, 3, undefined]);
           check(dlg.querySelector('.term-en-list li'), '영어 예문');
-          check(dlg.textContent.includes('이 게임에서는'), '게임 속 예시');
+          check(dlg.textContent.includes('게임 속 예시'), '게임 속 예시');
           eq(host.querySelectorAll('.toast').length, 1, '이미 본 용어를 다시 펼쳐도 새 용어 알림은 한 번');
           [...dlg.querySelectorAll('button')].find((b) => b.textContent === '닫기').click(); // 정리는 카드 자신의 닫기 처리에 맡긴다
         } catch (e) { closeCards(); throw e; }
