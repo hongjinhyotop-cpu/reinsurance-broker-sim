@@ -2,6 +2,7 @@
 // 새 정적 파일(clients 등)은 마일스톤마다 DATA_FILES에 한 줄 + 검증 함수로 추가한다.
 
 import { REASONS_GOOD, REASONS_BAD } from './negotiation.js';
+import { parseMarkup, termIdsIn, CATEGORIES, APPEARS_IN, UI_TERM_IDS } from './glossary.js';
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
@@ -290,9 +291,26 @@ const ENTITY_TARGET_RE = /^(client|reinsurer):([a-z][a-z0-9_]*)$/;
 const ENTITY_FIELD_RE = /^(relationship|scout\.(conservatism|price_sensitivity|loyalty))$/;
 const ID_RE = /^[a-z][a-z0-9_]*$/;
 
-function validateText(c, text, path) {
+// 용어 마크업 [[id|문구]] 검사. 짝이 안 맞거나 모르는 용어 id면 막는다(terms가 Set일 때만 id 존재를 본다).
+function checkMarkup(c, text, path, terms) {
+  const { segments, problems } = parseMarkup(text);
+  for (const pr of problems) {
+    if (pr.kind === 'bad_id') c.fail(path, `용어 id는 gl_로 시작하는 소문자 snake_case여야 해요(${pr.id})`, text);
+    else if (pr.kind === 'empty_label') c.fail(path, `[[${pr.id}|…]]의 표시문구가 비어 있어요`, text);
+    else c.fail(path, '[[ ]] 짝이 맞지 않아요', text);
+  }
+  if (terms instanceof Set) {
+    for (const seg of segments) if (seg.term && !terms.has(seg.term)) c.fail(path, `glossary.json에 없는 용어 id예요: ${seg.term}`, text);
+  }
+}
+
+// markup: false = 이 칸에서는 용어 표시를 못 쓴다(기본) / true = 쓸 수 있다(id 존재는 안 봄) / Set = 쓸 수 있고 id가 Set에 있어야 한다.
+function validateText(c, text, path, markup = false) {
   if (typeof text !== 'string') return;
-  if (text.includes('[[')) c.fail(path, '용어 마크업 [[…]]은 M2(용어집)부터 쓸 수 있어요', text);
+  if (text.includes('[[') || text.includes(']]')) {
+    if (markup === false) c.fail(path, '이 칸에서는 용어 표시 [[…]]를 쓸 수 없어요(쓸 수 있는 칸은 design.md §5.3)', text);
+    else checkMarkup(c, text, path, markup);
+  }
   for (const m of text.matchAll(/\{([^{}]*)\}/g)) {
     if (!MAIL_VARS.includes(m[1])) c.fail(path, `쓸 수 없는 치환 변수 {${m[1]}} — 지금은 ${MAIL_VARS.map((v) => `{${v}}`).join(' ')}만 돼요`);
   }
@@ -337,7 +355,7 @@ function validateEffects(c, effects, path, mailIds) {
   });
 }
 
-export function validateMails(mails, file = 'mails.json', calendar = null) {
+export function validateMails(mails, file = 'mails.json', calendar = null, terms = true) {
   const errors = [];
   const c = checker(file, errors);
   if (!c.array(mails, '(최상위)')) return errors;
@@ -364,7 +382,7 @@ export function validateMails(mails, file = 'mails.json', calendar = null) {
     if (c.str(m.subject_ko, `${label}.subject_ko`, 120)) validateText(c, m.subject_ko, `${label}.subject_ko`);
     if (c.array(m.body_ko, `${label}.body_ko`, 1)) {
       m.body_ko.forEach((line, j) => {
-        if (c.str(line, `${label}.body_ko[${j}]`, 600)) validateText(c, line, `${label}.body_ko[${j}]`);
+        if (c.str(line, `${label}.body_ko[${j}]`, 600)) validateText(c, line, `${label}.body_ko[${j}]`, terms);
       });
     }
     if (!MAIL_PRIORITIES.includes(m.priority)) c.fail(`${label}.priority`, `${MAIL_PRIORITIES.join(' / ')} 중 하나여야 해요`, m.priority);
@@ -389,7 +407,7 @@ export function validateMails(mails, file = 'mails.json', calendar = null) {
       if (c.str(ch.label_ko, `${cp}.label_ko`, 120)) validateText(c, ch.label_ko, `${cp}.label_ko`);
       c.int(ch.ap_cost, `${cp}.ap_cost`, 0, 6);
       validateEffects(c, ch.effects, `${cp}.effects`, ids);
-      if (c.str(ch.result_ko, `${cp}.result_ko`, 400)) validateText(c, ch.result_ko, `${cp}.result_ko`);
+      if (c.str(ch.result_ko, `${cp}.result_ko`, 400)) validateText(c, ch.result_ko, `${cp}.result_ko`, terms);
     });
 
     // 마감·기본 선택·막힘의 약속
@@ -457,9 +475,9 @@ function validateEntityCommon(c, e, label, idPrefix) {
   }
 }
 
-const checkIntro = (c, text, path) => { if (c.str(text, path, 400)) validateText(c, text, path); };
+const checkIntro = (c, text, path, terms) => { if (c.str(text, path, 400)) validateText(c, text, path, terms); };
 
-function validateEntityList(list, file, { idPrefix, kinds, extra }) {
+function validateEntityList(list, file, { idPrefix, kinds, extra }, terms) {
   const errors = [];
   const c = checker(file, errors);
   if (!c.array(list, '(최상위)', 1)) return errors;
@@ -474,7 +492,7 @@ function validateEntityList(list, file, { idPrefix, kinds, extra }) {
       seen.add(e.id);
     }
     if (!kinds.includes(e.kind)) c.fail(`${label}.kind`, `${kinds.join(' / ')} 중 하나여야 해요`, e.kind);
-    extra(c, e, label);
+    extra(c, e, label, terms);
   });
   return errors;
 }
@@ -484,14 +502,14 @@ const lineMap = (c, v, path, min, max) => {
   for (const line of LINES) c.num(v[line], `${path}.${line}`, min, max);
 };
 
-export function validateClients(list, file = 'clients.json') {
+export function validateClients(list, file = 'clients.json', terms = true) {
   return validateEntityList(list, file, {
     idPrefix: 'cli_',
     kinds: CLIENT_KINDS,
-    extra(c, e, label) {
+    extra(c, e, label, tm) {
       if (!c.object(e.profile, `${label}.profile`)) return;
       const pr = e.profile;
-      checkIntro(c, pr.intro_ko, `${label}.profile.intro_ko`);
+      checkIntro(c, pr.intro_ko, `${label}.profile.intro_ko`, tm);
       c.num(pr.gwp_usd_m, `${label}.profile.gwp_usd_m`, 0);
       c.str(pr.rating, `${label}.profile.rating`, 10);
       if (c.array(pr.lines, `${label}.profile.lines`, 1)) {
@@ -520,15 +538,15 @@ export function validateClients(list, file = 'clients.json') {
         }
       }
     },
-  });
+  }, terms);
 }
 
-export function validateReinsurers(list, file = 'reinsurers.json') {
+export function validateReinsurers(list, file = 'reinsurers.json', terms = true) {
   return validateEntityList(list, file, {
     idPrefix: 're_',
     kinds: REINSURER_KINDS,
-    extra(c, e, label) {
-      checkIntro(c, e.intro_ko, `${label}.intro_ko`);
+    extra(c, e, label, tm) {
+      checkIntro(c, e.intro_ko, `${label}.intro_ko`, tm);
       c.str(e.rating, `${label}.rating`, 10);
       if (typeof e.onshore !== 'boolean') c.fail(`${label}.onshore`, 'true 또는 false여야 해요', e.onshore);
       if (typeof e.shariah_ok !== 'boolean') c.fail(`${label}.shariah_ok`, 'true 또는 false여야 해요', e.shariah_ok);
@@ -550,7 +568,78 @@ export function validateReinsurers(list, file = 'reinsurers.json') {
         }
       }
     },
+  }, terms);
+}
+
+// ---------- 용어집 (design.md §5, §10.6) ----------
+
+export const GLOSSARY_HINT_LEN = { level1: 60, level2: 120 }; // 넘으면 경고(막지는 않는다)
+
+function validateGlossaryText(c, text, path, ids) {
+  if (/[{}]/.test(text)) c.fail(path, '용어집 글에는 { } 치환 변수를 쓸 수 없어요', text);
+  checkMarkup(c, text, path, ids);
+}
+
+export function validateGlossary(list, file = 'glossary.json') {
+  const errors = [];
+  const c = checker(file, errors);
+  if (!c.array(list, '(최상위)', 1)) return errors;
+  const ids = new Set(list.filter((t) => isObj(t) && typeof t.id === 'string').map((t) => t.id));
+  const seen = new Set();
+  list.forEach((t, i) => {
+    const p = `[${i}]`;
+    if (!c.object(t, p)) return;
+    const label = typeof t.id === 'string' ? `${p}(${t.id})` : p;
+    if (c.str(t.id, `${label}.id`, 80)) {
+      if (!/^gl_[a-z0-9_]+$/.test(t.id)) c.fail(`${label}.id`, 'gl_ 로 시작하는 snake_case여야 해요', t.id);
+      if (seen.has(t.id)) c.fail(`${label}.id`, '다른 용어와 id가 겹쳐요', t.id);
+      seen.add(t.id);
+    }
+    c.str(t.term_ko, `${label}.term_ko`, 40);
+    const isGame = t.category === 'game';
+    if (!isGame || t.term_en !== undefined) c.str(t.term_en, `${label}.term_en`, 60); // 게임 규칙 용어는 영어 이름이 없을 수 있다
+    if (t.gloss_ko !== undefined) c.str(t.gloss_ko, `${label}.gloss_ko`, 20);
+    if (c.array(t.aliases, `${label}.aliases`)) t.aliases.forEach((a, j) => c.str(a, `${label}.aliases[${j}]`, 40));
+    if (!CATEGORIES.includes(t.category)) c.fail(`${label}.category`, `${CATEGORIES.join(' / ')} 중 하나여야 해요`, t.category);
+    if (c.str(t.level1_ko, `${label}.level1_ko`, 200)) validateGlossaryText(c, t.level1_ko, `${label}.level1_ko`, ids);
+    if (c.str(t.level2_ko, `${label}.level2_ko`, 400)) validateGlossaryText(c, t.level2_ko, `${label}.level2_ko`, ids);
+    if (c.object(t.level3, `${label}.level3`)) {
+      const l3 = t.level3;
+      if (c.str(l3.industry_ko, `${label}.level3.industry_ko`, 800)) validateGlossaryText(c, l3.industry_ko, `${label}.level3.industry_ko`, ids);
+      if (c.array(l3.industry_en, `${label}.level3.industry_en`, isGame ? 0 : 1)) l3.industry_en.forEach((e, j) => c.str(e, `${label}.level3.industry_en[${j}]`, 200));
+      if (c.str(l3.game_example_ko, `${label}.level3.game_example_ko`, 500)) validateGlossaryText(c, l3.game_example_ko, `${label}.level3.game_example_ko`, ids);
+    }
+    if (c.array(t.related, `${label}.related`)) {
+      t.related.forEach((r, j) => {
+        if (!c.str(r, `${label}.related[${j}]`, 80)) return;
+        if (r === t.id) c.fail(`${label}.related[${j}]`, '자기 자신은 넣을 수 없어요', r);
+        else if (!ids.has(r)) c.fail(`${label}.related[${j}]`, 'glossary.json에 없는 용어 id예요', r);
+      });
+    }
+    if (c.array(t.appears_in, `${label}.appears_in`, 1)) {
+      t.appears_in.forEach((a, j) => { if (!APPEARS_IN.includes(a)) c.fail(`${label}.appears_in[${j}]`, `${APPEARS_IN.join(' / ')} 중 하나여야 해요`, a); });
+    }
   });
+  return errors;
+}
+
+// 막지는 않지만 콘텐츠 점검에 쓰는 경고: 글이 길거나, 어디에서도 쓰이지 않는 용어.
+export function glossaryWarnings(raw) {
+  const warnings = [];
+  const list = Array.isArray(raw.glossary) ? raw.glossary.filter(isObj) : [];
+  for (const t of list) {
+    if (typeof t.level1_ko === 'string' && t.level1_ko.length > GLOSSARY_HINT_LEN.level1) warnings.push(`glossary.json › ${t.id}.level1_ko — ${GLOSSARY_HINT_LEN.level1}자를 넘어요 (${t.level1_ko.length}자)`);
+    if (typeof t.level2_ko === 'string' && t.level2_ko.length > GLOSSARY_HINT_LEN.level2) warnings.push(`glossary.json › ${t.id}.level2_ko — ${GLOSSARY_HINT_LEN.level2}자를 넘어요 (${t.level2_ko.length}자)`);
+  }
+  const used = new Set(UI_TERM_IDS);
+  const walk = (v) => {
+    if (typeof v === 'string') { if (v.includes('[[')) for (const id of termIdsIn(v)) used.add(id); }
+    else if (Array.isArray(v)) v.forEach(walk);
+    else if (isObj(v)) Object.values(v).forEach(walk);
+  };
+  walk(raw.mails); walk(raw.clients); walk(raw.reinsurers);
+  for (const t of list) if (!used.has(t.id)) warnings.push(`glossary.json › ${t.id} — 어디에서도 쓰이지 않는 용어예요`);
+  return warnings;
 }
 
 // ---------- 트리티 (design.md §10.3) ----------
@@ -788,12 +877,16 @@ export function validateCross({ config, calendar, clients, reinsurers, treaties,
   return errors;
 }
 
+// 용어집이 로드되지 않았다면 id 존재 검사는 건너뛴다(용어집 쪽 오류가 이미 안내된다).
+const termSet = (raw) => (Array.isArray(raw.glossary) ? new Set(raw.glossary.filter(isObj).map((t) => t.id)) : true);
+
 export const DATA_FILES = [
   { key: 'config', file: 'config.json', validate: validateConfig },
   { key: 'calendar', file: 'calendar.json', validate: validateCalendar },
-  { key: 'mails', file: 'mails.json', validate: (mails, file, raw) => validateMails(mails, file, raw.calendar) },
-  { key: 'clients', file: 'clients.json', validate: validateClients },
-  { key: 'reinsurers', file: 'reinsurers.json', validate: validateReinsurers },
+  { key: 'glossary', file: 'glossary.json', validate: validateGlossary },
+  { key: 'mails', file: 'mails.json', validate: (mails, file, raw) => validateMails(mails, file, raw.calendar, termSet(raw)) },
+  { key: 'clients', file: 'clients.json', validate: (list, file, raw) => validateClients(list, file, termSet(raw)) },
+  { key: 'reinsurers', file: 'reinsurers.json', validate: (list, file, raw) => validateReinsurers(list, file, termSet(raw)) },
   { key: 'treaties', file: 'treaties.json', validate: validateTreaties },
   { key: 'events', file: 'events.json', validate: validateEvents },
 ];
@@ -836,5 +929,5 @@ export async function loadData({ baseUrl = new URL('../data/', import.meta.url),
   if (errors.length === 0) errors.push(...validateCross(raw));
 
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, data: deepFreeze(raw) };
+  return { ok: true, data: deepFreeze(raw), warnings: glossaryWarnings(raw) };
 }

@@ -7,6 +7,7 @@ import { describeTurn } from '../calendar.js';
 import { boardCheck, publicShareCap } from '../negotiation.js';
 import * as placement from '../placement.js';
 import { h, toast, confirmDialog } from './components.js';
+import { glossaryLink, resetTermScope } from './glossary_view.js';
 
 const TERMS_KO = { strict: '엄격', standard: '표준', broad: '넓음' };
 const LINE_KO = { property_energy: '재산·에너지', marine_cargo: '해상화물', takaful_general: '일반 타카풀' };
@@ -340,7 +341,7 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
       h('span', { class: 'pl-swatch', 'aria-hidden': 'true' }),
       h('strong', {}, reinsurer.name_ko),
       h('span', { class: 'tag' }, reinsurer.rating),
-      reinsurer.shariah_ok ? h('span', { class: 'tag' }, '샤리아') : null,
+      reinsurer.shariah_ok ? h('span', { class: 'tag' }, glossaryLink('gl_shariah', { label: '샤리아' })) : null,
       h('span', { class: 'dim pl-cap' }, `${cap.exact ? '확인된 상한' : '이론 상한'} ${cap.exact ? '' : '~'}${share(cap.value)}`),
       expiringShare > 0 ? h('span', { class: 'dim pl-cap' }, `만기 ${share(expiringShare)}`) : null,
       h('span', { class: 'dim pl-cap', title: '거절당할 때마다 줄어들어요. 0이 되면 이 트리티에서는 더 협상하지 않아요.' },
@@ -355,7 +356,7 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
         stepButton('−5', -1, `${reinsurer.name_ko} 지분 5% 줄이기`, reinsurer, rerender, locked),
         shareInput, h('span', { class: 'pl-unit' }, '%'),
         stepButton('+5', 1, `${reinsurer.name_ko} 지분 5% 늘리기`, reinsurer, rerender, locked)),
-      h('div', { class: 'pl-rc' }, h('label', { for: `pl-rc-${id}` }, 'RC'), rcInput, h('span', { class: 'pl-unit' }, '%')),
+      h('div', { class: 'pl-rc' }, h('label', { for: `pl-rc-${id}` }, 'RC'), rcInput, h('span', { class: 'pl-unit' }, '%')), // label 안에는 버튼(용어 링크)을 넣을 수 없어 일반 글자로 둔다. 링크는 위쪽 고객 요구 줄에 있다.
       // 입력칸을 고친 직후엔 화면이 아직 옛 값 기준이라, 값에 따라 달라지는 이유는 막지 않고(aria-disabled) 눌렀을 때 알려 준다.
       h('button', {
         type: 'button', class: 'btn', disabled: locked || stopped ? true : null, 'aria-disabled': askWhy ? 'true' : null, 'data-key': `${id}:ask`,
@@ -396,17 +397,26 @@ function accessibleTable(ctx, state, check) {
     h('tfoot', {}, h('tr', {}, h('th', { scope: 'row' }, '합계'), h('td', {}, '100%'), h('td', {}, `${Math.round(check.total * 100)}%`), h('td', {}), h('td', {}))));
 }
 
+const STRUCTURE_TERM = { xol: ['gl_xol', '초과손해'], qs: ['gl_quota_share', '쿼터쉐어'] };
+
+// 화면 라벨의 용어는 처음 한 번만 링크(RC에는 쉬운 말도 병기). 글자 조각과 링크 버튼이 섞인 배열을 돌려준다.
 function requirementLine(ctx) {
   const req = ctx.client.requirements;
-  const bits = [`최소 등급 ${req.min_rating}`, `단일 최대 ${share(req.max_single_share)}`, `목표 RC ${pct(ctx.t.target_rc)}`, `선호 조건 ${TERMS_KO[req.preferred_terms]}`];
-  if (req.shariah_required) bits.push(`샤리아 필수(일반 재보험사 합 ${share(req.shariah_conventional_cap ?? 1)} 이하)`);
-  return bits.join(' · ');
+  const bits = [
+    ['최소 ', glossaryLink('gl_rating', { label: '등급' }), ` ${req.min_rating}`],
+    [glossaryLink('gl_single_share'), ` ${share(req.max_single_share)}`],
+    ['목표 ', glossaryLink('gl_rate_change', { label: 'RC', gloss: true }), ` ${pct(ctx.t.target_rc)}`],
+    [`선호 조건 ${TERMS_KO[req.preferred_terms]}`],
+  ];
+  if (req.shariah_required) bits.push([glossaryLink('gl_shariah', { label: '샤리아' }), ` 필수(일반 재보험사 합 ${share(req.shariah_conventional_cap ?? 1)} 이하)`]);
+  return bits.flatMap((bit, i) => (i === 0 ? [bit] : [' · ', bit]));
 }
 
-function timingText(ctx) {
-  if (ctx.toInception < 0) return '이 시즌의 인셉션은 이미 지났어요';
-  if (ctx.toInception === 0) return '이번 주가 인셉션이에요';
-  return `인셉션까지 ${ctx.toInception}주`;
+function timingNodes(ctx) {
+  const inception = glossaryLink('gl_inception', { label: '인셉션', gloss: true });
+  if (ctx.toInception < 0) return ['이 시즌의 ', inception, '은 이미 지났어요'];
+  if (ctx.toInception === 0) return ['이번 주가 ', inception, '이에요'];
+  return [inception, `까지 ${ctx.toInception}주`];
 }
 
 // 고객이 자기 말투로 하는 이유 한 줄. 이유 종류만 세이브에 있고 문구는 데이터에서 찾는다.
@@ -459,6 +469,7 @@ export function renderPlacement() {
   const root = h('div', { class: 'screen screen-wide pl' });
   const cfg = data.config.negotiation.board;
   const draw = () => {
+    resetTermScope(); // 다시 그릴 때마다 첫 등장 장부를 새로 시작한다
     syncAccepted(state);
     const ctx = boardContext(data, state);
     const check = runCheck(data, state, ctx);
@@ -502,9 +513,10 @@ export function renderPlacement() {
           }, [h('option', { value: '' }, '없음'), ...trt.structure_options.map((o) => h('option', { value: o.id, selected: o.id === ctx.t.structure_option ? true : null }, o.label_ko))]))),
       locked ? null : h('p', { class: 'dim pl-small' }, '조건이나 구조 옵션을 바꾸면 가격 하한이 달라져서, 이미 받은 수락·반제·거절은 모두 "미제안"으로 돌아가요(쓴 행동 점수는 돌아오지 않아요).'),
       h('p', {},
-        h('strong', {}, ctx.client.name_ko), ` · ${LINE_KO[trt.line]} · 한도 $${trt.limit_usd_m}m (부담 $${trt.attachment_usd_m}m 초과) · 만기 보험료 $${trt.expiring.premium_usd_m}m · `,
-        `${ctx.season.label} 시즌 · ${timingText(ctx)}`, desc ? ` · 지금 ${desc.quarter.label_ko} ${desc.weekInQuarter}주차` : ''),
-      h('p', { class: 'dim' }, `고객 요구: ${requirementLine(ctx)}`));
+        h('strong', {}, ctx.client.name_ko), ` · ${LINE_KO[trt.line]} · 한도 $${trt.limit_usd_m}m (`, glossaryLink('gl_retention', { label: '부담' }), ` $${trt.attachment_usd_m}m 초과) · 만기 보험료 $${trt.expiring.premium_usd_m}m · `,
+        `${ctx.season.label} 시즌 · `, timingNodes(ctx), desc ? ` · 지금 ${desc.quarter.label_ko} ${desc.weekInQuarter}주차` : ''),
+      h('p', { class: 'dim' }, '고객 요구: ', requirementLine(ctx)),
+      h('p', { class: 'dim pl-small' }, glossaryLink('gl_treaty', { label: '트리티' }), '는 ', glossaryLink(STRUCTURE_TERM[trt.structure][0], { label: STRUCTURE_TERM[trt.structure][1] }), ' 방식이에요.'));
 
     const boardCard = h('section', { class: 'card', 'aria-label': '지분 막대' },
       h('div', { class: 'pl-bar-head' },
@@ -531,7 +543,8 @@ export function renderPlacement() {
           }, '비우기'))),
       barTrack(ctx, state, data, check),
       h('p', { class: 'pl-legend dim' },
-        '위쪽 흐린 띠는 만기 때 지분(고스트)이고, 아래쪽이 지금 구성이에요. 점선=아직 제안 전, 실선=수락(확정), 주황 테두리=반제, 빗금=거절이에요.'),
+        '위쪽 흐린 띠는 만기 때 ', glossaryLink('gl_panel', { label: '패널' }), '(고스트)이고, 아래쪽이 지금 구성이에요. 점선=아직 제안 전, 실선=수락(확정), 주황 테두리=',
+        glossaryLink('gl_counter_offer', { label: '반제' }), ', 빗금=거절이에요.'),
       h('p', { class: 'pl-sum' },
         h('strong', { class: check.over ? 'pl-over' : '' }, `입력 합계 ${total}% / 100%`),
         check.filled ? ' — 가득 찼어요' : check.over ? '' : ` — 남은 ${Math.round(check.remaining * 100)}%`,
@@ -539,7 +552,8 @@ export function renderPlacement() {
       globalChips.length > 0 ? h('div', { class: 'pl-chips' }, globalChips) : null,
       locked ? null : h('div', { class: 'notice' },
         h('strong', {}, '제안은 진짜예요. '),
-        `의견 묻기는 ${cfg.ask_ap}점, 제안은 ${cfg.propose_ap}점의 행동 점수를 쓰고, 너무 낮은 가격으로 거절당하면 그 재보험사의 인내심과 관계도가 깎여요. 입력칸에서 ← → 로 5%씩, Shift+← →로 1%씩 조절할 수 있어요.`),
+        `의견 묻기는 ${cfg.ask_ap}점, 제안은 ${cfg.propose_ap}점의 `, glossaryLink('gl_ap', { label: '행동 점수' }),
+        '를 쓰고, 너무 낮은 가격으로 거절당하면 그 재보험사의 인내심과 관계도가 깎여요. 입력칸에서 ← → 로 5%씩, Shift+← →로 1%씩 조절할 수 있어요.'),
       !locked && state.ap < Math.min(cfg.ask_ap, cfg.propose_ap) ? h('div', { class: 'notice notice-warn', role: 'status' }, '이번 주 행동 점수를 다 썼어요. Continue로 다음 주로 넘어가면 새로 채워져요.') : null);
 
     const urgent = !locked && placement.isUrgent(data, state, trt)
@@ -547,7 +561,7 @@ export function renderPlacement() {
         h('span', { class: 'pl-urgent-icon', 'aria-hidden': 'true' }, '⏰'),
         h('div', {},
           h('strong', {}, '재보험사들이 서두르고 있어요'),
-          h('p', {}, `${timingText(ctx)} — 마감이 가까워서 반제 폭이 좁아졌고, 반제는 받은 주가 지나면 사라져요.`)))
+          h('p', {}, timingNodes(ctx), ' — 마감이 가까워서 반제 폭이 좁아졌고, 반제는 받은 주가 지나면 사라져요.')))
       : null;
 
     const rows = h('section', { class: 'pl-rows', 'aria-label': '재보험사별 지분' },
@@ -585,7 +599,7 @@ export function renderPlacement() {
 
     // 서두름 띠처럼 없을 수 있는 조각은 null이다. replaceChildren에 null을 그대로 넘기면 "null"이라는 글자가 들어가므로 걸러서 넘긴다.
     root.replaceChildren(...[
-      h('h1', {}, '플레이스먼트 — 라인 구성 보드'),
+      h('h1', {}, '플레이스먼트 — ', glossaryLink('gl_line', { label: '라인' }), ' 구성 보드'),
       urgent, header, boardCard, rows,
       h('section', { class: 'card', 'aria-label': '표로 보기' }, h('h2', {}, '표로 보기'), accessibleTable(ctx, state, check)),
       h('div', { class: 'pl-bottom' }, submit, log),

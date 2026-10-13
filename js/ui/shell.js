@@ -6,6 +6,7 @@ import { describeTurn, turnLabel, seasonLabel } from '../calendar.js';
 import { describeMarket } from '../market.js';
 import { continueBlockReason, advance } from '../turn.js';
 import { h, formatUsdM, toast } from './components.js';
+import { glossaryLink } from './glossary_view.js';
 
 // when: 이 화면이 만들어질 마일스톤(design.md §12)
 export const NAV = [
@@ -15,19 +16,17 @@ export const NAV = [
   { id: 'calendar', label: '캘린더', when: null },
   { id: 'standings', label: '순위표', when: 'M7' },
   { id: 'review', label: '시즌 리뷰', when: 'M7' },
-  { id: 'codex', label: '용어 도감', when: 'M2' },
+  { id: 'codex', label: '용어 도감', when: null },
   { id: 'settings', label: '설정', when: null },
 ];
 
 const MILESTONES = {
-  M2: '용어집',
   M7: '재무 · 순위표 · 리뷰',
 };
 
 const PLACEHOLDERS = {
   standings: '경쟁 중개회사 7곳과 수익을 비교하고 이사회 목표를 확인하는 곳이에요.',
   review: '갱신 시즌이 끝날 때마다, 그리고 연말에 성적표를 보는 곳이에요.',
-  codex: '눌러서 읽은 재보험 용어가 모이는 도감이에요. 파일로 내보내 Anki로 복습할 수도 있어요.',
 };
 
 export function screenTitle(id) {
@@ -90,7 +89,7 @@ function renderTopbar() {
       stat('현금', formatUsdM(s.player.cash_usd_m), null, 'm은 백만 달러 단위예요'),
       stat('이사회 신뢰', String(Math.round(s.player.board_confidence)), '0~100', '20 아래로 떨어지면 해고돼요'),
       stat('시장', market.label_ko, `오차 ±${market.error}`, '정확한 시장 지수는 보이지 않고, 라벨과 오차 범위만 보여요'),
-      stat('행동 점수', `${s.ap}/${config.game.ap_per_week}`, null, '매주 6점이 새로 생기고, 남은 점수는 다음 주로 넘어가지 않아요'),
+      stat(glossaryLink('gl_ap', { label: '행동 점수', scope: new Set() }), `${s.ap}/${config.game.ap_per_week}`, null, '매주 6점이 새로 생기고, 남은 점수는 다음 주로 넘어가지 않아요'),
     ),
     renderContinue(data, s),
   );

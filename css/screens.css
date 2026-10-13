@@ -251,3 +251,25 @@
   .pl-head { grid-template-columns: minmax(0, 1fr); }
   .pl-bottom { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---- 용어 도감 ---- */
+.codex { display: grid; grid-template-columns: minmax(280px, 440px) minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.codex .card { margin-bottom: 0; }
+.codex-progress p { margin-bottom: 6px; }
+.codex-progress .gauge { width: 100%; }
+.codex-search-field { max-width: 360px; }
+.codex-count { margin-bottom: 6px; }
+.codex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.codex-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 64px; padding: 8px 10px;
+  background: var(--bg-elev); color: var(--text); font: inherit; text-align: left;
+  border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
+}
+.codex-card:hover, .codex-card.is-selected { border-color: var(--accent); }
+.codex-card.is-selected { background: var(--bg-elev-2); }
+.codex-unseen { color: var(--text-dim); border-style: dashed; }
+.codex-name { font-weight: 600; }
+.codex-stars { color: var(--warn); letter-spacing: 2px; font-size: 0.85rem; }
+.codex-unseen .codex-stars { color: var(--border); }
+.codex-sub { font-size: 0.78rem; }
+@media (max-width: 900px) { .codex { grid-template-columns: minmax(0, 1fr); } }

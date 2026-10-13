@@ -9,6 +9,7 @@ import { renderInbox } from './ui/inbox.js';
 import { renderCalendar } from './ui/calendar_view.js';
 import { renderDatabase } from './ui/database.js';
 import { renderPlacement } from './ui/placement_view.js';
+import { renderCodex, resetTermScope } from './ui/glossary_view.js';
 import { toast } from './ui/components.js';
 
 const GAME_TITLE = '싱가포르 재보험 브로커 시뮬레이션';
@@ -45,7 +46,8 @@ function renderNow({ focusMain = false } = {}) {
     return;
   }
   const route = currentRoute();
-  const screens = { settings: renderSettings, inbox: renderInbox, calendar: renderCalendar, database: renderDatabase, placement: renderPlacement };
+  const screens = { settings: renderSettings, inbox: renderInbox, calendar: renderCalendar, database: renderDatabase, placement: renderPlacement, codex: renderCodex };
+  resetTermScope(); // 화면 하나를 그리는 동안은 같은 용어를 첫 등장만 링크로 만든다
   const content = screens[route] ? screens[route]() : renderPlaceholder(route);
   app.append(renderShell(route, content));
   document.title = `${screenTitle(route)} · ${GAME_TITLE}`;
@@ -60,6 +62,7 @@ async function boot() {
     app.replaceChildren(renderLoadError(result.errors, boot));
     return;
   }
+  for (const w of result.warnings ?? []) console.warn(w); // 콘텐츠 점검용(게임은 그대로 시작)
   store.configure(result.data);
   render();
 }

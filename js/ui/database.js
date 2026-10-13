@@ -5,6 +5,7 @@ import { ATTRS, revealAttr, stageOf, awareness } from '../reveal.js';
 import { unlockedNotes } from '../scouting.js';
 import { meet, meetBlockReason } from '../turn.js';
 import { h, toast, rangeBar, gauge } from './components.js';
+import { richText, glossaryLink } from './glossary_view.js';
 
 const ATTR_LABEL = { conservatism: '보수성', price_sensitivity: '가격 민감도', loyalty: '관계 충성도' };
 const ATTR_HELP = {
@@ -63,7 +64,7 @@ function renderTable(rows, kind) {
   return h('table', { class: 'table db-table' },
     h('caption', { class: 'visually-hidden' }, `${GROUP_KO[kind]} 목록`),
     h('thead', {}, h('tr', {},
-      ['이름', '등급', kind === 'client' ? '규모' : '용량', '관계도', '파악도', '미팅'].map((t) => h('th', { scope: 'col' }, t)))),
+      ['이름', glossaryLink('gl_rating', { label: '등급', gloss: true }), kind === 'client' ? '규모' : glossaryLink('gl_capacity', { label: '용량', gloss: true }), '관계도', '파악도', '미팅'].map((t) => h('th', { scope: 'col' }, t)))),
     h('tbody', {}, rows.map(({ def, dyn }) => h('tr', { class: def.id === selectedId ? 'is-selected' : null },
       h('th', { scope: 'row' },
         h('button', {
@@ -89,18 +90,25 @@ function renderProfile(def, dyn, kind) {
     add('수입보험료', `$${def.profile.gwp_usd_m}m`);
     add('담당자', `${def.profile.contact.name} (${def.profile.contact.title})`);
     const r = def.requirements;
-    add('요구 조건', `재보험사 최소 등급 ${r.min_rating} · 한 곳당 최대 ${Math.round(r.max_single_share * 100)}%${r.shariah_required ? ` · 샤리아 준수 필수(일반 재보험사 ${Math.round(r.shariah_conventional_cap * 100)}%까지)` : ''}`);
+    add('요구 조건', [
+      '재보험사 최소 ', glossaryLink('gl_rating', { label: '등급' }), ` ${r.min_rating} · `,
+      glossaryLink('gl_single_share'), ` ${Math.round(r.max_single_share * 100)}%`,
+      r.shariah_required ? [' · ', glossaryLink('gl_shariah', { label: '샤리아' }), ` 준수 필수(일반 재보험사 ${Math.round(r.shariah_conventional_cap * 100)}%까지)`] : null,
+    ]);
   } else {
     add('담당자', `${def.contact.name} (${def.contact.title})`);
     add('싱가포르 지점', def.onshore ? '있음' : '없음');
-    add('샤리아 준수', def.shariah_ok ? '가능' : '해당 없음');
-    add('인수 용량', Object.entries(def.capacity_usd_m).filter(([, v]) => v > 0).map(([l, v]) => `${LINE_KO[l]} $${v}m`).join(' · '));
+    add(glossaryLink('gl_shariah', { label: '샤리아 준수' }), def.shariah_ok ? '가능' : '해당 없음');
+    add(glossaryLink('gl_capacity', { label: '인수 용량' }), Object.entries(def.capacity_usd_m).filter(([, v]) => v > 0).map(([l, v]) => `${LINE_KO[l]} $${v}m`).join(' · '));
   }
   add('관계도', `${Math.round(dyn.relationship)} / 100`);
   const intro = kind === 'client' ? def.profile.intro_ko : def.intro_ko;
   return h('div', {},
-    h('p', { class: 'db-intro' }, intro),
+    h('p', { class: 'db-intro' }, richText(intro)),
     h('dl', { class: 'info-list' }, info),
+    kind === 'client'
+      ? h('p', { class: 'dim' }, '이 고객은 재보험을 사는 쪽, 곧 ', glossaryLink('gl_cedant'), '예요.')
+      : h('p', { class: 'dim' }, '이곳은 위험을 넘겨받는 ', glossaryLink('gl_reinsurer'), '예요.'),
     h('p', { class: 'dim' }, '이름과 회사는 모두 가상이에요.'));
 }
 
@@ -205,6 +213,7 @@ export function renderDatabase() {
   if (!rows.some((r) => r.def.id === selectedId)) selectedId = rows[0]?.def.id ?? null;
   const current = rows.find((r) => r.def.id === selectedId) ?? null;
 
+  const table = renderTable(rows, group); // 화면 위쪽(표 머리)에서 용어 링크가 먼저 생기도록 상세보다 먼저 만든다
   const detail = current
     ? h('section', { class: 'db-detail card', 'aria-label': `${current.def.name_ko} 상세` },
       h('header', { class: 'db-detail-head' },
@@ -227,6 +236,6 @@ export function renderDatabase() {
         onclick: () => { group = k; selectedId = null; topic = 'general'; lastMeeting = null; store.refresh(); },
       }, `${GROUP_KO[k]} ${(k === 'client' ? data.clients : data.reinsurers).length}`))),
     h('div', { class: 'db' },
-      h('section', { class: 'db-list card', 'aria-label': `${GROUP_KO[group]} 목록` }, renderTable(rows, group)),
+      h('section', { class: 'db-list card', 'aria-label': `${GROUP_KO[group]} 목록` }, table),
       detail));
 }
