@@ -70,6 +70,7 @@ function renderGoals(data, state) {
   return h('section', { class: 'card' },
     h('h2', {}, '이사회 목표'),
     h('table', { class: 'table' },
+      h('caption', { class: 'visually-hidden' }, '이사회 목표와 지금 상태'),
       h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, '목표'), h('th', { scope: 'col' }, '지금'), h('th', { scope: 'col' }, '상태'))),
       h('tbody', {},
         goalRow(['확정 ', glossaryLink('gl_brokerage', { label: '브로커리지' }), ` ${formatUsdM(f.target_usd_m)} 이상`], `${formatUsdM(f.brokerage_usd_m)}`, f.brokerage_usd_m >= f.target_usd_m),

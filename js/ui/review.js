@@ -38,6 +38,7 @@ function renderBreakdown(data, report) {
     h('h2', {}, '왜 이 등급인가'),
     h('div', { class: 'table-wrap' },
       h('table', { class: 'table table-wrap-text' },
+        h('caption', { class: 'visually-hidden' }, '항목별 점수와 이유'),
         h('thead', {}, h('tr', {}, ['항목', '점수', '숫자로 보면', '쉬운 말로'].map((t) => h('th', { scope: 'col' }, t)))),
         h('tbody', {}, report.parts.map((p) => {
           const tier = tierOf(p.fraction, cfg.report);
@@ -147,6 +148,7 @@ function renderSeasonCompare(data, state) {
     h('p', { class: 'dim' }, note),
     h('div', { class: 'table-wrap' },
       h('table', { class: 'table' },
+        h('caption', { class: 'visually-hidden' }, texts.compare_title_ko),
         h('thead', {}, h('tr', {}, heads.map((t) => h('th', { scope: 'col' }, t)))),
         h('tbody', {}, rows.map((r) => h('tr', {},
           h('th', { scope: 'row' }, `${r.season.label} · ${r.client.name_ko}`),
@@ -180,6 +182,7 @@ function renderTrend(data, state) {
     h('h2', {}, texts.trend_title_ko),
     h('div', { class: 'table-wrap' },
       h('table', { class: 'table' },
+        h('caption', { class: 'visually-hidden' }, texts.trend_title_ko),
         h('thead', {}, h('tr', {}, heads.map((t) => h('th', { scope: 'col' }, t)))),
         h('tbody', {}, rows.map((r) => h('tr', {},
           h('th', { scope: 'row' }, QUARTER_KO[r.id] ?? r.id),
@@ -198,6 +201,7 @@ function renderContracts(data, state) {
     h('h2', {}, '올해 계약 한눈에'),
     h('div', { class: 'table-wrap' },
       h('table', { class: 'table' },
+        h('caption', { class: 'visually-hidden' }, '올해 계약 한눈에'),
         h('thead', {}, h('tr', {}, ['고객', '결과', '최종 RC', '확정 브로커리지'].map((t) => h('th', { scope: 'col' }, t)))),
         h('tbody', {}, data.treaties.map((t) => {
           const ts = state.treaties[t.id];

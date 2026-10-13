@@ -272,7 +272,7 @@
 .codex-unseen { color: var(--text-dim); border-style: dashed; }
 .codex-name { font-weight: 600; }
 .codex-stars { color: var(--warn); letter-spacing: 2px; font-size: 0.85rem; }
-.codex-unseen .codex-stars { color: var(--border); }
+.codex-unseen .codex-stars { color: var(--text-dim); } /* 빈 별(☆)이라 모양으로도 구분돼요. 배경과 4.5:1 이상 */
 .codex-sub { font-size: 0.78rem; }
 /* 용어가 50개를 넘어도 상세가 화면 밖으로 사라지지 않게: 넓은 화면에서는 목록만 따로 스크롤하고 상세는 위에 붙인다. */
 @media (min-width: 901px) {

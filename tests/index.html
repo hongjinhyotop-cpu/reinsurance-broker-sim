@@ -40,6 +40,7 @@
     import * as ev from '../js/events.js';
     import { validateEvents } from '../js/loader.js';
     import { renderPlacement, hintErrWords } from '../js/ui/placement_view.js';
+    import { captureFocus, restoreFocus } from '../js/ui/focus.js';
     import * as gl from '../js/glossary.js';
     import { validateGlossary, glossaryWarnings } from '../js/loader.js';
     import { richText, glossaryLink, openTermCard, renderCodex, resetTermScope, showInCodex, linkWords } from '../js/ui/glossary_view.js';
@@ -2888,7 +2889,7 @@
       try {
         const text = root.textContent; check(text.includes('분기가 끝나면 순위가 처음 공개돼요'), '결산 전 안내');
         for (const b of data.brokers) check(text.includes(b.name_ko), b.name_ko); check(text.includes('이사회 목표') && text.includes('아직 결산 전'));
-        check(!root.querySelector('caption'), '결산 전에는 리그 표가 없다(목표 표만)');
+        check(![...root.querySelectorAll('caption')].some((c) => c.textContent.includes('브로커 리그 순위표')), '결산 전에는 리그 표가 없다(목표 표만)');
       } finally { root.remove(); }
       const s = store.getState(); allPlaced(s); runYear(s); s.ending = null; s.turn = 45; s.standings.quarters.splice(3);
       resetTermScope(); root = renderStandings(); document.body.append(root);
@@ -3210,6 +3211,37 @@
       check(!HIDDEN.test(JSON.stringify(data.report)), 'report.json에 속마음 이름이 있어요');
       for (const c of data.clients) check(!HIDDEN.test(JSON.stringify(c.verdict_reasons)), `${c.id} 고객 반응에 속마음 이름이 있어요`);
       for (const r of data.reinsurers) check(!HIDDEN.test(JSON.stringify(r.response_lines)), `${r.id} 응답 대사에 속마음 이름이 있어요`);
+    });
+
+    // ---------- M8: 접근성 ----------
+    test('M8 접근성: 초점 보존 — 다시 그려도 같은 컨트롤로 되돌아오고, 이름이 바뀌면 같은 순서로, 입력칸은 커서 위치까지', () => {
+      const root = document.createElement('div'); document.body.append(root);
+      const build = (label = '늘리기') => { root.replaceChildren(); for (let i = 0; i < 3; i++) { const b = document.createElement('button'); b.textContent = label; root.append(b); } const inp = document.createElement('input'); inp.setAttribute('aria-label', '지분'); inp.value = '1234'; root.append(inp); };
+      try {
+        build(); root.querySelectorAll('button')[1].focus(); let saved = captureFocus(root); build(); check(restoreFocus(root, saved)); eq(document.activeElement, root.querySelectorAll('button')[1], '같은 이름이 셋이면 두 번째');
+        build(); root.querySelectorAll('button')[2].focus(); saved = captureFocus(root); build('줄이기'); check(restoreFocus(root, saved)); eq(document.activeElement, root.querySelectorAll('button')[2], '이름이 바뀌면 같은 순서');
+        build(); const inp = root.querySelector('input'); inp.focus(); inp.setSelectionRange(2, 3); saved = captureFocus(root); build(); check(restoreFocus(root, saved));
+        const again = root.querySelector('input'); eq([document.activeElement === again, again.selectionStart, again.selectionEnd], [true, 2, 3]);
+        document.activeElement.blur(); eq(captureFocus(root), null, '초점이 없으면 아무것도 적지 않는다'); eq(restoreFocus(root, null), false);
+        const dlg = document.createElement('dialog'); const db = document.createElement('button'); dlg.append(db); root.append(dlg); dlg.setAttribute('open', ''); db.focus(); eq(captureFocus(root), null, '모달 안의 초점은 건드리지 않는다');
+      } finally { root.remove(); }
+    });
+    test('M8 접근성: 셸의 첫 컨트롤은 건너뛰기 링크이고, 모든 화면의 표에 caption이 있으며, 이름 없는 컨트롤이 없다', async () => {
+      const { renderStandings: standings } = await import('../js/ui/standings.js');
+      const { renderReview: review } = await import('../js/ui/review.js');
+      const s = beginLevel(3, 'normal'); allPlaced(s); runYear(s); freshCodex();
+      const shell = shellMod.renderShell('inbox', document.createElement('div')); document.body.append(shell);
+      try {
+        const first = shell.querySelector('a[href], button, input, select'); check(first.classList.contains('skip-link') && first.textContent === '본문으로 건너뛰기', '첫 컨트롤');
+      } finally { shell.remove(); }
+      const nameOf = (e) => (e.getAttribute('aria-label') || [...(e.labels ?? [])].map((l) => l.textContent).join('') || e.textContent || e.getAttribute('title') || '').trim();
+      for (const [id, render] of Object.entries({ inbox: renderInbox, database: renderDatabase, placement: renderPlacement, calendar: renderCalendar, standings, review, codex: renderCodex, settings: renderSettings })) {
+        resetTermScope(); const root = render(); document.body.append(root);
+        try {
+          for (const t of root.querySelectorAll('table')) check(t.querySelector('caption'), `${id}: caption 없는 표`);
+          for (const e of root.querySelectorAll('button, a[href], input:not([type="hidden"]), select, textarea, summary')) { if (e.closest('details:not([open])') && e.tagName !== 'SUMMARY') continue; check(nameOf(e), `${id}: 이름 없는 ${e.tagName.toLowerCase()}.${e.className}`); }
+        } finally { root.remove(); }
+      }
     });
 
     // ---------- MD: 난이도 (쉬움 / 보통) ----------
