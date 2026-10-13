@@ -290,3 +290,28 @@
 .guide-go { color: var(--accent); white-space: nowrap; }
 .guide-off { min-height: 28px; padding: 2px 10px; font-size: 0.85rem; }
 .check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+
+/* ---- 순위표 · 시즌 리뷰 (M7a) ---- */
+.table-wrap { overflow-x: auto; }
+.table .row-tag { margin-left: 8px; }
+.table-wrap-text td.cell-text, .table-wrap-text td { white-space: normal; }
+.table-wrap-text td.cell-text { min-width: 220px; }
+.table-wrap-text td.num { white-space: nowrap; }
+.tag-ok { color: var(--ok); border-color: var(--ok); }
+.tag-me { margin-left: 6px; color: var(--accent); border-color: var(--accent); }
+.goal-note { margin-top: 10px; }
+
+.grade-box { display: flex; align-items: center; gap: 16px; margin: 6px 0 12px; }
+.grade-letter {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 72px; height: 72px; border-radius: var(--radius);
+  font-size: 2.4rem; font-weight: 800; line-height: 1;
+  background: var(--bg); border: 2px solid var(--border);
+}
+.grade-s, .grade-a { color: var(--ok); border-color: var(--ok); }
+.grade-b { color: var(--accent); border-color: var(--accent); }
+.grade-c { color: var(--warn); border-color: var(--warn); }
+.grade-d { color: var(--danger); border-color: var(--danger); }
+.grade-score { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.report-fired { border-color: var(--danger); }
+.chair-note { max-width: 62ch; }

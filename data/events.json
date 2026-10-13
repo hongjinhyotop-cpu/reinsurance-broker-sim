@@ -115,7 +115,7 @@
     "outcomes": [
       {"conditions": [{"type": "compliance_gte", "value": 75}], "effects": [{"op": "add", "target": "player", "field": "reputation", "value": 3}], "mail": "mail_evt_mas_pass"},
       {"conditions": [{"type": "compliance_gte", "value": 50}], "effects": [{"op": "add", "target": "player", "field": "board_confidence", "value": -3}], "mail": "mail_evt_mas_warn"},
-      {"conditions": [], "effects": [{"op": "cash", "value": -0.15}, {"op": "add", "target": "player", "field": "reputation", "value": -5}, {"op": "add", "target": "player", "field": "board_confidence", "value": -8}], "mail": "mail_evt_mas_fine"}
+      {"conditions": [], "effects": [{"op": "cash", "value": -0.15, "kind": "fine"}, {"op": "add", "target": "player", "field": "reputation", "value": -5}, {"op": "add", "target": "player", "field": "board_confidence", "value": -8}], "mail": "mail_evt_mas_fine"}
     ],
     "followups": []
   },

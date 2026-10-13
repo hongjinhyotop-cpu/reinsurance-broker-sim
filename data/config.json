@@ -65,7 +65,8 @@
   "guide": {
     "scout_min_meetings": 1,
     "counter_close_pp": 1.0,
-    "careful_patience": 1
+    "careful_patience": 1,
+    "year_end_weeks": 6
   },
   "scouting": {
     "meeting_ap": 2,
@@ -194,6 +195,107 @@
           "reputation": 0
         }
       }
+    }
+  },
+  "finance": {
+    "cash_delay_weeks": 4,
+    "negative_cash_penalty": -15
+  },
+  "rivals": {
+    "market_k": 0.004,
+    "quarters": [
+      "q1",
+      "q2",
+      "q3",
+      "q4"
+    ]
+  },
+  "board": {
+    "targets": {
+      "brokerage_usd_m": 3.0,
+      "rank_max": 5,
+      "clients_kept": 3,
+      "compliance_min": 60
+    },
+    "fired_below": 20,
+    "score": {
+      "weights": {
+        "revenue": 40,
+        "retention": 20,
+        "rank": 15,
+        "compliance": 15,
+        "reputation": 10
+      },
+      "revenue_cap": 1.0,
+      "rank_fraction": [
+        1.0,
+        0.9,
+        0.8,
+        0.7,
+        0.6,
+        0.35,
+        0.15,
+        0.0
+      ],
+      "rank_unknown_fraction": 0.5
+    },
+    "grades": [
+      {
+        "min": 90,
+        "grade": "S"
+      },
+      {
+        "min": 80,
+        "grade": "A"
+      },
+      {
+        "min": 65,
+        "grade": "B"
+      },
+      {
+        "min": 50,
+        "grade": "C"
+      },
+      {
+        "min": 0,
+        "grade": "D"
+      }
+    ],
+    "grade_delta": {
+      "S": 10,
+      "A": 5,
+      "B": 0,
+      "C": -8,
+      "D": -20
+    },
+    "report": {
+      "tier_good": 0.85,
+      "tier_weak": 0.6,
+      "tip_below": 0.8,
+      "tip_max": 2
+    },
+    "rank_buckets": {
+      "top_max": 2
+    },
+    "mails": {
+      "rank": {
+        "top_up": "mail_board_rank_top_up",
+        "top_down": "mail_board_rank_top_down",
+        "mid_up": "mail_board_rank_mid_up",
+        "mid_down": "mail_board_rank_mid_down",
+        "low_up": "mail_board_rank_low_up",
+        "low_down": "mail_board_rank_low_down"
+      },
+      "grade": {
+        "S": "mail_board_report_s",
+        "A": "mail_board_report_a",
+        "B": "mail_board_report_b",
+        "C": "mail_board_report_c",
+        "D": "mail_board_report_d"
+      },
+      "fired": "mail_board_fired",
+      "cash_warning": "mail_board_cash_warning",
+      "cash_penalty": "mail_board_cash_penalty"
     }
   }
 }

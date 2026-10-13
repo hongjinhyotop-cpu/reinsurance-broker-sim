@@ -7,7 +7,7 @@ import { describeMarket } from '../market.js';
 import { continueBlockReason, advance } from '../turn.js';
 import { nextAction } from '../guide.js';
 import { getPrefs, setPref } from '../prefs.js';
-import { h, formatUsdM, toast } from './components.js';
+import { h, formatUsdM, toast, navigate } from './components.js';
 import { glossaryLink } from './glossary_view.js';
 
 // when: 이 화면이 만들어질 마일스톤(design.md §12)
@@ -16,20 +16,15 @@ export const NAV = [
   { id: 'database', label: '고객·재보험사 DB', when: null },
   { id: 'placement', label: '플레이스먼트', when: null },
   { id: 'calendar', label: '캘린더', when: null },
-  { id: 'standings', label: '순위표', when: 'M7' },
-  { id: 'review', label: '시즌 리뷰', when: 'M7' },
+  { id: 'standings', label: '순위표', when: null },
+  { id: 'review', label: '시즌 리뷰', when: null },
   { id: 'codex', label: '용어 도감', when: null },
   { id: 'settings', label: '설정', when: null },
 ];
 
-const MILESTONES = {
-  M7: '재무 · 순위표 · 리뷰',
-};
-
-const PLACEHOLDERS = {
-  standings: '경쟁 중개회사 7곳과 수익을 비교하고 이사회 목표를 확인하는 곳이에요.',
-  review: '갱신 시즌이 끝날 때마다, 그리고 연말에 성적표를 보는 곳이에요.',
-};
+// 아직 만들지 않은 화면이 생기면 여기에 적는다(M7a 기준으로 모든 내비 화면이 만들어졌다).
+const MILESTONES = {};
+const PLACEHOLDERS = {};
 
 export function screenTitle(id) {
   return NAV.find((n) => n.id === id)?.label ?? '';
@@ -47,6 +42,7 @@ const STOP_TEXT = {
   deadline: '답장 마감이 다가와요',
   phase: '갱신 시즌의 새 단계예요',
   end: '마지막 주에 도착했어요',
+  ending: '게임이 끝났어요 — 시즌 리뷰를 확인하세요',
 };
 
 function onContinue() {
@@ -61,9 +57,12 @@ function onContinue() {
   if (res.voided.length > 0) parts.push(`등급 강등으로 취소된 확정 지분 ${res.voided.length}건`);
   if (res.gaps.length > 0) parts.push('계약 공백이 생겼어요(인셉션이 지났는데 확정되지 않은 트리티)');
   if (res.expiredCounters > 0) parts.push(`유효 기간이 지나 사라진 반제 ${res.expiredCounters}건`);
+  if (res.booked.length > 0) parts.push(`브로커리지 ${res.booked.length}건 확정`);
+  if (res.closedQuarters.length > 0) parts.push('분기 결산이 끝났어요(순위표 갱신)');
   if (res.stop && STOP_TEXT[res.stop]) parts.push(STOP_TEXT[res.stop]);
   if (res.toTurn - res.fromTurn > 1) parts.splice(1, 0, `${res.toTurn - res.fromTurn}주를 건너뛰었어요`);
   toast(parts.join(' · '), 'ok');
+  if (res.ending) navigate('review'); // 끝난 게임은 바로 결과 화면으로 안내한다
   if (res.saveError) toast(`자동 저장을 하지 못했어요 — ${res.saveError}`, 'warn');
 }
 

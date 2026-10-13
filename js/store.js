@@ -3,8 +3,9 @@
 
 import { nextFloat, normalizeSeed } from './rng.js';
 import { marketBand } from './market.js';
+import { emptyFinance, emptyStandings } from './finance.js';
 
-export const SAVE_VERSION = 7; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
+export const SAVE_VERSION = 8; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
 export const SLOTS = ['auto', '1', '2', '3'];
 export const MANUAL_SLOTS = ['1', '2', '3'];
 const KEY_PREFIX = 'rbs:save:v1:'; // 키 형식 버전(구조 버전과 별개)
@@ -17,6 +18,7 @@ const MAX_SAVE_CHARS = 2_000_000; // 가져오기 파일 크기 방어선
 // v4→v5: 패널 행에 반제 유효 기간(counter_until)을 더한다. 옛 반제는 저장된 그 주까지 유효하다.
 // v5→v6(M6a): 시장에 마지막으로 알린 분위기 묶음(band)을 더한다. 그 시점의 분위기는 이미 알린 것으로 본다.
 // v6→v7(M6b): 사건이 덮어쓴 값(overrides)과 트리티의 사건 상태(lr_extra·big_loss·gap_applied)를 더한다.
+// v7→v8(M7a): 재무 장부(finance)·순위표 스냅샷(standings)·끝남(ending)을 더한다. 확정된 트리티는 다음 정산에서 장부에 오른다.
 export const MIGRATIONS = {
   1: (s) => fillEntities({ ...s, entities: { clients: { ...s.entities?.clients }, reinsurers: { ...s.entities?.reinsurers } } }),
   2: (s) => fillTreaties({
@@ -41,6 +43,7 @@ export const MIGRATIONS = {
     overrides: { reinsurers: {}, clients: {} },
     treaties: Object.fromEntries(Object.entries(s.treaties ?? {}).map(([id, t]) => [id, { lr_extra: 0, big_loss: false, gap_applied: false, ...t }])),
   }),
+  7: (s) => ({ ...s, finance: emptyFinance(), standings: emptyStandings(), ending: null }),
 };
 
 let ctx = null; // { config, calendar } — loader가 검증한 정적 데이터
@@ -170,6 +173,9 @@ export function newGame({ seed } = {}) {
     fired_events: [],
     overrides: { reinsurers: {}, clients: {} },
     modifiers: [],
+    finance: emptyFinance(),
+    standings: emptyStandings(),
+    ending: null,
     log: [],
   };
   fillEntities(state);
@@ -264,6 +270,42 @@ function validateTreatyStates(s, bad) {
   }
 }
 
+// 재무 장부·순위표·끝남(M7a)의 모양을 확인한다.
+function validateFinance(s, bad) {
+  const f = s.finance;
+  if (!isObj(f)) bad('finance', '객체여야 해요');
+  else {
+    if (!isObj(f.booked)) bad('finance.booked', '객체여야 해요');
+    else {
+      for (const [id, b] of Object.entries(f.booked)) {
+        const ok = isObj(b) && isInt(b.turn, 1, 999) && isNum(b.premium_usd_m, 0, 1e6) && isNum(b.brokerage_usd_m, 0, 1e6) && isInt(b.due_turn, 1, 999) && typeof b.paid === 'boolean';
+        if (!ok) bad(`finance.booked.${id}`, '{ turn, premium_usd_m, brokerage_usd_m, due_turn, paid } 모양이어야 해요');
+      }
+    }
+    if (!isNum(f.overhead_usd_m, 0, 1e6)) bad('finance.overhead_usd_m', '0 이상 숫자여야 해요');
+    if (!isInt(f.negative_quarters, 0, 99)) bad('finance.negative_quarters', '0 이상 정수여야 해요');
+    if (!Array.isArray(f.fines) || !f.fines.every((x) => isObj(x) && isInt(x.turn, 1, 999) && ['fine', 'gap'].includes(x.kind) && isNum(x.usd_m, 0, 1e6))) bad('finance.fines', '{ turn, kind(fine|gap), usd_m } 목록이어야 해요');
+    if (!Array.isArray(f.quarters) || !f.quarters.every((x) => isObj(x) && typeof x.id === 'string' && isNum(x.brokerage_usd_m, 0, 1e6) && isNum(x.overhead_usd_m, 0, 1e6) && isNum(x.fines_usd_m, 0, 1e6) && isNum(x.cash_usd_m, -1e6, 1e6))) bad('finance.quarters', '분기 결산 목록이어야 해요');
+  }
+  const st = s.standings;
+  if (!isObj(st) || !Array.isArray(st.quarters)) bad('standings', '{ quarters: [] } 모양이어야 해요');
+  else {
+    st.quarters.forEach((q, i) => {
+      const ok = isObj(q) && typeof q.id === 'string' && isInt(q.turn, 1, 999) && isInt(q.rank, 1, 99) && (q.prev_rank === null || isInt(q.prev_rank, 1, 99))
+        && isObj(q.player) && isNum(q.player.q, 0, 1e6) && isNum(q.player.ytd, 0, 1e6) && isNum(q.player.placed_premium_usd_m, 0, 1e6) && isInt(q.player.clients, 0, 99)
+        && isObj(q.rivals) && Object.values(q.rivals).every((r) => isObj(r) && isNum(r.q, 0, 1e6) && isNum(r.ytd, 0, 1e6));
+      if (!ok) bad(`standings.quarters[${i}]`, '순위표 스냅샷 모양이 아니에요');
+    });
+  }
+  const e = s.ending;
+  if (e !== null && e !== undefined) {
+    const ok = isObj(e) && ['year_end', 'fired'].includes(e.kind) && isInt(e.turn, 1, 999) && isObj(e.report)
+      && isNum(e.report.score, 0, 100) && typeof e.report.grade === 'string' && Array.isArray(e.report.parts) && isObj(e.report.facts)
+      && typeof e.report.strong === 'string' && typeof e.report.weak === 'string';
+    if (!ok) bad('ending', 'null이거나 { kind(year_end|fired), turn, report } 모양이어야 해요');
+  } else if (e === undefined) bad('ending', 'null 또는 객체여야 해요');
+}
+
 // 세이브 내용이 게임이 기대하는 모양인지 확인한다. 문제 목록을 돌려준다(비어 있으면 정상).
 export function validateState(s) {
   if (!ctx) throw new Error('store.configure()를 먼저 호출해야 해요');
@@ -329,6 +371,7 @@ export function validateState(s) {
     for (const [id, o] of Object.entries(s.overrides.reinsurers)) if (!isObj(o) || (o.rating !== undefined && typeof o.rating !== 'string')) bad(`overrides.reinsurers.${id}`, '{ rating: 글자 } 모양이어야 해요');
     for (const [id, o] of Object.entries(s.overrides.clients)) if (!isObj(o) || (o.shariah_conventional_cap !== undefined && !isNum(o.shariah_conventional_cap, 0, 1)) || (o.min_rating !== undefined && typeof o.min_rating !== 'string')) bad(`overrides.clients.${id}`, '{ shariah_conventional_cap: 0~1, min_rating: 글자 } 모양이어야 해요');
   }
+  validateFinance(s, bad);
   if (Array.isArray(s.modifiers)) {
     s.modifiers.forEach((m, i) => {
       if (!isObj(m) || typeof m.target !== 'string' || typeof m.field !== 'string' || !isNum(m.mult, 0, 100) || !isNum(m.add, -1000, 1000) || !isInt(m.until_turn, 1, 999)) {

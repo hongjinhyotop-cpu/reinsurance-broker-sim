@@ -7,14 +7,15 @@ export const CATEGORY_KO = {
   basic: '기본', structure: '구조', placement: '플레이스먼트', pricing: '가격', market: '시장·절차',
   security: '신용·규제', takaful: '타카풀', sg: '싱가포르', game: '게임 규칙',
 };
-export const APPEARS_IN = ['inbox', 'database', 'placement', 'calendar', 'settings'];
-export const APPEARS_KO = { inbox: '인박스 메일', database: '고객·재보험사 DB', placement: '플레이스먼트 보드', calendar: '캘린더', settings: '설정' };
+export const APPEARS_IN = ['inbox', 'database', 'placement', 'calendar', 'settings', 'standings', 'review'];
+export const APPEARS_KO = { inbox: '인박스 메일', database: '고객·재보험사 DB', placement: '플레이스먼트 보드', calendar: '캘린더', settings: '설정', standings: '순위표', review: '시즌 리뷰' };
 
 // 화면 고정 문구(glossaryLink)에서 쓰는 용어 id. 데이터 글에는 안 나오는 용어가 "안 쓰임" 경고로 잡히지 않게 로더가 본다.
 // UI에서 glossaryLink('gl_…')를 새로 쓰면 여기에도 적는다(테스트가 존재 여부를 검사한다).
 export const UI_TERM_IDS = [
   'gl_rate_change', 'gl_line', 'gl_panel', 'gl_inception', 'gl_treaty', 'gl_single_share', 'gl_rating', 'gl_capacity',
   'gl_shariah', 'gl_ap', 'gl_cedant', 'gl_reinsurer', 'gl_retention', 'gl_xol', 'gl_quota_share', 'gl_counter_offer', 'gl_renewal',
+  'gl_brokerage', 'gl_placed_premium', 'gl_compliance',
 ];
 
 // ---------- [[id|표시문구]] 파싱 ----------

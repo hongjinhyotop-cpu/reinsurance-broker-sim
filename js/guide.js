@@ -34,6 +34,9 @@ function meetingsFor(data, state, treaty) {
 
 // 위에서부터 처음 맞는 것 하나. 띄울 것이 없으면(마지막 턴) null.
 export function nextAction(data, state) {
+  // 끝난 게임은 다른 어떤 할 일보다 먼저 성적표를 가리킨다(§6.0.1 0a·0b).
+  if (state.ending?.kind === 'fired') return action('fired', '이사회에서 해고가 결정됐어요 — 시즌 리뷰에서 결과를 확인하세요. 새 게임은 그 화면 아래에서 시작할 수 있어요', 'review');
+  if (state.ending) return action('year_end', '한 해가 끝났어요 — 시즌 리뷰에서 성적표를 확인하세요. 이사회 의장의 편지도 인박스에 있어요', 'review');
   if (state.turn >= data.calendar.turns) return null;
   const { ap } = state;
   const meetingAp = data.config.scouting.meeting_ap;
@@ -91,6 +94,10 @@ export function nextAction(data, state) {
     return s && state.turn > s.inception_turn && state.treaties[t.id]?.phase === 'open';
   });
   if (overdue) return action('overdue', '시즌이 지났는데 확정되지 않은 트리티가 있어요 — 플레이스먼트에서 확인하기', 'placement');
+
+  if (data.calendar.turns - state.turn <= data.config.guide.year_end_weeks) {
+    return action('year_end_near', '연말이 가까워요 — 순위표에서 이사회 목표를 점검해 보세요', 'standings');
+  }
 
   if (ap >= meetingAp) return action('between', '다음 시즌까지 시간이 있어요 — DB에서 미팅으로 상대를 알아 두거나, Continue로 다음 주로 넘어가기', 'database');
   return action('between_idle', 'Continue로 다음 주로 넘어가기');

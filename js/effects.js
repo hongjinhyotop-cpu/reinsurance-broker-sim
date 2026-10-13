@@ -105,6 +105,8 @@ export function applyEffect(state, effect) {
     }
     case 'cash':
       state.player.cash_usd_m = Math.round((state.player.cash_usd_m + effect.value) * 1e6) / 1e6;
+      // 과태료는 분기 결산과 성적표가 따로 셀 수 있게 기록해 둔다(design.md §9.1).
+      if (effect.kind === 'fine' && state.finance) state.finance.fines.push({ turn: state.turn, kind: 'fine', usd_m: Math.round(Math.abs(effect.value) * 1e6) / 1e6 });
       return;
     case 'flag_set':
       if (!state.player.flags.includes(effect.flag)) state.player.flags.push(effect.flag);
