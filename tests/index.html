@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>테스트 실행 중…</title>
+  <style>
+    body { font-family: system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; margin: 24px; background: #0e1319; color: #e8eef4; line-height: 1.5; }
+    h1 { font-size: 1.3rem; }
+    #summary { font-size: 1.1rem; font-weight: 700; margin: 12px 0 20px; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { padding: 4px 0; border-bottom: 1px solid #2b3948; }
+    .pass::before { content: "✓ "; color: #6cc799; }
+    .fail::before { content: "✗ "; color: #f07178; }
+    .fail { color: #f07178; }
+    .detail { display: block; margin-left: 1.4em; font-size: 0.88rem; color: #a3b3c3; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>M0 테스트 (rng · calendar · market · loader · store)</h1>
+  <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
+  <div id="summary">실행 중…</div>
+  <ul id="results"></ul>
+
+  <script type="module">
+    import { nextFloat, normalizeSeed, seedFromText, newSeed } from '../js/rng.js';
+    import { describeTurn, turnLabel, seasonLabel } from '../js/calendar.js';
+    import { marketLabel, marketUncertainty, describeMarket } from '../js/market.js';
+    import { loadData, validateConfig, validateCalendar, validateCross } from '../js/loader.js';
+    import * as store from '../js/store.js';
+
+    // ---------- 미니 러너 ----------
+    const tests = [];
+    const test = (name, fn) => tests.push({ name, fn });
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    function check(cond, msg) { if (!cond) throw new Error(msg || '조건이 거짓이에요'); }
+    function eq(actual, expected, msg) {
+      if (!same(actual, expected)) throw new Error(`${msg ? msg + ': ' : ''}기대 ${JSON.stringify(expected)} / 실제 ${JSON.stringify(actual)}`);
+    }
+    const has = (arr, text) => arr.some((e) => (e.message ?? e).includes(text));
+
+    function memoryStorage({ failSet = false, failGet = false } = {}) {
+      const map = new Map();
+      return {
+        map,
+        getItem(k) { if (failGet) throw new Error('blocked'); return map.has(k) ? map.get(k) : null; },
+        setItem(k, v) {
+          if (failSet) { const e = new Error('quota'); e.name = 'QuotaExceededError'; throw e; }
+          map.set(k, String(v));
+        },
+        removeItem(k) { map.delete(k); },
+      };
+    }
+    const draw = (n) => Array.from({ length: n }, () => store.random());
+
+    // ---------- 데이터 ----------
+    const loaded = await loadData();
+    const data = loaded.ok ? loaded.data : null;
+    const clone = (o) => structuredClone(o);
+    if (data) store.configure(data);
+
+    // ---------- rng ----------
+    test('rng: 표준 mulberry32 기준값과 일치(시드 0, 12345, 4294967295)', () => {
+      const refs = {
+        0: [0.26642920868471265, 0.0003297457005828619, 0.2232720274478197, 0.1462021479383111, 0.46732782293111086],
+        12345: [0.9797282677609473, 0.3067522644996643, 0.484205421525985, 0.817934412509203, 0.5094283693470061],
+        4294967295: [0.8964226141106337, 0.189478256739676, 0.7156526781618595, 0.9440599093213677, 0.8452364315744489],
+      };
+      for (const [seed, expected] of Object.entries(refs)) {
+        let s = Number(seed);
+        const got = [];
+        for (let i = 0; i < 5; i++) { const r = nextFloat(s); got.push(r.value); s = r.state; }
+        eq(got, expected, `시드 ${seed}`);
+      }
+    });
+    test('rng: 같은 시드는 같은 흐름, 다른 시드는 다른 흐름', () => {
+      const run = (seed) => { let s = seed; return Array.from({ length: 5 }, () => { const r = nextFloat(s); s = r.state; return r.value; }); };
+      eq(run(99), run(99));
+      check(!same(run(99), run(100)), '시드가 달라도 같은 흐름이에요');
+    });
+    test('rng: 값은 0 이상 1 미만이고 평균이 0.5 근처', () => {
+      let s = 2024, sum = 0;
+      for (let i = 0; i < 20000; i++) { const r = nextFloat(s); s = r.state; check(r.value >= 0 && r.value < 1, `범위 밖: ${r.value}`); sum += r.value; }
+      check(Math.abs(sum / 20000 - 0.5) < 0.01, `평균 ${sum / 20000}`);
+    });
+    test('rng: 상태를 JSON으로 옮겼다가 이어서 돌려도 흐름이 같다', () => {
+      let s = 31337; const straight = [];
+      for (let i = 0; i < 10; i++) { const r = nextFloat(s); s = r.state; straight.push(r.value); }
+      let t = 31337; const resumed = [];
+      for (let i = 0; i < 5; i++) { const r = nextFloat(t); t = r.state; resumed.push(r.value); }
+      t = JSON.parse(JSON.stringify({ rng_state: t })).rng_state;
+      for (let i = 0; i < 5; i++) { const r = nextFloat(t); t = r.state; resumed.push(r.value); }
+      eq(resumed, straight);
+    });
+    test('rng: normalizeSeed — 음수·초과·NaN·소수', () => {
+      eq(normalizeSeed(-1), 4294967295); eq(normalizeSeed(2 ** 32 + 5), 5); eq(normalizeSeed(NaN), 0);
+      eq(normalizeSeed(Infinity), 0); eq(normalizeSeed(1.9), 1); eq(normalizeSeed(0), 0);
+    });
+    test('rng: seedFromText — 빈 값은 null, 숫자는 그대로, 단어는 같은 값', () => {
+      eq(seedFromText(''), null); eq(seedFromText('   '), null); eq(seedFromText(undefined), null);
+      eq(seedFromText('42'), 42); eq(seedFromText(' 42 '), 42);
+      eq(seedFromText('4294967296'), 0); eq(seedFromText('4294967301'), 5);
+      const a = seedFromText('hello'); eq(a, seedFromText('hello'));
+      check(Number.isInteger(a) && a >= 0 && a <= 4294967295, '단어 시드가 uint32가 아니에요');
+      check(a !== seedFromText('Hello'), '대소문자가 구분돼야 해요');
+      const longNum = seedFromText('9'.repeat(40));
+      check(Number.isInteger(longNum) && longNum >= 0, '아주 긴 숫자 문자열 처리');
+      check(Number.isInteger(seedFromText('주롱섬')), '한글 시드');
+    });
+    test('rng: newSeed는 uint32 정수', () => {
+      const s = newSeed(); check(Number.isInteger(s) && s >= 0 && s <= 4294967295, String(s));
+    });
+
+    // ---------- calendar ----------
+    test('calendar: 프리시즌 1턴 = 1/1 시즌 협상 1/6주차, 인셉션까지 6주', () => {
+      const d = describeTurn(data.calendar, 1);
+      eq(d.quarter.id, 'q0'); eq(d.weekInQuarter, 1); eq(d.quarterWeeks, 6);
+      eq(d.season.label, '1/1'); eq(d.season.phase, 'window'); eq(d.season.weeksToInception, 6);
+      eq(d.season.windowWeek, 1); eq(d.season.windowWeeks, 6);
+    });
+    test('calendar: 시즌 경계(6·7·13·14·19·20·26·27·32·33턴)', () => {
+      const at = (t) => describeTurn(data.calendar, t);
+      eq(at(6).season.weeksToInception, 1);
+      eq(at(7).season.phase, 'inception'); eq(at(7).quarter.id, 'q1'); eq(at(7).weekInQuarter, 1);
+      eq(at(8).season, null); eq(at(13).season, null);
+      eq(at(14).season.label, '1/4'); eq(at(14).season.weeksToInception, 6);
+      eq(at(19).season.weeksToInception, 1);
+      eq(at(20).season.phase, 'inception'); eq(at(20).quarter.id, 'q2');
+      eq(at(26).season, null); eq(at(27).season.label, '1/7'); eq(at(32).season.weeksToInception, 1);
+      eq(at(33).season.phase, 'inception'); eq(at(33).quarter.id, 'q3');
+    });
+    test('calendar: 마지막 턴(58)과 범위 밖 입력', () => {
+      const d = describeTurn(data.calendar, 58);
+      eq(d.quarter.id, 'q4'); eq(d.weekInQuarter, 13); eq(d.quarterWeeks, 13);
+      for (const bad of [0, 59, -1, 1.5, NaN, '3', null, undefined]) eq(describeTurn(data.calendar, bad), null, `입력 ${String(bad)}`);
+    });
+    test('calendar: 1~58 모든 턴이 분기에 속하고 주차가 범위 안', () => {
+      for (let t = 1; t <= 58; t++) {
+        const d = describeTurn(data.calendar, t);
+        check(d, `턴 ${t}`); check(d.weekInQuarter >= 1 && d.weekInQuarter <= d.quarterWeeks, `턴 ${t} 주차`);
+      }
+    });
+    test('calendar: 표시 문구', () => {
+      eq(turnLabel(describeTurn(data.calendar, 1)), '프리시즌 1주차');
+      eq(turnLabel(describeTurn(data.calendar, 20)), '2분기 1주차');
+      eq(seasonLabel(describeTurn(data.calendar, 1)), '1/1 시즌 협상 1/6주차 · 인셉션까지 6주');
+      eq(seasonLabel(describeTurn(data.calendar, 7)), '1/1 인셉션 주');
+      eq(seasonLabel(describeTurn(data.calendar, 10)), '갱신 시즌 사이(비수기)');
+    });
+
+    // ---------- market ----------
+    test('market: 라벨 경계(25/40/60/75)', () => {
+      const L = data.config.market.labels;
+      const cases = [[0, '매우 소프트'], [25, '매우 소프트'], [25.1, '소프트'], [40, '소프트'], [40.1, '중립'], [42, '중립'],
+        [60, '중립'], [60.1, '하드'], [75, '하드'], [75.1, '매우 하드'], [100, '매우 하드']];
+      for (const [idx, label] of cases) eq(marketLabel(idx, L), label, `지수 ${idx}`);
+    });
+    test('market: 오차 = 12 × (1 − intel/100), 범위 밖 intel은 잘라서 계산', () => {
+      eq(marketUncertainty(0, 12), 12); eq(marketUncertainty(50, 12), 6); eq(marketUncertainty(100, 12), 0);
+      eq(marketUncertainty(20, 12), 10); eq(marketUncertainty(-5, 12), 12); eq(marketUncertainty(150, 12), 0);
+    });
+    test('market: 시작 상태(지수 42, intel 0) = 중립 ±12', () => {
+      eq(describeMarket(42, 0, data.config.market), { label_ko: '중립', error: 12 });
+    });
+
+    // ---------- loader ----------
+    test('loader: 실제 data/*.json이 검증을 통과하고 얼려 있다', () => {
+      check(loaded.ok, loaded.ok ? '' : loaded.errors.map((e) => e.message).join('\n'));
+      check(Object.isFrozen(data.config) && Object.isFrozen(data.config.game) && Object.isFrozen(data.calendar.quarters[0]), '깊게 얼려야 해요');
+    });
+    test('loader: config 오류에는 파일·경로·현재 값이 들어간다', () => {
+      const c = clone(data.config); c.game.ap_per_week = 'six';
+      const errs = validateConfig(c);
+      eq(errs.length, 1); check(has(errs, 'config.json › game.ap_per_week') && has(errs, '"six"'), errs[0].message);
+    });
+    test('loader: 한 번에 여러 오류를 모두 알려 준다', () => {
+      const c = clone(data.config); c.game.ap_per_week = -1; c.game.firm_name = ''; c.game.start_market_index = 120;
+      check(validateConfig(c).length >= 3);
+    });
+    test('loader: config 구조 오류(market 없음 / 라벨 내림차순 / 마지막 구간 100 미만 / 최상위가 배열)', () => {
+      const a = clone(data.config); delete a.market; check(has(validateConfig(a), 'market'));
+      const b = clone(data.config); b.market.labels[2].max = 10; check(has(validateConfig(b), '오름차순'));
+      const c = clone(data.config); c.market.labels[4].max = 90; check(has(validateConfig(c), '100까지'));
+      const d = validateConfig([]); check(has(d, '최상위'));
+      const e = clone(data.config); e.game.start_turn = 99; check(has(validateConfig(e), 'total_turns보다'));
+    });
+    test('loader: calendar 오류(빈틈·겹침·시즌 순서·turns 불일치·중복 id)', () => {
+      const a = clone(data.calendar); a.quarters[1].from = 8; check(has(validateCalendar(a), '빈틈'));
+      const b = clone(data.calendar); b.quarters[1].from = 5; check(has(validateCalendar(b), '겹침'));
+      const c = clone(data.calendar); c.seasons[0].open_turn = 7; check(has(validateCalendar(c), 'inception_turn보다 앞'));
+      const d = clone(data.calendar); d.turns = 60; check(has(validateCalendar(d), 'turns(60)'));
+      const e = clone(data.calendar); e.seasons[1].id = e.seasons[0].id; check(has(validateCalendar(e), '겹쳐요'));
+      const f = clone(data.calendar); f.seasons[0].inception_turn = 99; check(validateCalendar(f).length >= 1);
+    });
+    test('loader: 파일 사이 불일치(total_turns ≠ turns)', () => {
+      const c = clone(data.config); c.game.total_turns = 60;
+      check(has(validateCross({ config: c, calendar: data.calendar }), 'calendar.json의 turns(58)'));
+    });
+    test('loader: 404 · JSON 문법 오류 · 네트워크 오류를 파일별로 모아서 보고', async () => {
+      const fake = (map) => async (url) => {
+        const name = String(url).split('/').pop();
+        const r = map[name]; if (r instanceof Error) throw r;
+        return { ok: r.status === 200, status: r.status, json: async () => JSON.parse(r.body) };
+      };
+      const res = await loadData({ fetchFn: fake({ 'config.json': { status: 404 }, 'calendar.json': { status: 200, body: '{ "turns": ' } }) });
+      check(!res.ok); eq(res.errors.length, 2);
+      check(res.errors[0].message.includes('config.json') && res.errors[0].message.includes('HTTP 404'), res.errors[0].message);
+      check(res.errors[1].message.includes('calendar.json') && res.errors[1].message.includes('JSON 문법'), res.errors[1].message);
+      const net = await loadData({ fetchFn: fake({ 'config.json': new TypeError('Failed to fetch'), 'calendar.json': { status: 200, body: '{}' } }) });
+      check(!net.ok && has(net.errors, 'Failed to fetch'));
+    });
+
+    // ---------- store ----------
+    const fresh = (opts) => { const st = memoryStorage(opts); store.useStorage(st); return st; };
+
+    test('store: 새 게임의 모양이 설계(§10.9)와 시작값(config)을 따른다', () => {
+      fresh(); const s = store.newGame({ seed: 777 });
+      eq(s.version, 1); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
+      eq(s.player, { firm: 'Marina Bay Re Brokers', cash_usd_m: 1, reputation: 50, compliance: 70, board_confidence: 60, market_intel: 0, flags: [] });
+      eq(s.market, { index: 42 }); eq(s.entities, { clients: {}, reinsurers: {} });
+      eq([s.treaties, s.mails, s.scheduled, s.fired_events, s.modifiers, s.log], [{}, [], [], [], [], []]);
+      eq(store.validateState(s), []);
+    });
+    test('store: 시드는 uint32로 정규화', () => { fresh(); eq(store.newGame({ seed: -1 }).seed, 4294967295); });
+    test('store: random()은 시드 RNG 흐름을 따르고 상태를 갱신한다', () => {
+      fresh(); store.newGame({ seed: 12345 });
+      eq(draw(2), [0.9797282677609473, 0.3067522644996643]);
+      let s = 12345; s = nextFloat(s).state; s = nextFloat(s).state; eq(store.getState().rng_state, s);
+    });
+    test('store: 게임이 없으면 random()은 오류, quitToStart 후 hasGame=false', () => {
+      fresh(); store.newGame({ seed: 1 }); store.quitToStart();
+      eq(store.hasGame(), false); let threw = false; try { store.random(); } catch { threw = true; } check(threw);
+    });
+    test('store: 저장 → 난수 → 불러오기 → 같은 난수가 다시 나온다 (RNG 상태까지 복원)', () => {
+      fresh(); store.newGame({ seed: 2027 }); draw(3);
+      check(store.save('1').ok);
+      const savedJson = JSON.stringify(store.getState());
+      const first = draw(3);
+      check(store.load('1').ok);
+      eq(draw(3), first, '불러온 뒤 난수');
+      // 불러온 직후 상태는 저장 당시와 같아야 한다 (난수를 뽑기 전에 비교)
+      store.load('1'); eq(JSON.stringify(store.getState()), savedJson);
+    });
+    test('store: 슬롯 규칙 — 수동 저장은 1~3만, 이상한 슬롯 이름은 거부', () => {
+      const st = fresh(); store.newGame({ seed: 5 });
+      for (const bad of ['auto', '0', '4', '', '__proto__', '../x', 'constructor', 1, null]) {
+        check(!store.save(bad).ok, `save(${String(bad)})`);
+        check(!store.load(bad).ok || bad === 'auto', `load(${String(bad)})`);
+        check(!store.deleteSlot(bad).ok || bad === 'auto', `delete(${String(bad)})`);
+      }
+      eq([...st.map.keys()], [], '이상한 슬롯 때문에 저장소에 키가 생기면 안 돼요');
+    });
+    test('store: 자동 저장과 슬롯 목록 요약', () => {
+      fresh(); store.newGame({ seed: 5 });
+      eq(store.listSlots().map((s) => s.status), ['empty', 'empty', 'empty', 'empty']);
+      check(store.autosave().ok); check(store.save('2').ok);
+      const list = store.listSlots();
+      eq(list.map((s) => s.slot), ['auto', '1', '2', '3']);
+      eq(list.map((s) => s.status), ['ok', 'empty', 'ok', 'empty']);
+      eq([list[0].turn, list[0].firm, list[0].cash_usd_m], [1, 'Marina Bay Re Brokers', 1]);
+      check(typeof list[0].saved_at === 'string');
+      check(store.deleteSlot('2').ok); eq(store.listSlots()[2].status, 'empty');
+    });
+    test('store: 손상된 슬롯 — 목록엔 broken으로 보이고, 불러오기는 실패해도 현재 게임은 그대로', () => {
+      const st = fresh(); store.newGame({ seed: 8 }); draw(2);
+      const before = JSON.stringify(store.getState());
+      st.map.set('rbs:save:v1:3', '{oops');
+      eq(store.listSlots()[3].status, 'broken');
+      const res = store.load('3'); check(!res.ok && res.error.includes('JSON')); eq(JSON.stringify(store.getState()), before);
+    });
+    test('store: 잘못된 값(타입·범위·누락)은 이유와 함께 거부', () => {
+      fresh(); store.newGame({ seed: 9 }); const base = clone(store.getState());
+      const mutate = (fn) => { const s = clone(base); fn(s); return store.parseSave(JSON.stringify(s)); };
+      const cases = [
+        [(s) => { s.turn = 'abc'; }, 'turn'], [(s) => { s.turn = 59; }, 'turn'], [(s) => { s.turn = 0; }, 'turn'],
+        [(s) => { s.ap = -1; }, 'ap'], [(s) => { s.seed = 1.5; }, 'seed'], [(s) => { s.rng_state = -3; }, 'rng_state'],
+        [(s) => { s.player.cash_usd_m = '1'; }, 'cash_usd_m'], [(s) => { s.player.compliance = 101; }, 'compliance'],
+        [(s) => { s.player.firm = ''; }, 'firm'], [(s) => { s.player.flags = [1]; }, 'flags'],
+        [(s) => { s.market.index = null; }, 'market.index'], [(s) => { delete s.entities.clients; }, 'entities'],
+        [(s) => { s.mails = {}; }, 'mails'], [(s) => { delete s.player; }, 'player'],
+      ];
+      for (const [fn, key] of cases) { const r = mutate(fn); check(!r.ok && r.error.includes(key), `${key}: ${JSON.stringify(r)}`); }
+    });
+    test('store: 버전 — 없음/0/1.5/문자열/미래 버전은 거부, 미래 버전은 이유를 알려 준다', () => {
+      fresh(); store.newGame({ seed: 9 }); const base = clone(store.getState());
+      const parse = (v) => { const s = clone(base); if (v === undefined) delete s.version; else s.version = v; return store.parseSave(JSON.stringify(s)); };
+      for (const v of [undefined, 0, 1.5, '1', null]) check(!parse(v).ok, `version ${String(v)}`);
+      const future = parse(2); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
+    });
+    test('store: 마이그레이션 체인 (v1→v2→v3), 규칙 누락·실패 처리', () => {
+      const raw = { version: 1, x: 1 };
+      const ok = store.migrate(raw, { current: 3, migrations: { 1: (s) => ({ ...s, a: 1 }), 2: (s) => ({ ...s, b: 2 }) } });
+      check(ok.ok); eq([ok.state.version, ok.state.a, ok.state.b], [3, 1, 2]);
+      check(!store.migrate(raw, { current: 3, migrations: { 1: (s) => s } }).ok, '규칙 누락');
+      check(!store.migrate(raw, { current: 2, migrations: { 1: () => null } }).ok, '변환 실패');
+      eq(store.SAVE_VERSION, 1); eq(store.migrate({ version: 1 }).ok, true);
+    });
+    test('store: __proto__ 키가 든 세이브를 가져와도 오염되지 않는다', () => {
+      fresh(); store.newGame({ seed: 4 });
+      const text = JSON.stringify(store.getState()).replace('"flags":[]', '"flags":[],"__proto__":{"polluted":"yes"}');
+      check(text.includes('__proto__'));
+      const r = store.parseSave(text);
+      check(r.ok, JSON.stringify(r)); eq(({}).polluted, undefined); eq(Object.hasOwn(r.state.player, '__proto__'), false);
+    });
+    test('store: 너무 큰 파일 · 빈 내용 · 배열/숫자 JSON은 거부', () => {
+      check(!store.parseSave('x'.repeat(2_000_001)).ok); check(!store.parseSave('').ok); check(!store.parseSave('   ').ok);
+      check(!store.parseSave('[]').ok); check(!store.parseSave('42').ok); check(!store.parseSave('null').ok);
+    });
+    test('store: 저장 공간이 꽉 차거나 막혀도 예외 없이 실패를 알려 준다', () => {
+      fresh({ failSet: true }); store.newGame({ seed: 6 });
+      const r = store.save('1'); check(!r.ok && r.error.includes('가득'), JSON.stringify(r));
+      eq(store.storageAvailable(), false); check(!store.autosave().ok);
+      fresh({ failGet: true }); const list = store.listSlots(); eq(list.map((s) => s.status), ['unavailable', 'unavailable', 'unavailable', 'unavailable']);
+      check(!store.load('1').ok);
+    });
+    test('store: 파일 내보내기 → 가져오기 왕복, 잘못된 파일은 현재 게임을 건드리지 않는다', () => {
+      fresh(); store.newGame({ seed: 10 }); draw(4);
+      const exp = store.exportJson(); check(exp.ok && exp.filename.endsWith('.json') && exp.filename.includes('turn1'));
+      const snapshot = JSON.stringify(store.getState());
+      draw(2); check(store.importJson(exp.text).ok); eq(JSON.stringify(store.getState()), snapshot);
+      const bad = store.importJson('this is not json'); check(!bad.ok); eq(JSON.stringify(store.getState()), snapshot);
+      const extra = JSON.parse(exp.text); extra.future_field = { a: 1 };
+      check(store.importJson(JSON.stringify(extra)).ok, '알 수 없는 필드는 허용');
+      store.quitToStart(); check(!store.exportJson().ok);
+    });
+    test('store: 이벤트 — game/slots 알림, 구독 해제, 한 구독자 오류가 다른 구독자를 막지 않음', () => {
+      fresh(); const seen = []; const off = store.subscribe((t) => seen.push(t));
+      const original = console.error; console.error = () => {};
+      const off2 = store.subscribe(() => { throw new Error('boom'); }); const seen2 = []; const off3 = store.subscribe((t) => seen2.push(t));
+      store.newGame({ seed: 3 }); store.save('1'); store.deleteSlot('1');
+      console.error = original;
+      eq(seen, ['game', 'slots', 'slots']); eq(seen2, ['game', 'slots', 'slots']);
+      off(); off2(); off3(); store.newGame({ seed: 3 }); eq(seen.length, 3);
+    });
+    test('store: 세대(generation)는 게임이 바뀔 때마다 증가', () => {
+      fresh(); const g0 = store.getGeneration(); store.newGame({ seed: 1 }); store.save('1'); const g1 = store.getGeneration();
+      store.load('1'); const g2 = store.getGeneration(); store.quitToStart(); const g3 = store.getGeneration();
+      check(g1 === g0 + 1 && g2 === g1 + 1 && g3 === g2 + 1, `${g0},${g1},${g2},${g3}`);
+    });
+
+    // ---------- 실행 ----------
+    const results = document.getElementById('results');
+    let passed = 0;
+    const failures = [];
+    const startupFailed = !loaded.ok;
+
+    if (startupFailed) {
+      failures.push({ name: 'data/*.json 로드', error: loaded.errors.map((e) => e.message).join('\n') });
+    } else {
+      for (const t of tests) {
+        const li = document.createElement('li');
+        try { await t.fn(); li.className = 'pass'; li.textContent = t.name; passed++; }
+        catch (e) {
+          li.className = 'fail'; li.textContent = t.name;
+          const detail = document.createElement('span'); detail.className = 'detail'; detail.textContent = e.message; li.append(detail);
+          failures.push({ name: t.name, error: e.message });
+        }
+        results.append(li);
+      }
+    }
+    if (startupFailed) {
+      const li = document.createElement('li'); li.className = 'fail';
+      li.textContent = failures[0].name; const d = document.createElement('span'); d.className = 'detail'; d.textContent = failures[0].error; li.append(d); results.append(li);
+    }
+    const total = startupFailed ? 1 : tests.length;
+    const summary = document.getElementById('summary');
+    summary.textContent = failures.length === 0 ? `✅ 전부 통과 (${passed}/${total})` : `❌ 실패 ${failures.length}건 (통과 ${passed}/${total})`;
+    document.title = (failures.length === 0 ? '✅ ' : '❌ ') + `${passed}/${total} 테스트`;
+    window.__testResults = { passed, total, failed: failures.length, failures };
+  </script>
+</body>
+</html>

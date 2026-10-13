@@ -1,0 +1,308 @@
+// 게임 상태 보관 + localStorage 세이브/로드/마이그레이션(design.md §10.9).
+// 상태를 바꾸는 코드는 이 파일(과 이후의 effects)만 가진다. 저장소 접근은 전부 try/catch.
+
+import { nextFloat, normalizeSeed } from './rng.js';
+
+export const SAVE_VERSION = 1; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
+export const SLOTS = ['auto', '1', '2', '3'];
+export const MANUAL_SLOTS = ['1', '2', '3'];
+const KEY_PREFIX = 'rbs:save:v1:'; // 키 형식 버전(구조 버전과 별개)
+const MAX_SAVE_CHARS = 2_000_000; // 가져오기 파일 크기 방어선
+
+// 구조가 바뀔 때마다 { [옛 버전]: (state) => 새 구조 } 를 한 줄씩 추가한다. 지금은 v1뿐이라 비어 있다.
+export const MIGRATIONS = {};
+
+let ctx = null; // { config, calendar } — loader가 검증한 정적 데이터
+let state = null;
+let generation = 0; // 게임이 통째로 바뀔 때마다 +1 (화면이 임시 표시를 비울 때 쓴다)
+let storageOverride = null; // 테스트가 가짜 저장소를 꽂는 자리
+const listeners = new Set();
+
+export function configure(data) {
+  ctx = data;
+}
+export function getData() {
+  return ctx;
+}
+export function getState() {
+  return state;
+}
+export function hasGame() {
+  return state !== null;
+}
+export function getGeneration() {
+  return generation;
+}
+export function useStorage(adapter) {
+  storageOverride = adapter;
+}
+
+// 'game' = 게임이 새로 시작/교체됨, 'slots' = 저장 슬롯 내용이 바뀜
+export function subscribe(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+function emit(type) {
+  for (const fn of listeners) {
+    try {
+      fn(type);
+    } catch (e) {
+      console.error('store listener 오류', e);
+    }
+  }
+}
+
+// ---------- 저장소 접근 ----------
+
+function getStorage() {
+  if (storageOverride) return storageOverride;
+  try {
+    return window.localStorage;
+  } catch {
+    return null; // 개인정보 보호 모드·쿠키 차단 등
+  }
+}
+
+export function storageAvailable() {
+  const st = getStorage();
+  if (!st) return false;
+  try {
+    st.setItem('rbs:probe', '1');
+    st.removeItem('rbs:probe');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readSlotText(slot) {
+  const st = getStorage();
+  if (!st) return { ok: false, error: '이 브라우저에서는 저장소를 쓸 수 없어요' };
+  try {
+    return { ok: true, text: st.getItem(KEY_PREFIX + slot) };
+  } catch {
+    return { ok: false, error: '저장소를 읽지 못했어요' };
+  }
+}
+
+// ---------- 새 게임 / 난수 ----------
+
+export function newGame({ seed } = {}) {
+  const g = ctx.config.game;
+  const s = normalizeSeed(seed);
+  state = {
+    version: SAVE_VERSION,
+    seed: s,
+    rng_state: s,
+    turn: g.start_turn,
+    ap: g.ap_per_week,
+    player: {
+      firm: g.firm_name,
+      cash_usd_m: g.start_cash_usd_m,
+      reputation: g.start_reputation,
+      compliance: g.start_compliance,
+      board_confidence: g.start_board_confidence,
+      market_intel: g.start_market_intel,
+      flags: [],
+    },
+    market: { index: g.start_market_index },
+    entities: { clients: {}, reinsurers: {} },
+    treaties: {},
+    mails: [],
+    scheduled: [],
+    fired_events: [],
+    modifiers: [],
+    log: [],
+  };
+  generation += 1;
+  emit('game');
+  return state;
+}
+
+// 게임 규칙에서 난수가 필요하면 반드시 이 함수를 쓴다(상태가 세이브에 같이 들어간다).
+export function random() {
+  if (!state) throw new Error('진행 중인 게임이 없어요');
+  const r = nextFloat(state.rng_state);
+  state.rng_state = r.state;
+  return r.value;
+}
+
+export function quitToStart() {
+  state = null;
+  generation += 1;
+  emit('game');
+}
+
+// ---------- 검증 / 마이그레이션 ----------
+
+const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const isInt = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+const isNum = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+
+// 세이브 내용이 게임이 기대하는 모양인지 확인한다. 문제 목록을 돌려준다(비어 있으면 정상).
+export function validateState(s) {
+  if (!ctx) throw new Error('store.configure()를 먼저 호출해야 해요');
+  const errors = [];
+  const bad = (path, msg) => errors.push(`${path}: ${msg}`);
+  if (!isObj(s)) return ['최상위: 객체가 아니에요'];
+
+  if (!isInt(s.seed, 0, 4294967295)) bad('seed', '0 이상 정수여야 해요');
+  if (!isInt(s.rng_state, 0, 4294967295)) bad('rng_state', '0 이상 정수여야 해요');
+  if (!isInt(s.turn, 1, ctx.calendar.turns)) bad('turn', `1~${ctx.calendar.turns} 사이 정수여야 해요`);
+  if (!isInt(s.ap, 0, 99)) bad('ap', '0~99 사이 정수여야 해요');
+
+  if (!isObj(s.player)) {
+    bad('player', '객체여야 해요');
+  } else {
+    const p = s.player;
+    if (typeof p.firm !== 'string' || p.firm.trim() === '' || p.firm.length > 80) bad('player.firm', '1~80자 글자여야 해요');
+    if (!isNum(p.cash_usd_m, -1e6, 1e6)) bad('player.cash_usd_m', '숫자여야 해요');
+    for (const key of ['reputation', 'compliance', 'board_confidence', 'market_intel']) {
+      if (!isNum(p[key], 0, 100)) bad(`player.${key}`, '0~100 사이 숫자여야 해요');
+    }
+    if (!Array.isArray(p.flags) || !p.flags.every((f) => typeof f === 'string')) bad('player.flags', '글자 목록이어야 해요');
+  }
+
+  if (!isObj(s.market) || !isNum(s.market.index, 0, 100)) bad('market.index', '0~100 사이 숫자여야 해요');
+
+  if (!isObj(s.entities) || !isObj(s.entities.clients) || !isObj(s.entities.reinsurers)) {
+    bad('entities', 'clients·reinsurers 객체가 필요해요');
+  }
+  if (!isObj(s.treaties)) bad('treaties', '객체여야 해요');
+  for (const key of ['mails', 'scheduled', 'fired_events', 'modifiers', 'log']) {
+    if (!Array.isArray(s[key])) bad(key, '목록이어야 해요');
+  }
+  if (s.saved_at !== undefined && typeof s.saved_at !== 'string') bad('saved_at', '글자여야 해요');
+  return errors;
+}
+
+// 옛 버전 세이브를 현재 구조로 끌어올린다. 더 새로운 버전은 읽지 않는다(데이터를 망가뜨리지 않으려고).
+export function migrate(raw, { current = SAVE_VERSION, migrations = MIGRATIONS } = {}) {
+  if (!Number.isInteger(raw.version) || raw.version < 1) {
+    return { ok: false, error: '세이브 버전 정보가 없거나 잘못됐어요' };
+  }
+  if (raw.version > current) {
+    return { ok: false, error: `더 새로운 버전(v${raw.version})에서 만든 세이브예요. 이 게임은 v${current}까지 읽을 수 있어요` };
+  }
+  let cur = raw;
+  while (cur.version < current) {
+    const step = migrations[cur.version];
+    if (typeof step !== 'function') {
+      return { ok: false, error: `v${cur.version} 세이브를 올릴 변환 규칙이 없어요` };
+    }
+    const from = cur.version;
+    const next = step(cur);
+    if (!isObj(next)) return { ok: false, error: `v${from} 세이브 변환에 실패했어요` };
+    // 변환 규칙이 같은 객체를 돌려줘도 호출자의 입력을 바꾸지 않도록 복사해서 버전을 올린다.
+    cur = { ...next, version: from + 1 };
+  }
+  return { ok: true, state: cur };
+}
+
+// 글자 → 검증된 상태. 가져오기·불러오기가 같은 길을 지난다.
+export function parseSave(text, options) {
+  if (typeof text !== 'string' || text.trim() === '') return { ok: false, error: '내용이 비어 있어요' };
+  if (text.length > MAX_SAVE_CHARS) return { ok: false, error: '파일이 너무 커요' };
+  let raw;
+  try {
+    // __proto__ 키는 버린다(오염된 JSON이 나중에 Object.assign 등에 섞여도 안전하도록).
+    raw = JSON.parse(text, (key, value) => (key === '__proto__' ? undefined : value));
+  } catch {
+    return { ok: false, error: 'JSON 형식이 아니에요' };
+  }
+  if (!isObj(raw)) return { ok: false, error: '세이브 파일의 모양이 아니에요' };
+
+  const migrated = migrate(raw, options);
+  if (!migrated.ok) return migrated;
+
+  const errors = validateState(migrated.state);
+  if (errors.length > 0) {
+    const more = errors.length > 3 ? ` 외 ${errors.length - 3}건` : '';
+    return { ok: false, error: `저장 내용이 올바르지 않아요 — ${errors.slice(0, 3).join(' / ')}${more}` };
+  }
+  return { ok: true, state: migrated.state };
+}
+
+// ---------- 슬롯 저장 / 불러오기 ----------
+
+function writeSlot(slot) {
+  if (!state) return { ok: false, error: '진행 중인 게임이 없어요' };
+  const st = getStorage();
+  if (!st) return { ok: false, error: '이 브라우저에서는 저장소를 쓸 수 없어요' };
+  state.saved_at = new Date().toISOString();
+  try {
+    st.setItem(KEY_PREFIX + slot, JSON.stringify(state));
+  } catch (e) {
+    const quota = e && (e.name === 'QuotaExceededError' || e.code === 22);
+    return { ok: false, error: quota ? '저장 공간이 가득 찼어요' : '저장하지 못했어요(브라우저가 저장을 막고 있을 수 있어요)' };
+  }
+  emit('slots');
+  return { ok: true };
+}
+
+export function save(slot) {
+  if (!MANUAL_SLOTS.includes(slot)) return { ok: false, error: '직접 저장은 슬롯 1~3에만 할 수 있어요' };
+  return writeSlot(slot);
+}
+
+export function autosave() {
+  return writeSlot('auto');
+}
+
+export function load(slot) {
+  if (!SLOTS.includes(slot)) return { ok: false, error: '알 수 없는 슬롯이에요' };
+  const read = readSlotText(slot);
+  if (!read.ok) return read;
+  if (read.text == null) return { ok: false, error: '비어 있는 슬롯이에요' };
+  const parsed = parseSave(read.text);
+  if (!parsed.ok) return parsed;
+  replaceState(parsed.state);
+  return { ok: true };
+}
+
+export function deleteSlot(slot) {
+  if (!SLOTS.includes(slot)) return { ok: false, error: '알 수 없는 슬롯이에요' };
+  const st = getStorage();
+  if (!st) return { ok: false, error: '이 브라우저에서는 저장소를 쓸 수 없어요' };
+  try {
+    st.removeItem(KEY_PREFIX + slot);
+  } catch {
+    return { ok: false, error: '삭제하지 못했어요' };
+  }
+  emit('slots');
+  return { ok: true };
+}
+
+// 슬롯 목록 표시용 요약. 손상된 슬롯도 목록에는 나오게 해서 사용자가 지울 수 있게 한다.
+export function listSlots() {
+  return SLOTS.map((slot) => {
+    const read = readSlotText(slot);
+    if (!read.ok) return { slot, status: 'unavailable', error: read.error };
+    if (read.text == null) return { slot, status: 'empty' };
+    const parsed = parseSave(read.text);
+    if (!parsed.ok) return { slot, status: 'broken', error: parsed.error };
+    const s = parsed.state;
+    return { slot, status: 'ok', turn: s.turn, cash_usd_m: s.player.cash_usd_m, firm: s.player.firm, saved_at: s.saved_at ?? null };
+  });
+}
+
+// ---------- 파일 백업 ----------
+
+export function exportJson() {
+  if (!state) return { ok: false, error: '진행 중인 게임이 없어요' };
+  state.saved_at = new Date().toISOString();
+  return { ok: true, filename: `rbs_save_turn${state.turn}.json`, text: JSON.stringify(state, null, 2) };
+}
+
+export function importJson(text) {
+  const parsed = parseSave(text);
+  if (!parsed.ok) return parsed;
+  replaceState(parsed.state);
+  return { ok: true };
+}
+
+function replaceState(next) {
+  state = next;
+  generation += 1;
+  emit('game');
+}

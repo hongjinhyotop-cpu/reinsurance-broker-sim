@@ -19,11 +19,11 @@ docs/design.md        설계 문서
 css/                  base.css(토큰·셸), screens.css
 js/                   main, loader, store, rng, calendar, market, negotiation, reveal,
                       scouting, glossary, anki, effects, events, mail, finance, rivals
-js/ui/                components, shell, inbox, database, placement_view,
-                      glossary_view, calendar_view, standings, review
+js/ui/                components, shell, start, settings, inbox, database,
+                      placement_view, glossary_view, calendar_view, standings, review
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
                       glossary, brokers  (.json)
-tests/index.html      브라우저 실행 간이 테스트 러너
+tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연 뒤 /tests/ 접속)
 ```
 
 ## 코드 규칙
@@ -32,6 +32,7 @@ tests/index.html      브라우저 실행 간이 테스트 러너
 - 난수는 `rng.js`의 시드 RNG만 쓴다. `Math.random()` 금지(세이브 재현성).
 - 계수·임계값은 코드에 박지 말고 `data/config.json`에 둔다.
 - `ui/*` → 로직 모듈 방향으로만 의존한다.
+- DOM은 `ui/components.js`의 `h()`로 만든다. `innerHTML`·`style` 속성·인라인 스크립트 금지(`index.html`의 CSP가 외부 접속과 함께 막는다). 모양은 CSS 클래스로.
 
 ## 데이터 규칙
 - 회사·인물 이름은 **가상**만. 실존 회사명 금지. 규제 조항 번호·실제 수치 인용 금지.

@@ -1,0 +1,15 @@
+{
+  "turns": 58,
+  "quarters": [
+    { "id": "q0", "label_ko": "프리시즌", "from": 1, "to": 6 },
+    { "id": "q1", "label_ko": "1분기", "from": 7, "to": 19 },
+    { "id": "q2", "label_ko": "2분기", "from": 20, "to": 32 },
+    { "id": "q3", "label_ko": "3분기", "from": 33, "to": 45 },
+    { "id": "q4", "label_ko": "4분기", "from": 46, "to": 58 }
+  ],
+  "seasons": [
+    { "id": "season_0101", "label": "1/1", "open_turn": 1, "inception_turn": 7 },
+    { "id": "season_0104", "label": "1/4", "open_turn": 14, "inception_turn": 20 },
+    { "id": "season_0107", "label": "1/7", "open_turn": 27, "inception_turn": 33 }
+  ]
+}

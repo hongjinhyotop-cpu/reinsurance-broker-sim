@@ -1,0 +1,47 @@
+/* 화면별 스타일. 토큰은 base.css의 변수를 쓴다. */
+
+.screen { max-width: 860px; }
+
+.card {
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: var(--pad); margin-bottom: var(--gap);
+}
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
+.plain-list { margin: 0 0 0.75em; padding-left: 1.3em; }
+.plain-list li { margin-bottom: 0.3em; }
+.badge-line { margin-bottom: 0.5em; }
+
+.notice { padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-elev); }
+.notice-warn { border-color: var(--warn); }
+
+/* ---- 시작 화면 ---- */
+.start { max-width: 640px; margin: 0 auto; padding: 40px 16px 64px; }
+.start h1 { font-size: 1.7rem; }
+.lead { font-size: 1.05rem; }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.field label { font-weight: 600; }
+.field input {
+  min-height: 38px; padding: 6px 10px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.error-list { padding-left: 1.2em; }
+.error-list li { margin-bottom: 0.5em; word-break: break-word; }
+
+/* ---- 저장 슬롯 ---- */
+.slot-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.slot-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.slot-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 260px; }
+.slot-summary { font-size: 0.9rem; color: var(--text-dim); word-break: break-word; }
+.slot-error { color: var(--danger); }
+.slot-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ---- 설정 ---- */
+.info-list { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0 0 0.75em; }
+.info-list dt { color: var(--text-dim); }
+.info-list dd { margin: 0; font-variant-numeric: tabular-nums; }
+.dev-card { border-style: dashed; }
+.draws { font-family: var(--mono); margin: 10px 0 0; word-break: break-all; }
