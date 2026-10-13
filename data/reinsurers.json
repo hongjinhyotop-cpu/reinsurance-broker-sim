@@ -326,5 +326,87 @@
         "text_ko": "손실이 난 뒤에도 같은 거래처의 갱신을 먼저 챙겼다. 오래 알고 지낸 상대에게는 조건이 한 칸 더 부드러워진다."
       }
     ]
+  },
+  {
+    "id": "re_dunes_crescent",
+    "name": "Dunes Crescent Retakaful (Dubai)",
+    "name_ko": "두네스 크레센트 리타카풀",
+    "kind": "retakaful",
+    "hq": "Dubai",
+    "onshore": false,
+    "rating": "A",
+    "contact": {
+      "name": "Omar Haddad",
+      "title": "Chief Underwriting Officer"
+    },
+    "intro_ko": "두바이에 본사를 둔 신생 리타카풀 사업자예요. 책임자 오마르는 첫 미팅에 샤리아 자문 확인서 표준 양식을 미리 뽑아 와서 \"이 서식이면 오늘 끝납니다\"라고 말해요. 결정은 빠르고 시계는 늘 손목에 있는데, 숫자가 마음에 들지 않으면 인사도 짧게 끝나요.",
+    "capacity_usd_m": {
+      "property_energy": 0,
+      "marine_cargo": 0,
+      "takaful_general": 40
+    },
+    "appetite": {
+      "property_energy": 0.0,
+      "marine_cargo": 0.0,
+      "takaful_general": 0.85
+    },
+    "shariah_ok": true,
+    "target_lr": 56,
+    "hidden": {
+      "conservatism": 30,
+      "price_sensitivity": 78,
+      "loyalty": 30
+    },
+    "behavior": {
+      "response_weeks": 1,
+      "patience": 2,
+      "max_single_share": 0.5
+    },
+    "initial": {
+      "relationship": 25,
+      "scout": {
+        "conservatism": 10,
+        "price_sensitivity": 15,
+        "loyalty": 5
+      }
+    },
+    "meeting_reactions": {
+      "general": "오마르는 앉자마자 서식 한 장을 밀어 놓았다. \"이대로 가면 오늘 안에 끝납니다.\" 차는 식은 채 그대로였다.",
+      "conservatism": "처음 보는 구조라는 말에 오마르는 오히려 몸을 앞으로 기울였다. \"자문 의견은 제가 받아 둘 테니 일단 진행하시죠.\"",
+      "price_sensitivity": "\"이 숫자까지는 되고, 그 아래는 안 됩니다.\" 오마르는 종이에 선을 하나 긋고 펜을 내려놓았다.",
+      "loyalty": "\"작년 일은 작년 일이고요.\" 오마르가 웃으며 말했다. \"올해 조건이 좋으면 올해 같이 가는 거죠.\""
+    },
+    "scout_notes": [
+      {
+        "attr": "conservatism",
+        "min_scout": 25,
+        "text_ko": "새 구조를 설명하는 도중에 \"자문위원 확인서 양식은 이미 있습니다\"라며 말을 이었다. 확인에 얼마나 걸리느냐고 묻자 \"사흘이면 됩니다\"라고 답했다."
+      },
+      {
+        "attr": "conservatism",
+        "min_scout": 60,
+        "text_ko": "표준 양식에 들어맞는 구조는 승인이 이틀 만에 났다. 양식 밖의 구조도 \"일단 소액으로 해 보죠\"라며 받아 본다. 그가 꺼리는 건 구조가 아니라 느린 절차다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 25,
+        "text_ko": "견적서를 받자 첫 장은 넘기고 마지막 장의 숫자부터 짚었다. 조건 설명은 그다음이었다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 60,
+        "text_ko": "경쟁 견적이 있다고 하자 \"그럼 그쪽으로 하세요\"라며 서류를 덮었다. 이틀 뒤, 처음 그 숫자 그대로 다시 연락이 왔다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 25,
+        "text_ko": "미팅 일정은 늘 이쪽이 먼저 잡는다. 다음 약속을 물으면 \"그때 가서 보죠\"라고 한다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 60,
+        "text_ko": "시장이 흔들린 분기에 거래처 몇 곳의 한도를 미리 알리지 않고 낮췄다. 사과 대신 \"다음 갱신 때 다시 보죠\"라는 한 줄 메일이 왔다."
+      }
+    ]
   }
 ]
