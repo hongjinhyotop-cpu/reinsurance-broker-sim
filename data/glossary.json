@@ -1,0 +1,823 @@
+[
+  {
+    "id": "gl_reinsurance",
+    "term_ko": "재보험",
+    "term_en": "Reinsurance",
+    "gloss_ko": "보험회사의 보험",
+    "aliases": [
+      "보험의 보험",
+      "재보"
+    ],
+    "category": "basic",
+    "level1_ko": "보험회사가 너무 큰 사고에 대비해 들어 두는, 보험회사를 위한 보험이에요.",
+    "level2_ko": "호커센터에서 친구들과 큰 상을 시켰는데 한 사람이 다 내기엔 비싸면 여럿이 나눠 내죠. 보험회사도 큰 사고 비용을 다른 회사들과 나눠 내요.",
+    "level3": {
+      "industry_ko": "재보험은 보험을 판 회사(원보험사)가 맡은 위험의 일부를 재보험사에 넘기는 계약입니다. 큰 사고 한 번에 원보험사의 재무가 흔들리지 않게 하고, 더 큰 위험을 받을 여유를 만들어 줍니다. 위험을 넘기는 일을 출재(cede), 넘겨받는 일을 수재라고 부릅니다.",
+      "industry_en": [
+        "\"We buy reinsurance to protect our balance sheet from large losses.\"",
+        "\"Part of the risk is ceded to the reinsurance market.\""
+      ],
+      "game_example_ko": "이 게임에서 고객 보험회사(주롱 크레스트 같은 곳)는 공장 폭발 같은 큰 사고에 대비해 재보험을 사려 해요. 플레이어는 그 재보험을 대신 구해 주는 브로커예요."
+    },
+    "related": [
+      "gl_cedant",
+      "gl_reinsurer",
+      "gl_broker",
+      "gl_treaty"
+    ],
+    "appears_in": [
+      "inbox",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_cedant",
+    "term_ko": "출재사",
+    "term_en": "Cedant",
+    "gloss_ko": "재보험을 사는 보험회사",
+    "aliases": [
+      "원보험사",
+      "보험회사 고객",
+      "cedent",
+      "ceding company",
+      "고객"
+    ],
+    "category": "basic",
+    "level1_ko": "재보험을 사는 쪽, 곧 위험의 일부를 재보험사에 넘기는 보험회사예요.",
+    "level2_ko": "이삿짐이 너무 무거울 때 무거운 쪽을 친구에게 넘기는 사람처럼, 감당하기 큰 몫을 넘기는 쪽이에요.",
+    "level3": {
+      "industry_ko": "출재사(cedant, ceding company)는 자기가 인수한 보험 위험의 일부를 재보험사에 넘기는 원보험사입니다. 브로커의 고객은 보통 이 출재사입니다. 출재사는 재보험사의 재무 건전성과 가격, 계약 조건을 보고 누구와 거래할지 정합니다.",
+      "industry_en": [
+        "\"The cedant has asked us to renew the treaty on the same terms.\"",
+        "\"Our ceding company requires a minimum rating of A-.\""
+      ],
+      "game_example_ko": "이 게임의 고객 세 곳, 곧 주롱 크레스트·스트레이츠 포트·누산타라가 모두 출재사예요. 고객마다 재보험사에게 바라는 최소 등급과 지분 상한이 달라요."
+    },
+    "related": [
+      "gl_reinsurance",
+      "gl_reinsurer",
+      "gl_broker"
+    ],
+    "appears_in": [
+      "inbox",
+      "database"
+    ]
+  },
+  {
+    "id": "gl_reinsurer",
+    "term_ko": "재보험사",
+    "term_en": "Reinsurer",
+    "gloss_ko": "위험을 넘겨받는 회사",
+    "aliases": [
+      "재보험회사",
+      "reinsurance company"
+    ],
+    "category": "basic",
+    "level1_ko": "보험회사가 넘긴 위험의 일부를 대신 맡고, 대가로 보험료를 받는 회사예요.",
+    "level2_ko": "무거운 짐을 대신 들어 주고 수고비를 받는 이삿짐센터 같아요. 위험이 큰 만큼 값을 신중하게 불러요.",
+    "level3": {
+      "industry_ko": "재보험사(reinsurer)는 출재사의 위험을 넘겨받고 재보험료를 받는 회사입니다. 글로벌 대형사, 지역 재보험사, 신디케이트 등 여러 형태가 있으며, 사고가 나면 맡은 지분만큼 보험금을 부담합니다.",
+      "industry_en": [
+        "\"The reinsurer has agreed to write a 20% line.\"",
+        "\"We are approaching three reinsurers for this layer.\""
+      ],
+      "game_example_ko": "알펜글로우 리, 칼랑 리, 템스 키 신디케이트, 누르·두네스 크레센트 리타카풀이 이 게임의 재보험사예요. 보드에서 이들의 지분을 합쳐 100%를 채워요."
+    },
+    "related": [
+      "gl_reinsurance",
+      "gl_cedant",
+      "gl_line",
+      "gl_capacity"
+    ],
+    "appears_in": [
+      "inbox",
+      "database",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_broker",
+    "term_ko": "재보험 브로커",
+    "term_en": "Reinsurance broker",
+    "gloss_ko": "보험회사와 재보험사 사이의 중개인",
+    "aliases": [
+      "브로커",
+      "중개사",
+      "중개회사",
+      "재보험 중개"
+    ],
+    "category": "basic",
+    "level1_ko": "보험회사와 재보험사 사이에서 계약 조건을 정리하고 이어 주는 중개 회사예요.",
+    "level2_ko": "집을 구하는 사람과 집주인 사이를 오가며 조건을 맞춰 주는 부동산 중개인과 비슷해요.",
+    "level3": {
+      "industry_ko": "재보험 브로커는 출재사를 대리해 시장에서 재보험사를 찾고 가격과 조건을 협상해 계약을 성사시킵니다. 보통 성사된 계약의 보험료에서 일정 비율의 브로커리지(수수료)를 받습니다. 시장 정보와 상대와의 신뢰가 브로커의 자산입니다.",
+      "industry_en": [
+        "\"Our broker is going out to market next week.\"",
+        "\"The broker placed the treaty with a panel of six reinsurers.\""
+      ],
+      "game_example_ko": "플레이어는 브로커 회사의 트리티 헤드예요. 고객과 재보험사 양쪽의 말을 듣고, 지분 100%를 채워 고객에게 내밀어요."
+    },
+    "related": [
+      "gl_cedant",
+      "gl_reinsurer",
+      "gl_treaty"
+    ],
+    "appears_in": [
+      "inbox",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_underwriter",
+    "term_ko": "언더라이터",
+    "term_en": "Underwriter",
+    "gloss_ko": "위험을 심사해 값을 정하는 사람",
+    "aliases": [
+      "인수 심사역",
+      "심사역",
+      "UW",
+      "underwriting"
+    ],
+    "category": "basic",
+    "level1_ko": "위험을 살펴보고 맡을지, 얼마에 맡을지를 정하는 심사 담당자예요.",
+    "level2_ko": "중고 거래에서 물건 상태를 보고 '이 가격이면 살게요' 하고 값을 부르는 사람과 비슷해요.",
+    "level3": {
+      "industry_ko": "언더라이터(underwriter)는 보험사·재보험사에서 위험을 평가해 인수 여부와 가격, 조건을 결정하는 전문가입니다. 브로커는 주로 이 사람을 상대로 가격과 지분을 협상합니다. 회사 방침 안에서 결정하므로, 재량을 넘는 사안은 윗선의 승인이 필요할 수 있습니다.",
+      "industry_en": [
+        "\"The underwriter has asked for the last three years of loss data.\"",
+        "\"Our underwriter will revert with indicative terms.\""
+      ],
+      "game_example_ko": "알펜글로우 리의 마쿠스처럼 재보험사마다 담당 언더라이터가 있어요. 메일을 보내고 제안을 받는 상대가 바로 이 사람이에요."
+    },
+    "related": [
+      "gl_reinsurer",
+      "gl_lead",
+      "gl_broker"
+    ],
+    "appears_in": [
+      "inbox",
+      "database"
+    ]
+  },
+  {
+    "id": "gl_claim",
+    "term_ko": "클레임(보험금 청구)",
+    "term_en": "Claim",
+    "gloss_ko": "사고 뒤 보험금을 청구하는 일",
+    "aliases": [
+      "손해",
+      "손해 통지",
+      "보험금 청구",
+      "청구",
+      "loss",
+      "notice of loss"
+    ],
+    "category": "basic",
+    "level1_ko": "사고가 나서 '이 손해를 보험으로 메워 주세요' 하고 요청하는 것이에요.",
+    "level2_ko": "휴대폰 액정이 깨져 수리비 보험을 신청하는 것처럼, 사고 뒤에 약속된 보상을 요청하는 일이에요.",
+    "level3": {
+      "industry_ko": "클레임(claim)은 사고로 생긴 손실에 대해 보험금을 청구하는 것입니다. 원보험사가 가입자에게 보험금을 지급하면, 재보험 계약에 따라 그 손실 중 재보험사 몫을 재보험사에 청구합니다. 큰 사고가 나면 브로커는 재보험사들에게 손해 통지(notice of loss)를 돌리고 정리를 돕습니다.",
+      "industry_en": [
+        "\"Please find attached the notice of loss.\"",
+        "\"We expect the claim to be recoverable under the treaty.\""
+      ],
+      "game_example_ko": "주롱섬 단지에서 폭발 사고가 나면 고객이 손해 통지를 어떤 순서로 재보험사에 보낼지 브로커에게 물어요. 이때 곁에서 어떻게 돕는지가 고객과의 관계에 남아요."
+    },
+    "related": [
+      "gl_reinsurance",
+      "gl_cedant",
+      "gl_broker"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_capacity",
+    "term_ko": "용량",
+    "term_en": "Capacity",
+    "gloss_ko": "재보험사가 맡을 수 있는 크기",
+    "aliases": [
+      "인수 용량",
+      "capacity"
+    ],
+    "category": "basic",
+    "level1_ko": "한 재보험사가 어떤 종류의 위험에 맡을 수 있는 금액의 크기예요.",
+    "level2_ko": "배낭마다 담을 수 있는 짐의 크기가 다르듯, 재보험사마다 한 종류의 위험에 맡을 수 있는 크기가 달라요.",
+    "level3": {
+      "industry_ko": "용량(capacity)은 재보험사가 특정 라인·위험에 내줄 수 있는 최대 책임 금액입니다. 시장 전체의 용량이 넉넉하면 가격이 내려가고 부족하면 올라가는 경향이 있습니다. 같은 재보험사도 라인마다, 시기마다 용량이 달라질 수 있습니다.",
+      "industry_en": [
+        "\"We can deploy up to $10 million of capacity on this account.\"",
+        "\"Market capacity is tight at this renewal.\""
+      ],
+      "game_example_ko": "고객이 큰 트리티를 낼수록 한 재보험사의 용량만으로는 부족해서, 여러 곳을 모아야 지분 100%가 차요. 시장이 단단해지면 같은 재보험사도 맡겠다는 몫이 줄어요."
+    },
+    "related": [
+      "gl_reinsurer",
+      "gl_line",
+      "gl_hard_market"
+    ],
+    "appears_in": [
+      "inbox",
+      "database",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_treaty",
+    "term_ko": "트리티",
+    "term_en": "Treaty",
+    "gloss_ko": "1년짜리 포괄 재보험 계약",
+    "aliases": [
+      "재보험 특약",
+      "특약",
+      "treaty",
+      "reinsurance treaty"
+    ],
+    "category": "structure",
+    "level1_ko": "정해진 기간 동안 특정 종류의 물건을 한꺼번에 묶어 재보험하는 약속이에요.",
+    "level2_ko": "한 건씩 주문하는 대신 '올해는 점심을 이 식당에서 늘 먹을게요' 하고 연간 단골 계약을 맺는 것과 비슷해요.",
+    "level3": {
+      "industry_ko": "트리티(treaty)는 정해진 기간(보통 1년) 동안 어떤 종류의 보험 계약들을 포괄적으로 재보험하는 계약입니다. 위험을 하나씩 따로 넘기는 임의재보험(facultative)과 달리, 조건에 맞는 위험은 자동으로 포함됩니다. 연초에 갱신하는 경우가 흔합니다.",
+      "industry_en": [
+        "\"The property treaty renews on 1 January.\"",
+        "\"We are placing the treaty on a non-proportional basis.\""
+      ],
+      "game_example_ko": "이 게임에는 트리티가 세 개 있어요. 주롱섬 재산 트리티, 항만 해상화물 트리티, 일반 타카풀 트리티예요. 라인 구성 보드에서 하나를 골라 지분을 채워요."
+    },
+    "related": [
+      "gl_reinsurance",
+      "gl_xol",
+      "gl_quota_share",
+      "gl_renewal"
+    ],
+    "appears_in": [
+      "inbox",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_xol",
+    "term_ko": "초과손해 재보험(XoL)",
+    "term_en": "Excess of Loss (XoL)",
+    "gloss_ko": "큰 손해만 넘기는 재보험",
+    "aliases": [
+      "초과손해",
+      "XoL",
+      "XL",
+      "excess of loss",
+      "비비례"
+    ],
+    "category": "structure",
+    "level1_ko": "사고 손해가 정한 금액을 넘는 부분만 재보험사가 대신 내 주는 방식이에요.",
+    "level2_ko": "휴대폰 수리비가 10만 원까지는 내가 내고, 그 넘는 부분만 보험이 내 주는 것과 비슷해요.",
+    "level3": {
+      "industry_ko": "초과손해 재보험(Excess of Loss, XoL)은 한 번의 사고나 한 위험의 손해가 자기부담(retention)을 넘는 부분을 정한 한도(limit)까지 재보험사가 부담하는 방식입니다. 보험료는 원보험료의 일정 비율이 아니라 이 구간이 얼마나 위험한지를 따져 따로 정합니다. 보통 '한도 xs 자기부담'처럼 둘을 함께 말합니다.",
+      "industry_en": [
+        "\"We need a $50 million excess of $10 million layer.\"",
+        "\"The XoL programme attaches at $50 million.\""
+      ],
+      "game_example_ko": "주롱섬 재산 트리티와 항만 해상화물 트리티가 초과손해 방식이에요. 보드에 '한도 … (부담 … 초과)'로 적힌 부분이 이 구간을 나타내요."
+    },
+    "related": [
+      "gl_retention",
+      "gl_quota_share",
+      "gl_treaty"
+    ],
+    "appears_in": [
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_quota_share",
+    "term_ko": "쿼터쉐어(비례 재보험)",
+    "term_en": "Quota Share (QS)",
+    "gloss_ko": "비율대로 나누는 재보험",
+    "aliases": [
+      "쿼터쉐어",
+      "QS",
+      "비례재보험",
+      "quota share"
+    ],
+    "category": "structure",
+    "level1_ko": "보험료와 손해를 정해진 비율대로 재보험사와 똑같이 나누는 방식이에요.",
+    "level2_ko": "피자 한 판 값을 친구와 늘 3:7로 나눠 내기로 한 것처럼, 들어오는 돈도 나가는 돈도 정한 비율대로 나눠요.",
+    "level3": {
+      "industry_ko": "쿼터쉐어(quota share)는 출재사가 인수한 보험의 보험료와 손해를 정해진 비율로 재보험사와 나누는 비례 재보험입니다. 출재 비율이 클수록 원보험사의 부담은 줄지만 보험료 수입도 같은 비율로 나눠집니다. 재보험사는 보통 출재사에 출재 수수료(ceding commission)를 지급합니다.",
+      "industry_en": [
+        "\"We cede 30% of the portfolio on a quota share basis.\"",
+        "\"The quota share renews with a lower ceding commission.\""
+      ],
+      "game_example_ko": "누산타라의 일반 타카풀 트리티가 쿼터쉐어예요. 보드의 구조 옵션 칸에서 출재 비율을 줄이는 선택지를 볼 수 있어요."
+    },
+    "related": [
+      "gl_xol",
+      "gl_treaty",
+      "gl_takaful"
+    ],
+    "appears_in": [
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_retention",
+    "term_ko": "자기부담",
+    "term_en": "Retention",
+    "gloss_ko": "보험회사가 직접 떠안는 몫",
+    "aliases": [
+      "어태치먼트",
+      "attachment",
+      "deductible",
+      "부담"
+    ],
+    "category": "structure",
+    "level1_ko": "사고가 났을 때 재보험이 나서기 전에 보험회사가 먼저 직접 떠안는 금액이에요.",
+    "level2_ko": "병원에서 처음 몇 천 원은 내가 내고 나머지를 보험이 내 주는 '본인부담금'과 비슷해요.",
+    "level3": {
+      "industry_ko": "자기부담(retention)은 출재사가 재보험 없이 스스로 떠안는 손해 금액입니다. 초과손해 계약에서는 재보험사의 책임이 시작되는 지점이라 어태치먼트 포인트(attachment point)라고도 부릅니다. 자기부담을 높이면 재보험료는 줄어들지만 출재사가 직접 감당할 위험은 커집니다.",
+      "industry_en": [
+        "\"Our retention is $50 million per risk.\"",
+        "\"Raising the retention will lower the premium.\""
+      ],
+      "game_example_ko": "라인 구성 보드의 '부담 … 초과'가 이 값이에요. 구조 옵션 '자기부담 상향'을 고르면 고객이 직접 떠안는 몫이 커지는 대신 재보험 비용을 줄일 수 있어요."
+    },
+    "related": [
+      "gl_xol",
+      "gl_treaty"
+    ],
+    "appears_in": [
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_line",
+    "term_ko": "라인(지분)",
+    "term_en": "Line",
+    "gloss_ko": "재보험사가 맡는 지분",
+    "aliases": [
+      "지분",
+      "서명 지분",
+      "written line",
+      "signed line",
+      "share"
+    ],
+    "category": "placement",
+    "level1_ko": "큰 위험 하나를 여러 회사가 나눠 맡을 때, 한 회사가 맡는 비율(%)이에요.",
+    "level2_ko": "단체 회식비를 나눠 내는 것과 비슷해요. 전체를 100%로 보고 '저는 20%만 낼게요' 하고 맡는 몫이 라인이에요.",
+    "level3": {
+      "industry_ko": "재보험 시장에서 line은 재보험사가 한 트리티나 레이어에서 인수하는 지분을 뜻합니다. 처음 제시한 지분을 written line, 최종 확정된 지분을 signed line이라 하며, 청약이 100%를 넘으면 signed line을 비례 축소(sign down)합니다.",
+      "industry_en": [
+        "\"We can offer a 15% written line on the second layer.\"",
+        "\"Signed down to 12.5%.\""
+      ],
+      "game_example_ko": "라인 구성 보드의 막대 전체가 100%예요. 재보험사마다 지분(%)을 정해 합이 100%가 되도록 채워요. 100%가 안 차면 인셉션에 보장이 비는 곳이 생길 수 있어요."
+    },
+    "related": [
+      "gl_panel",
+      "gl_treaty",
+      "gl_single_share",
+      "gl_capacity"
+    ],
+    "appears_in": [
+      "placement",
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_panel",
+    "term_ko": "패널",
+    "term_en": "Panel",
+    "gloss_ko": "한 계약을 나눠 맡는 재보험사 무리",
+    "aliases": [
+      "재보험사 패널",
+      "security panel"
+    ],
+    "category": "placement",
+    "level1_ko": "하나의 재보험 계약을 함께 나눠 맡는 재보험사들의 모임이에요.",
+    "level2_ko": "축구팀이 한 명이 아니라 여러 선수가 포지션을 나눠 뛰듯, 한 계약도 여러 재보험사가 나눠 맡아요.",
+    "level3": {
+      "industry_ko": "패널(panel)은 한 트리티에 참여하는 재보험사들의 구성입니다. 한 곳이 전부 맡기보다 여러 곳에 나누면 한 재보험사가 보험금을 못 내는 위험이 줄어듭니다. 해마다 갱신하면서 일부 참여사를 바꾸기도 합니다.",
+      "industry_en": [
+        "\"The expiring panel has six reinsurers on the programme.\"",
+        "\"We would like to add one new name to the panel.\""
+      ],
+      "game_example_ko": "보드의 '만기 지분'(흐린 띠)이 지난 시즌 패널이에요. 지금 구성하는 패널과 나란히 놓고 비교할 수 있어요."
+    },
+    "related": [
+      "gl_line",
+      "gl_reinsurer",
+      "gl_renewal"
+    ],
+    "appears_in": [
+      "placement",
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_lead",
+    "term_ko": "리드",
+    "term_en": "Lead",
+    "gloss_ko": "먼저 조건을 정하는 재보험사",
+    "aliases": [
+      "리드 재보험사",
+      "lead reinsurer",
+      "lead",
+      "팔로우",
+      "follow",
+      "리드 언더라이터"
+    ],
+    "category": "placement",
+    "level1_ko": "여러 재보험사 가운데 가장 먼저 가격과 조건을 정해 주는 대표 재보험사예요.",
+    "level2_ko": "단체 주문에서 메뉴를 먼저 정한 친구를 보고 다른 친구들이 '나도 같은 걸로' 하는 것과 비슷해요.",
+    "level3": {
+      "industry_ko": "리드(lead)는 한 계약에서 가격·조건을 먼저 제시하고 협상을 이끄는 재보험사입니다. 나머지 재보험사(follower)는 리드가 정한 조건을 기준으로 따라가는 경우가 많습니다. '리드 언더라이터'는 그 역할을 맡은 심사 담당자를 가리킵니다.",
+      "industry_en": [
+        "\"We are happy to lead this placement at the quoted terms.\"",
+        "\"The following markets will follow the lead's terms.\""
+      ],
+      "game_example_ko": "라인 구성 보드에는 리드를 따로 정하는 칸이 없어요. 재보험사 소개글에 나오는 '리드 언더라이터'는 이 말에서 온 직함이에요."
+    },
+    "related": [
+      "gl_underwriter",
+      "gl_panel",
+      "gl_line"
+    ],
+    "appears_in": [
+      "database"
+    ]
+  },
+  {
+    "id": "gl_counter_offer",
+    "term_ko": "반제(역제안)",
+    "term_en": "Counter-offer",
+    "gloss_ko": "조건을 바꿔 되돌려 보내는 제안",
+    "aliases": [
+      "반제",
+      "역제안",
+      "counter",
+      "counter-proposal"
+    ],
+    "category": "placement",
+    "level1_ko": "'그 조건은 어렵고, 이 조건이라면 가능해요' 하고 조건을 바꿔 되돌려 보내는 제안이에요.",
+    "level2_ko": "중고 거래에서 판매자가 '2만 원은 어렵고 2만 5천 원이면 드릴게요' 하고 되받는 것과 같아요.",
+    "level3": {
+      "industry_ko": "반제(역제안, counter-offer)는 상대의 제안을 그대로 받지 않고 가격이나 지분 같은 조건을 바꿔 다시 내놓는 것입니다. 한국어로는 '반제' 또는 '역제안'이라고 부릅니다. 받아들이면 그 조건으로 계약이 이어지고, 받지 않으면 처음부터 다시 협상합니다.",
+      "industry_en": [
+        "\"We can't do that rate, but we could write a 10% line at a higher price.\"",
+        "\"They came back with a counter-offer.\""
+      ],
+      "game_example_ko": "라인 구성 보드에서 제안을 보내면 재보험사가 'RC가 이만큼이라면 이 지분'처럼 반제를 보내기도 해요. 받아들이면 그 조건으로 지분이 확정돼요. 반제는 주를 넘기면 사라져요."
+    },
+    "related": [
+      "gl_rate_change",
+      "gl_line"
+    ],
+    "appears_in": [
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_rate_change",
+    "term_ko": "RC",
+    "term_en": "Rate Change (RC)",
+    "gloss_ko": "작년 대비 가격 변화",
+    "aliases": [
+      "요율 변화",
+      "가격 변화",
+      "rate change",
+      "가격 변동"
+    ],
+    "category": "pricing",
+    "level1_ko": "같은 보장을 샀을 때 올해 가격이 작년보다 몇 % 올랐거나 내렸는지를 말해요.",
+    "level2_ko": "붕어빵이 작년엔 1,000원이었는데 올해 1,100원이면 '10% 올랐다'고 하죠. 그 퍼센트가 RC예요.",
+    "level3": {
+      "industry_ko": "RC(rate change)는 만기 계약과 비교한 갱신 가격의 변화율입니다. 보장 범위나 위험이 달라졌다면 그 차이를 반영해 비교하는 것이 원칙입니다. +5%는 작년보다 비싸졌다는 뜻이고 -3%는 싸졌다는 뜻이며, 변화가 없으면 flat이라고 합니다. 시장이 단단하면 +, 느슨하면 -가 되기 쉽습니다.",
+      "industry_en": [
+        "\"We are looking for flat to minus 5% rate change on renewal.\"",
+        "\"The reinsurers are asking for plus 10% rate change.\""
+      ],
+      "game_example_ko": "라인 구성 보드에서 재보험사마다 낼 'RC'를 입력해요. RC를 낮게 부르면 고객은 반기지만 재보험사는 받아 주지 않을 수 있어요."
+    },
+    "related": [
+      "gl_renewal",
+      "gl_hard_market",
+      "gl_soft_market",
+      "gl_counter_offer"
+    ],
+    "appears_in": [
+      "placement",
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_renewal",
+    "term_ko": "갱신",
+    "term_en": "Renewal",
+    "gloss_ko": "만기 계약을 새로 맺기",
+    "aliases": [
+      "renewal",
+      "renew",
+      "1/1",
+      "재계약"
+    ],
+    "category": "market",
+    "level1_ko": "끝나는 보험 계약을 다음 기간으로 다시 맺는 일이에요.",
+    "level2_ko": "한 해 쓰던 동네 헬스장 회원권이 끝날 때 가격과 조건을 다시 정해 연장하는 것과 같아요.",
+    "level3": {
+      "industry_ko": "갱신(renewal)은 만기가 되는 재보험 계약을 새 기간으로 다시 맺는 절차입니다. 만기 전에 가격과 조건, 참여 재보험사를 다시 협상하며, 많은 시장에서 1월 1일(1/1)에 갱신이 몰려 이 시기가 가장 바쁩니다.",
+      "industry_en": [
+        "\"The treaty is up for renewal on 1 January.\"",
+        "\"We are well advanced on the 1/1 renewals.\""
+      ],
+      "game_example_ko": "이 게임의 한 해는 1/1, 1/4, 1/7 세 번의 갱신 시즌으로 나뉘어요. 시즌마다 인셉션 전까지 고객과 재보험사를 만나 지분을 확정해야 해요."
+    },
+    "related": [
+      "gl_inception",
+      "gl_treaty",
+      "gl_rate_change"
+    ],
+    "appears_in": [
+      "inbox",
+      "placement",
+      "calendar"
+    ]
+  },
+  {
+    "id": "gl_inception",
+    "term_ko": "인셉션",
+    "term_en": "Inception",
+    "gloss_ko": "보장이 시작되는 날",
+    "aliases": [
+      "보장 시작",
+      "개시일",
+      "inception date"
+    ],
+    "category": "market",
+    "level1_ko": "재보험 보장이 실제로 시작되는 날이에요.",
+    "level2_ko": "영화표에 적힌 상영 시작 시간처럼, 그 시간이 되면 계약의 보호막이 켜져요.",
+    "level3": {
+      "industry_ko": "인셉션(inception)은 보험·재보험 계약의 보장이 시작되는 날입니다. 이 날까지 계약이 확정되고 서명되어야 하며, 확정이 늦으면 보장이 비는 기간이 생길 수 있습니다. 1/1 갱신이라면 인셉션은 1월 1일입니다.",
+      "industry_en": [
+        "\"The inception date is 1 January.\"",
+        "\"We need firm order terms before inception.\""
+      ],
+      "game_example_ko": "보드 위쪽에 '인셉션까지 N주'가 나와요. 그날까지 지분 100%를 채워 고객에게 제출해야 해요."
+    },
+    "related": [
+      "gl_renewal",
+      "gl_treaty"
+    ],
+    "appears_in": [
+      "inbox",
+      "placement",
+      "calendar"
+    ]
+  },
+  {
+    "id": "gl_hard_market",
+    "term_ko": "하드마켓",
+    "term_en": "Hard market",
+    "gloss_ko": "재보험이 비싸고 까다로운 시기",
+    "aliases": [
+      "단단한 시장",
+      "hard",
+      "하드",
+      "하드 마켓"
+    ],
+    "category": "market",
+    "level1_ko": "재보험을 해 주려는 회사가 적어서 값이 오르고 조건이 까다로워진 시기예요.",
+    "level2_ko": "축제 날 인기 간식 가게 앞처럼, 사려는 사람은 많고 파는 양은 적어서 값이 오르는 때예요.",
+    "level3": {
+      "industry_ko": "하드마켓(hard market)은 재보험 공급(용량)이 줄거나 손실이 커서 가격이 오르고 조건이 엄격해지는 국면입니다. 대형 재해 뒤에 재보험사의 자본이 줄면 나타나기 쉽습니다. 이럴 때 브로커는 고객의 가격 기대를 미리 조율하는 일이 중요해집니다.",
+      "industry_en": [
+        "\"The market is hardening after the earthquake losses.\"",
+        "\"Reinsurers are pushing for rate increases in a hard market.\""
+      ],
+      "game_example_ko": "상단의 '시장' 칸이 '하드' 쪽일수록 재보험사가 맡겠다는 몫이 줄고 가격 눈높이가 올라가요. 큰 재해가 난 뒤에 시장이 단단해지는 일이 일어나요."
+    },
+    "related": [
+      "gl_soft_market",
+      "gl_capacity",
+      "gl_rate_change"
+    ],
+    "appears_in": [
+      "inbox",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_soft_market",
+    "term_ko": "소프트마켓",
+    "term_en": "Soft market",
+    "gloss_ko": "재보험이 싸고 느슨한 시기",
+    "aliases": [
+      "느슨한 시장",
+      "soft",
+      "소프트",
+      "소프트 마켓"
+    ],
+    "category": "market",
+    "level1_ko": "재보험을 해 주려는 회사가 많아서 값이 내리고 조건이 느슨해진 시기예요.",
+    "level2_ko": "폐점 세일처럼, 파는 쪽이 넘쳐서 서로 값을 낮추며 손님을 끌려는 때예요.",
+    "level3": {
+      "industry_ko": "소프트마켓(soft market)은 재보험 공급이 넉넉해 가격이 내려가고 조건이 완화되는 국면입니다. 새 자본이 시장에 들어오거나 큰 재해가 한동안 없을 때 나타나기 쉽습니다. 다만 가격이 너무 낮아지면 이후 손실이 쌓여 시장이 다시 돌아서기도 합니다.",
+      "industry_en": [
+        "\"The market is softening as new capital enters.\"",
+        "\"Rates are coming down in a soft market.\""
+      ],
+      "game_example_ko": "시장이 느슨하면 재보험사들이 서로 자리를 채우려 해서 맡겠다는 몫도 넉넉해져요. 대신 고객은 큰 폭의 가격 인하를 기대하기 쉬워요."
+    },
+    "related": [
+      "gl_hard_market",
+      "gl_capacity",
+      "gl_rate_change"
+    ],
+    "appears_in": [
+      "inbox",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_rating",
+    "term_ko": "재무 등급",
+    "term_en": "Financial strength rating",
+    "gloss_ko": "돈을 낼 능력의 성적표",
+    "aliases": [
+      "등급",
+      "신용등급",
+      "재무강도등급",
+      "rating",
+      "security rating",
+      "A-",
+      "BBB+"
+    ],
+    "category": "security",
+    "level1_ko": "재보험사가 약속한 보험금을 낼 수 있는 체력을 글자로 매긴 성적표예요.",
+    "level2_ko": "성적표처럼 A, B로 매기고, 같은 알파벳 안에서도 +와 -로 나뉘어요. 높을수록 믿을 만하다고 봐요.",
+    "level3": {
+      "industry_ko": "재무 건전성 등급(financial strength rating)은 신용평가회사가 보험·재보험사의 지급 능력을 글자로 나타낸 것입니다. 출재사는 재보험 계약에서 재보험사에 최소 등급을 요구하는 일이 흔합니다. 일반적으로 A 계열이 BBB 계열보다 높고, 같은 계열에서는 +가 -보다 높습니다.",
+      "industry_en": [
+        "\"The minimum acceptable security is A- from the main rating agencies.\"",
+        "\"The reinsurer was downgraded to BBB+.\""
+      ],
+      "game_example_ko": "고객마다 재보험사에게 요구하는 최소 등급이 있어요. 기준에 못 미치는 재보험사를 보드에 넣으면 '고객 최소 등급 미달' 경고 칩이 떠요."
+    },
+    "related": [
+      "gl_reinsurer",
+      "gl_single_share"
+    ],
+    "appears_in": [
+      "database",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_takaful",
+    "term_ko": "타카풀",
+    "term_en": "Takaful",
+    "gloss_ko": "이슬람식 상호 돕기 보험",
+    "aliases": [
+      "이슬람 보험",
+      "takaful"
+    ],
+    "category": "takaful",
+    "level1_ko": "이슬람의 가르침에 맞춰, 가입자들이 기금을 모아 서로 돕는 방식의 보험이에요.",
+    "level2_ko": "반 친구들이 비상금을 함께 모아 두었다가, 누가 어려운 일을 당하면 그 돈으로 서로 돕는 것과 비슷해요.",
+    "level3": {
+      "industry_ko": "타카풀(takaful)은 샤리아(이슬람 율법)에 맞춘 보험 방식으로, 참가자들이 낸 기여금으로 공동 기금을 만들어 손실을 서로 나눕니다. 운영사가 기금을 관리하고 샤리아 자문위원회가 상품과 운영이 율법에 맞는지 살핍니다. 말레이시아와 인도네시아 같은 동남아 시장에서 활발합니다.",
+      "industry_en": [
+        "\"Our takaful operator seeks retakaful cover for its portfolio.\"",
+        "\"Contributions are pooled into the participants' risk fund.\""
+      ],
+      "game_example_ko": "누산타라 무티아라 타카풀이 이 게임의 타카풀 고객이에요. 샤리아를 지켜야 해서, 일반 재보험사에게 맡기는 몫에 상한이 있어요."
+    },
+    "related": [
+      "gl_retakaful",
+      "gl_shariah"
+    ],
+    "appears_in": [
+      "inbox",
+      "database",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_retakaful",
+    "term_ko": "리타카풀",
+    "term_en": "Retakaful",
+    "gloss_ko": "타카풀 회사를 위한 재보험",
+    "aliases": [
+      "재타카풀",
+      "retakaful",
+      "이슬람 재보험"
+    ],
+    "category": "takaful",
+    "level1_ko": "타카풀 회사가 큰 위험을 덜기 위해 드는, 이슬람 방식의 재보험이에요.",
+    "level2_ko": "반 비상금이 모자랄 때 학년 전체 비상금 모임에서 도움을 받는 것처럼, 타카풀 위에 한 겹 더 있는 안전망이에요.",
+    "level3": {
+      "industry_ko": "리타카풀(retakaful)은 타카풀 운영사의 위험을 넘겨받는, 샤리아에 맞춘 재보험입니다. 리타카풀 사업자도 샤리아 자문 의견을 두고 운영합니다. 샤리아 준수 요건 때문에 타카풀 출재사는 일반 재보험사보다 리타카풀 사업자에게 맡길 수 있는 몫이 큰 경우가 많습니다.",
+      "industry_en": [
+        "\"The treaty is placed with retakaful operators only.\"",
+        "\"We are seeking retakaful capacity for the family takaful book.\""
+      ],
+      "game_example_ko": "누르 리타카풀과 두네스 크레센트 리타카풀이 이 게임의 샤리아 가능 재보험사예요. 누산타라 트리티를 채우려면 이 둘의 지분이 중요해요."
+    },
+    "related": [
+      "gl_takaful",
+      "gl_shariah",
+      "gl_reinsurer"
+    ],
+    "appears_in": [
+      "inbox",
+      "database",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_shariah",
+    "term_ko": "샤리아",
+    "term_en": "Shariah",
+    "gloss_ko": "이슬람 율법",
+    "aliases": [
+      "샤리아 준수",
+      "샤리아 위원회",
+      "샤리아 자문",
+      "Sharia",
+      "Shariah board"
+    ],
+    "category": "takaful",
+    "level1_ko": "이슬람의 가르침에서 나온 규범으로, 타카풀은 이 규범을 지켜야 해요.",
+    "level2_ko": "학교 규칙처럼 해도 되는 일과 안 되는 일의 선이 있어서, 그 선 안에서만 움직여야 해요.",
+    "level3": {
+      "industry_ko": "샤리아(Shariah)는 이슬람 율법으로, 타카풀과 리타카풀은 이를 지키도록 설계됩니다. 샤리아 자문위원회(Shariah board)가 상품과 운영 방식을 검토하고 의견서를 냅니다. 그래서 샤리아 준수 고객은 거래 상대와 조건에 추가 요건을 둘 수 있습니다.",
+      "industry_en": [
+        "\"The structure has been reviewed by our Shariah board.\"",
+        "\"A Shariah-compliant reinsurer is required for this treaty.\""
+      ],
+      "game_example_ko": "누산타라 트리티는 샤리아 준수가 필수라서 일반 재보험사 지분의 합에 상한이 있어요. 보드에서 '샤리아'라고 적힌 재보험사가 샤리아를 지킬 수 있는 곳이에요."
+    },
+    "related": [
+      "gl_takaful",
+      "gl_retakaful"
+    ],
+    "appears_in": [
+      "inbox",
+      "database",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_single_share",
+    "term_ko": "단일 한도",
+    "gloss_ko": "한 곳이 맡을 수 있는 최대 지분",
+    "aliases": [
+      "단일 최대",
+      "한 곳당 최대",
+      "최대 지분",
+      "max single share",
+      "concentration"
+    ],
+    "category": "game",
+    "level1_ko": "재보험사 한 곳이 한 트리티에서 맡을 수 있는 가장 큰 지분이에요.",
+    "level2_ko": "한 가게에서만 간식을 다 사면 그 가게가 문을 닫는 날 곤란하니, 한 가게에서 살 양을 정해 두는 것과 같아요.",
+    "level3": {
+      "industry_ko": "실제 계약에서도 한 재보험사에 지분이 몰리면 그 회사가 보험금을 못 낼 때 타격이 크기 때문에, 한 곳당 지분을 제한하는 경우가 있습니다. 다만 '단일 한도'는 이 게임에서 쓰는 이름이고, 업계에 같은 이름의 표준 용어가 있는 것은 아닙니다.",
+      "industry_en": [],
+      "game_example_ko": "고객마다 단일 한도가 달라요. 재보험사에게도 자기 한도가 있어서, 둘 중 낮은 쪽이 그 재보험사의 상한이에요. 한도를 넘기면 보드에 경고 칩이 떠요."
+    },
+    "related": [
+      "gl_line",
+      "gl_panel",
+      "gl_capacity"
+    ],
+    "appears_in": [
+      "database",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_ap",
+    "term_ko": "행동 점수",
+    "term_en": "Action Points (AP)",
+    "aliases": [
+      "AP",
+      "행동점수"
+    ],
+    "category": "game",
+    "level1_ko": "한 주 동안 내가 할 수 있는 일의 양을 점수로 바꾼 것이에요.",
+    "level2_ko": "방학 하루에 할 수 있는 일이 정해져 있어서 공부, 약속, 알바 중 무엇을 할지 골라야 하는 것과 같아요.",
+    "level3": {
+      "industry_ko": "실제 업계 용어가 아니라 이 게임의 장치입니다. 현실에서는 한 주에 쓸 수 있는 시간과 집중력에 해당합니다. 브로커는 모든 고객과 재보험사를 한꺼번에 챙길 수 없어서, 무엇을 먼저 할지 고르는 것이 실력입니다.",
+      "industry_en": [],
+      "game_example_ko": "상단의 '행동 점수'가 매주 새로 채워지고, 남은 점수는 다음 주로 넘어가지 않아요. 미팅, 의견 묻기, 제안 보내기, 일부 메일 답장에 점수가 들어요."
+    },
+    "related": [
+      "gl_broker"
+    ],
+    "appears_in": [
+      "inbox",
+      "database",
+      "placement"
+    ]
+  }
+]
