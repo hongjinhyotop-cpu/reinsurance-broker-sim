@@ -583,11 +583,13 @@ export function renderPlacement() {
       entries.length === 0 ? h('p', { class: 'dim' }, '아직 의견을 묻거나 제안한 기록이 없어요.')
         : h('ul', { class: 'plain-list pl-log' }, entries.slice(0, 30).map((t) => h('li', {}, t))));
 
-    root.replaceChildren(
+    // 서두름 띠처럼 없을 수 있는 조각은 null이다. replaceChildren에 null을 그대로 넘기면 "null"이라는 글자가 들어가므로 걸러서 넘긴다.
+    root.replaceChildren(...[
       h('h1', {}, '플레이스먼트 — 라인 구성 보드'),
       urgent, header, boardCard, rows,
       h('section', { class: 'card', 'aria-label': '표로 보기' }, h('h2', {}, '표로 보기'), accessibleTable(ctx, state, check)),
-      h('div', { class: 'pl-bottom' }, submit, log));
+      h('div', { class: 'pl-bottom' }, submit, log),
+    ].filter((node) => node !== null));
 
     if (focusKey) {
       const el = root.querySelector(`[data-key="${focusKey}"]`);
