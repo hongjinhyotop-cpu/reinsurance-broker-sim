@@ -88,5 +88,50 @@
     "terms": {
       "preferred": "standard"
     }
+  },
+  {
+    "id": "trt_nusantara_takaful_qs",
+    "client": "cli_nusantara",
+    "name_ko": "일반 타카풀 쿼터쉐어 리타카풀 트리티",
+    "line": "takaful_general",
+    "structure": "qs",
+    "season": "season_0104",
+    "limit_usd_m": 30,
+    "attachment_usd_m": 0,
+    "expiring": {
+      "premium_usd_m": 12.0,
+      "panel": [
+        {
+          "re": "re_nur",
+          "share": 0.35
+        },
+        {
+          "re": "re_dunes_crescent",
+          "share": 0.5
+        },
+        {
+          "re": "re_kallang",
+          "share": 0.15
+        }
+      ]
+    },
+    "loss_ratio_hist": [
+      60,
+      63,
+      66
+    ],
+    "brokerage_rate": 0.1,
+    "target_rc": -2.0,
+    "structure_options": [
+      {
+        "id": "lower_cession",
+        "label_ko": "출재 비율 축소 (한도 30 → 24)",
+        "f_adj": -3.0,
+        "client_cons_penalty": 8
+      }
+    ],
+    "terms": {
+      "preferred": "standard"
+    }
   }
 ]

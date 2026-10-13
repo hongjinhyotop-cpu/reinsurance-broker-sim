@@ -584,17 +584,17 @@
     });
 
     // ---------- 고객·재보험사 데이터 ----------
-    test('데이터: 고객 3·재보험사 4, 단서 메모는 엔티티당 6줄(총 42줄)이고 [[ ]] 마크업이 없다', () => {
-      eq([data.clients.length, data.reinsurers.length], [3, 4]);
+    test('데이터: 고객 3·재보험사 5, 단서 메모는 엔티티당 6줄(총 48줄)이고 [[ ]] 마크업이 없다', () => {
+      eq([data.clients.length, data.reinsurers.length], [3, 5]);
       const all = [...data.clients, ...data.reinsurers];
       check(all.every((e) => e.scout_notes.length === 6), '엔티티당 6줄');
-      eq(all.reduce((n, e) => n + e.scout_notes.length, 0), 42);
+      eq(all.reduce((n, e) => n + e.scout_notes.length, 0), 48);
       check(!JSON.stringify(all).includes('[['));
     });
     test('데이터: 설계 §1.4의 숨은 속성값', () => {
       const h = (list) => Object.fromEntries(list.map((e) => [e.id, ATTRS.map((a) => e.hidden[a])]));
       eq(h(data.clients), { cli_jurong_crest: [72, 55, 68], cli_straits_port: [35, 88, 30], cli_nusantara: [60, 42, 85] });
-      eq(h(data.reinsurers), { re_alpenglow: [78, 70, 40], re_kallang: [50, 45, 80], re_thames_quay: [25, 85, 20], re_nur: [65, 40, 75] });
+      eq(h(data.reinsurers), { re_alpenglow: [78, 70, 40], re_kallang: [50, 45, 80], re_thames_quay: [25, 85, 20], re_nur: [65, 40, 75], re_dunes_crescent: [30, 78, 30] });
     });
     test('데이터: 소개문·단서 문구에 숨은 속성이 직접 드러나지 않는다(보수성/가격 민감도/충성도·숫자 값)', () => {
       const all = [...data.clients, ...data.reinsurers];
@@ -637,7 +637,7 @@
       const old = clone(store.getState()); old.version = 1; old.entities = { clients: {}, reinsurers: {} };
       const r = store.parseSave(JSON.stringify(old));
       check(r.ok, JSON.stringify(r)); eq(r.state.version, 2);
-      eq(Object.keys(r.state.entities.clients).length, 3); eq(Object.keys(r.state.entities.reinsurers).length, 4);
+      eq(Object.keys(r.state.entities.clients).length, 3); eq(Object.keys(r.state.entities.reinsurers).length, 5);
       eq(r.state.entities.reinsurers.re_alpenglow.scout, data.reinsurers[0].initial.scout);
     });
     test('store: 엔티티 상태의 범위·형식이 틀린 세이브는 거부', () => {
@@ -873,10 +873,23 @@
     });
 
     // ---------- 트리티 데이터 ----------
-    test('트리티 데이터: 2개(주롱 재산 · 스트레이츠 해상), 패널 지분 합 1.0, 타카풀은 아직 없다', () => {
-      eq(data.treaties.map((x) => x.id), ['trt_jurong_property_xl', 'trt_straits_marine_xl']);
+    test('트리티 데이터: 3개(주롱 재산 · 스트레이츠 해상 · 누산타라 타카풀), 패널 지분 합 1.0', () => {
+      eq(data.treaties.map((x) => x.id), ['trt_jurong_property_xl', 'trt_straits_marine_xl', 'trt_nusantara_takaful_qs']);
       for (const x of data.treaties) near(x.expiring.panel.reduce((s, m) => s + m.share, 0), 1, 1e-9, x.id);
-      eq(data.clients.map((c) => c.treaties), [['trt_jurong_property_xl'], ['trt_straits_marine_xl'], []]);
+      eq(data.clients.map((c) => c.treaties), [['trt_jurong_property_xl'], ['trt_straits_marine_xl'], ['trt_nusantara_takaful_qs']]);
+    });
+    test('트리티 데이터: 누산타라 타카풀은 시장 42에서 샤리아 제약을 지키며 100%를 채울 수 있고, 만기 패널도 상한 안이다', () => {
+      const t = data.treaties.find((x) => x.id === 'trt_nusantara_takaful_qs');
+      const c = data.clients.find((x) => x.id === t.client), req = c.requirements;
+      const cap = (r, N) => neg.maxShare({ capacity: r.capacity_usd_m[t.line], appetite: r.appetite[t.line], marketIndex: 42, conservatism: r.hidden.conservatism, N, limit: t.limit_usd_m, reinsurerMaxShare: r.behavior.max_single_share, clientMaxShare: req.max_single_share }, ng);
+      const inPanel = new Set(t.expiring.panel.map((m) => m.re));
+      const caps = data.reinsurers.map((r) => ({ r, s: cap(r, inPanel.has(r.id) ? 0.2 : 0.6) }));
+      const shariah = caps.filter((x) => x.r.shariah_ok).reduce((a, x) => a + x.s, 0);
+      const conv = Math.min(req.shariah_conventional_cap, caps.filter((x) => !x.r.shariah_ok).reduce((a, x) => a + x.s, 0));
+      check(shariah + conv >= 1, `채울 수 있는 합 ${shariah + conv}`);
+      const convShare = t.expiring.panel.filter((m) => !data.reinsurers.find((r) => r.id === m.re).shariah_ok).reduce((a, m) => a + m.share, 0);
+      check(convShare <= req.shariah_conventional_cap + 1e-9, `만기 패널 비샤리아 지분 ${convShare}`);
+      for (const m of t.expiring.panel) check(m.share <= caps.find((x) => x.r.id === m.re).s + 1e-9, `${m.re} 만기 지분이 상한 초과`);
     });
     test('트리티 데이터: 설계 §10.3·§1.4의 주롱 값(한도 150, 부담 50, 손해율 52/61/58, 목표 −3.0, 패널 35/30/35)', () => {
       eq([jurong.limit_usd_m, jurong.attachment_usd_m, jurong.loss_ratio_hist, jurong.target_rc, jurong.season], [150, 50, [52, 61, 58], -3, 'season_0101']);
@@ -920,11 +933,11 @@
     });
 
     // ---------- 미팅 반응 한 줄 ----------
-    test('미팅 반응: 7곳 모두 주제 4가지(일반 · 보수성 · 가격 · 충성)에 줄이 있다 — 총 28줄, 서로 다르다', () => {
+    test('미팅 반응: 8곳 모두 주제 4가지(일반 · 보수성 · 가격 · 충성)에 줄이 있다 — 총 32줄, 서로 다르다', () => {
       const all = [...data.clients, ...data.reinsurers];
       const lines = all.flatMap((e) => TOPICS.map((t) => e.meeting_reactions[t]));
-      eq(lines.length, 28); check(lines.every((s) => typeof s === 'string' && s.trim().length > 0 && s.length <= 200));
-      eq(new Set(lines).size, 28);
+      eq(lines.length, 32); check(lines.every((s) => typeof s === 'string' && s.trim().length > 0 && s.length <= 200));
+      eq(new Set(lines).size, 32);
     });
     test('미팅 반응: 성격 이름·속성 코드·[[ 마크업·숫자 값 없이 말투와 행동으로만 보여 준다', () => {
       const all = [...data.clients, ...data.reinsurers];
