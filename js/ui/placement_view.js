@@ -191,6 +191,13 @@ function statusKey(row, stopped) {
   return row ? ROW_STATUS[row.status] : 'draft';
 }
 
+// 반제 남은 기한 문구. 1주 남았으면 "이번 주까지".
+function counterDeadline(row, turn) {
+  const left = placement.counterWeeksLeft(row, turn);
+  if (left === null || left <= 0) return null;
+  return left === 1 ? '이번 주까지' : `${left}주 남음`;
+}
+
 function patienceDots(left, start) {
   return `${'●'.repeat(Math.min(left, start))}${'○'.repeat(Math.max(0, start - left))}`;
 }
@@ -216,7 +223,7 @@ function barTrack(ctx, state, data, check) {
     const status = statusKey(row, false);
     edits.push(h('div', {
       class: `pl-seg pl-edit pl-st-${status} re-${ctx.colorOf.get(r.id)}`, style: { left: `${Math.min(at, 100)}%`, width: `${Math.max(0, Math.min(s, 100 - at))}%` },
-      title: `${r.name_ko} ${s}% — ${STATUS_KO[status]}`,
+      title: `${r.name_ko} ${s}% — ${STATUS_KO[status]}${counterDeadline(row, state.turn) ? ` (${counterDeadline(row, state.turn)})` : ''}`,
     }, `${r.name_ko} ${s}`));
     at += s;
   }
@@ -282,6 +289,7 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
   const cap = capOf(ctx, state, reinsurer);
   const expiringShare = ctx.treaty.expiring.panel.find((m) => m.re === id)?.share ?? 0;
   const locked = ctx.placed;
+  const deadline = counterDeadline(row, state.turn);
 
   const chips = [];
   for (const f of check.flags[id]) chips.push(h('span', { class: 'tag tag-bad' }, flagText(f, cap.exact)));
@@ -339,6 +347,8 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
         h('span', { 'aria-hidden': 'true' }, `인내심 ${patienceDots(patience, cfg.patience_start)}`),
         h('span', { class: 'visually-hidden' }, `인내심 ${patience}/${cfg.patience_start}`)),
       h('span', { class: `pl-status pl-status-${status}` }, STATUS_KO[status]),
+      deadline ? h('span', { class: 'pl-deadline', title: '주를 넘기면 이 반제는 사라져요. 인내심은 깎이지 않지만 처음부터 다시 제안해야 해요.' },
+        h('span', { 'aria-hidden': 'true' }, '⏳ '), `반제 ${deadline}`) : null,
     ),
     h('div', { class: 'pl-row-controls' },
       h('div', { class: 'pl-stepper', role: 'group', 'aria-label': `${reinsurer.name_ko} 지분 조절` },
@@ -361,7 +371,7 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
         type: 'button', class: 'btn', disabled: stopped ? true : null, 'data-key': `${id}:counter`,
         title: '상대가 부른 RC와 지분으로 확정해요 (행동 점수는 들지 않아요)',
         onclick: () => onAcceptCounter(reinsurer, rerender),
-      }, '반제 수락 (무료)') : null,
+      }, `반제 수락 (무료${deadline ? ` · ${deadline}` : ''})`) : null,
     ),
     shownWhy ? h('p', { class: 'pl-line dim pl-small' }, shownWhy) : null,
     chips.length > 0 ? h('div', { class: 'pl-chips' }, chips) : null,
@@ -426,6 +436,7 @@ function logEntries(data, ctx) {
     for (const e of row.history) {
       let text;
       if (e.mode === 'ask') text = `의견 묻기 — ${e.kind === 'decline' ? '받을 수 없는 곳' : `가격 감 "${HINT_KO[e.hint]}"`} (지분 ${share(e.share)}, RC ${pct(e.rc)})`;
+      else if (e.mode === 'counter_expired') text = '반제 만료 — 유효 기간이 지나 처음부터 다시 제안해야 해요';
       else if (e.mode === 'counter_accept') text = `반제 수락 — RC ${pct(e.rc)}에 ${share(e.share)} 확정`;
       else {
         const what = { accept: `수락 — RC ${pct(e.rc)}에 ${share(e.share)} 확정`, counter: `반제 — RC ${pct(e.rc)}라면 ${share(e.share)}`, reject: '거절 — 가격이 너무 낮아요', decline: '거절 — 사유가 있는 거절' }[e.kind];
@@ -531,6 +542,14 @@ export function renderPlacement() {
         `의견 묻기는 ${cfg.ask_ap}점, 제안은 ${cfg.propose_ap}점의 행동 점수를 쓰고, 너무 낮은 가격으로 거절당하면 그 재보험사의 인내심과 관계도가 깎여요. 입력칸에서 ← → 로 5%씩, Shift+← →로 1%씩 조절할 수 있어요.`),
       !locked && state.ap < Math.min(cfg.ask_ap, cfg.propose_ap) ? h('div', { class: 'notice notice-warn', role: 'status' }, '이번 주 행동 점수를 다 썼어요. Continue로 다음 주로 넘어가면 새로 채워져요.') : null);
 
+    const urgent = !locked && placement.isUrgent(data, state, trt)
+      ? h('div', { class: 'pl-urgent', role: 'status' },
+        h('span', { class: 'pl-urgent-icon', 'aria-hidden': 'true' }, '⏰'),
+        h('div', {},
+          h('strong', {}, '재보험사들이 서두르고 있어요'),
+          h('p', {}, `${timingText(ctx)} — 마감이 가까워서 반제 폭이 좁아졌고, 반제는 받은 주가 지나면 사라져요.`)))
+      : null;
+
     const rows = h('section', { class: 'pl-rows', 'aria-label': '재보험사별 지분' },
       ctx.reinsurers.map((r) => reinsurerRow(data, state, ctx, check, r, rerender)));
 
@@ -566,7 +585,7 @@ export function renderPlacement() {
 
     root.replaceChildren(
       h('h1', {}, '플레이스먼트 — 라인 구성 보드'),
-      header, boardCard, rows,
+      urgent, header, boardCard, rows,
       h('section', { class: 'card', 'aria-label': '표로 보기' }, h('h2', {}, '표로 보기'), accessibleTable(ctx, state, check)),
       h('div', { class: 'pl-bottom' }, submit, log));
 

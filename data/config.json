@@ -155,6 +155,8 @@
       "propose_ap": 1,
       "patience_start": 3,
       "retry_weeks": 1,
+      "urgent_weeks": 2,
+      "counter_valid_weeks": 1,
       "verdict_effects": {
         "delighted": {
           "client_relationship": 4,
