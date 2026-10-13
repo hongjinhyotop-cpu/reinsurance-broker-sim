@@ -97,7 +97,7 @@
     "capacity_usd_m": {
       "property_energy": 40,
       "marine_cargo": 30,
-      "takaful_general": 10
+      "takaful_general": 18
     },
     "appetite": {
       "property_energy": 0.6,

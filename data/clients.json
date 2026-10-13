@@ -233,11 +233,13 @@
     ],
     "requirements": {
       "min_rating": "A-",
-      "max_single_share": 0.4,
+      "max_single_share": 0.5,
       "preferred_terms": "standard",
       "shariah_required": true,
       "shariah_conventional_cap": 0.2
     },
-    "treaties": []
+    "treaties": [
+      "trt_nusantara_takaful_qs"
+    ]
   }
 ]
