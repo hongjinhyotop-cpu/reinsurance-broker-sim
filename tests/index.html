@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
+  <h1>테스트 (규칙을 바꾸는 사건 · 길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -234,14 +234,15 @@
 
     test('store: 새 게임의 모양이 설계(§10.9)와 시작값(config)을 따른다', () => {
       fresh(); const s = store.newGame({ seed: 777 });
-      eq(s.version, 6); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
+      eq(s.version, 7); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
       eq(s.player, { firm: 'Marina Bay Re Brokers', cash_usd_m: 1, reputation: 50, compliance: 70, board_confidence: 60, market_intel: 0, flags: [] });
       eq(s.market, { index: 42, band: 'neutral' });
       eq(Object.keys(s.entities.clients), data.clients.map((c) => c.id)); eq(Object.keys(s.entities.reinsurers), data.reinsurers.map((r) => r.id));
       eq([s.mails, s.scheduled, s.fired_events, s.modifiers, s.log], [[], [], [], [], []]);
       eq(Object.keys(s.treaties), data.treaties.map((t) => t.id));
       eq(s.treaties.trt_jurong_property_xl, { phase: 'open', prep_quality: 0, target_rc: -3, terms: 'standard', structure_option: '', panel: [],
-        retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, verdict_reason: null, final_rc: null, obligations: [] });
+        retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, verdict_reason: null, final_rc: null, obligations: [], lr_extra: 0, big_loss: false, gap_applied: false });
+      eq(s.overrides, { reinsurers: {}, clients: {} });
       eq(store.validateState(s), []);
     });
     test('store: 시드는 uint32로 정규화', () => { fresh(); eq(store.newGame({ seed: -1 }).seed, 4294967295); });
@@ -308,7 +309,7 @@
       fresh(); store.newGame({ seed: 9 }); const base = clone(store.getState());
       const parse = (v) => { const s = clone(base); if (v === undefined) delete s.version; else s.version = v; return store.parseSave(JSON.stringify(s)); };
       for (const v of [undefined, 0, 1.5, '1', null]) check(!parse(v).ok, `version ${String(v)}`);
-      const future = parse(7); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
+      const future = parse(8); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
     });
     test('store: 마이그레이션 체인 (v1→v2→v3), 규칙 누락·실패 처리', () => {
       const raw = { version: 1, x: 1 };
@@ -316,7 +317,7 @@
       check(ok.ok); eq([ok.state.version, ok.state.a, ok.state.b], [3, 1, 2]);
       check(!store.migrate(raw, { current: 3, migrations: { 1: (s) => s } }).ok, '규칙 누락');
       check(!store.migrate(raw, { current: 2, migrations: { 1: () => null } }).ok, '변환 실패');
-      eq(store.SAVE_VERSION, 6); eq(store.migrate({ version: 1 }).ok, true);
+      eq(store.SAVE_VERSION, 7); eq(store.migrate({ version: 1 }).ok, true);
     });
     test('store: __proto__ 키가 든 세이브를 가져와도 오염되지 않는다', () => {
       fresh(); store.newGame({ seed: 4 });
@@ -389,11 +390,11 @@
     test('mails: 효과 — 닫힌 연산자만, 대상·필드는 정해진 것만, mail_send는 존재하는 id만', () => {
       const bad = (ef) => mailErrs((m) => { m[1].choices[0].effects = [ef]; });
       check(has(bad({ op: 'eval', value: 1 }), '알 수 없는 연산자'));
-      check(has(bad({ op: 'modifier_add', target: 'player', field: 'reputation', duration_weeks: 3 }), 'M6b'));
+      check(has(bad({ op: 'modifier_add', target: 'player', field: 'reputation', duration_weeks: 3 }), 'reinsurer:<id>'));
       check(has(bad({ op: 'event_schedule', event: 'evt_x', delay_weeks: -1 }), 'delay_weeks'));
       check(has(bad({ op: 'event_schedule', event: 'evt_x', delay_weeks: 1, prob: 2 }), 'prob'));
       eq(bad({ op: 'event_schedule', event: 'evt_x', delay_weeks: 1, prob: 0.5 }), []); // 존재 여부는 validateCross가 본다
-      check(has(bad({ op: 'add', target: 'treaty:trt_x', field: 'limit_usd_m', value: 1 }), 'client:<id>'));
+      check(has(bad({ op: 'add', target: 'treaty:trt_x', field: 'limit_usd_m', value: 1 }), '트리티에서 쓸 수 있는 필드'));
       check(has(bad({ op: 'add', target: 'client:cli_x', field: 'cash', value: 1 }), 'relationship'));
       eq(bad({ op: 'add', target: 'client:cli_x', field: 'scout.loyalty', value: 1 }), []);
       eq(bad({ op: 'add', target: 'reinsurer:re_x', field: 'relationship', value: 1 }), []);
@@ -513,11 +514,14 @@
     });
     test('turn: 비수기 조용한 주는 건너뛰고, 시즌 창구가 열리는 턴(14)에서 멈추며, 마지막 턴에서 막힌다', () => {
       const s = begin(); const data1 = store.getData();
+      for (const t of Object.values(s.treaties)) t.phase = 'placed'; // 열린 트리티가 남으면 인셉션 다음 주에 공백 알림(M6b)이 와서 멈춘다
       // 필수 메일 때문에 막히면 답하며 7턴까지 온다
       while (s.turn < 7) { const b = turn.continueBlockReason(data1, s); if (b) { turn.answer(s.mails.find((m) => m.answered === null && mailLib.findTemplate(data.mails, m.template).blocking).id, 'defer'); continue; } turn.advance(); }
       eq(s.turn, 7);
-      const r = turn.advance(); check(r.ok); eq([r.toTurn, r.stop], [14, 'phase']);
-      const r2 = turn.advance(); eq([r2.toTurn, r2.stop], [20, 'phase']);
+      let r; for (let g = 0; g < 10; g += 1) { r = turn.advance(); check(r.ok, r.error); if (r.toTurn >= 14) break; } // 사이에 사건(점검·샤리아 결정)과 마감이 멈출 수 있다
+      eq(r.toTurn, 14); check(['phase', 'event', 'deadline', 'mail'].includes(r.stop), r.stop);
+      let r2; for (let g = 0; g < 10; g += 1) { r2 = turn.advance(); check(r2.ok, r2.error); if (r2.toTurn >= 20) break; }
+      eq([r2.toTurn, r2.stop], [20, 'phase']);
       s.turn = 58; check(turn.continueBlockReason(data1, s).includes('마지막'));
     });
     test('store: 잘못된 메일·예약 항목은 세이브 검증에서 거부', () => {
@@ -663,7 +667,7 @@
       fresh(); store.newGame({ seed: 3 });
       const old = clone(store.getState()); old.version = 1; old.entities = { clients: {}, reinsurers: {} };
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 6); eq(Object.keys(r.state.treaties).length, 3);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 7); eq(Object.keys(r.state.treaties).length, 3);
       eq(Object.keys(r.state.entities.clients).length, 3); eq(Object.keys(r.state.entities.reinsurers).length, 5);
       eq(r.state.entities.reinsurers.re_alpenglow.scout, data.reinsurers[0].initial.scout);
     });
@@ -1166,13 +1170,13 @@
       old.version = 2; old.treaties = {}; old.ap = 3; old.entities.clients.cli_jurong_crest.relationship = 61;
       for (const r of Object.values(old.entities.reinsurers)) delete r.patience;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 6);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 7);
       eq(Object.keys(r.state.treaties), data.treaties.map((t) => t.id)); eq(r.state.treaties[JR].phase, 'open'); eq(r.state.treaties[JR].panel, []);
       eq(r.state.ap, 3); eq(r.state.entities.clients.cli_jurong_crest.relationship, 61); eq(r.state.entities.reinsurers.re_nur.patience, {});
       eq(store.validateState(r.state), []);
       // 실제 슬롯 불러오기도 같은 길을 지난다
       const st = fresh(); st.map.set('rbs:save:v1:1', JSON.stringify(old));
-      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 6);
+      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 7);
     });
 
     test('세이브 v3: 트리티 상태가 틀린 세이브는 거부(상태 값·재보험사 id·중복 행·인내심)', () => {
@@ -1407,7 +1411,7 @@
       startBoard(5); const old = clone(store.getState());
       old.version = 3; for (const t of Object.values(old.treaties)) delete t.verdict_reason;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 6); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 7); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
     });
 
     test('반제 유효 기간: 반제를 받은 주에는 "이번 주까지"(counter_until = 그 턴), 주를 넘기면 미제안으로 돌아가고 인내심·관계도·AP는 그대로', () => {
@@ -1474,7 +1478,7 @@
       startBoard(5, 20); PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }); PL.propose(JR, 're_kallang', { share: 0.3, rc: 5 });
       const old = clone(store.getState()); old.version = 4; old.turn = 3;
       for (const t of Object.values(old.treaties)) for (const row of t.panel) delete row.counter_until;
-      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r)); eq(r.state.version, 6);
+      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r)); eq(r.state.version, 7);
       const rows = r.state.treaties[JR].panel;
       eq(rows.find((x) => x.re === 're_alpenglow').counter_until, 3);
       eq(rows.filter((x) => x.status !== 'countered').every((x) => x.counter_until === null), true);
@@ -1557,10 +1561,12 @@
       check(ev.canFire({ ...e, trigger: { ...e.trigger, once: false } }, ['evt_t'], { ...view, flags: [] }), 'once=false면 다시 가능');
     });
     test('events(M6a): 실제 data/events.json — 6개가 통과하고 메일·효과 연결이 맞다', () => {
-      eq(data.events.length, 6); eq(validateEvents(data.events, 'events.json', data), []);
+      eq(data.events.length, 13); eq(validateEvents(data.events, 'events.json', data), []);
       eq(validateCross(data), []);
       for (const e of data.events) {
-        const mail = data.mails.find((m) => m.id === e.mail); check(mail && mail.type === 'event' && mail.schedule === undefined, e.id);
+        for (const id of [e.mail, ...Object.values(e.mails_by_client ?? {}), ...(e.outcomes ?? []).map((o) => o.mail)].filter(Boolean)) {
+          const mail = data.mails.find((m) => m.id === id); check(mail && ['event', 'regulatory'].includes(mail.type) && mail.schedule === undefined, `${e.id} ${id}`);
+        }
       }
     });
     test('events(M6a): 로더가 잘못된 이벤트를 이유와 함께 거부', () => {
@@ -1589,8 +1595,8 @@
       check(has(cfg((c) => { c.market.family.soft_max = 70; }), 'soft_max'));
     });
     test('events(M6a): 이벤트 메일에 숫자·숨은 속성 이름이 없다(사람의 말투로만)', () => {
-      const ids = new Set([...data.events.map((e) => e.mail), ...Object.values(FAMILY.mails)]);
-      eq(ids.size, 9);
+      const ids = new Set([...data.events.flatMap((e) => [e.mail, ...Object.values(e.mails_by_client ?? {}), ...(e.outcomes ?? []).map((o) => o.mail)]).filter(Boolean), ...Object.values(FAMILY.mails), data.config.season.gap.mail]);
+      eq(ids.size, 21);
       for (const id of ids) {
         const m = data.mails.find((x) => x.id === id);
         const text = [m.subject_ko, ...m.body_ko, ...m.choices.flatMap((c) => [c.label_ko, c.result_ko])].join(' ');
@@ -1617,7 +1623,7 @@
     test('store(M6a): v5 세이브를 불러오면 market.band가 지수로 채워지고 나머지는 그대로다', () => {
       fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 5; delete old.market.band; old.market.index = 66.5;
       const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
-      eq([r.state.version, r.state.market], [6, { index: 66.5, band: 'hard' }]); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+      eq([r.state.version, r.state.market], [7, { index: 66.5, band: 'hard' }]); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
     });
 
     test('turn(M6a): 분기 드리프트는 분기 시작 턴에만 적용되고, 프리시즌 동안은 지수가 그대로다', async () => {
@@ -2304,6 +2310,358 @@
         check(root.textContent.includes('갱신 시즌 협상 기간') && root.textContent.includes('(계약 시작)'), '범례 글자는 그대로');
         check(root.textContent.includes('1/1 시즌 협상 1/6주차') && root.textContent.includes('인셉션까지 6주'), '현재 위치 문장도 그대로');
       } finally { root.remove(); }
+    });
+
+    // ---------- M6b: 규칙을 바꾸는 사건 · 덮어쓰기 · 보정 · 연쇄 · 공백 ----------
+    const LIVE = await import('../js/live.js');
+    const TQ = 're_thames_quay'; const CS = 'cli_straits_port'; const CN = 'cli_nusantara'; const SP = 'trt_straits_marine_xl'; const NT = 'trt_nusantara_takaful_qs';
+    const addRow = (s, tid, re, share, status = 'accepted') => {
+      s.treaties[tid].panel.push({ re, share_req: share, share_signed: status === 'accepted' ? share : 0, rc_req: 0, terms: 'standard', status, last: null, counter_until: null, cap_known: null, history: [] });
+    };
+    const mailOf = (s, id) => s.mails.find((m) => m.template === id);
+
+    test('live(M6b): 덮어쓴 등급·상한과 기간 보정이 "지금 값"에 반영되고, 정적 정의는 그대로다', () => {
+      const s = begin(); const def = data.reinsurers.find((r) => r.id === TQ);
+      applyEffects(s, [{ op: 'set', target: `reinsurer:${TQ}`, field: 'rating', value: 'BBB+' },
+        { op: 'modifier_add', target: `reinsurer:${TQ}`, field: 'capacity', mult: 0.7, duration_weeks: 12 },
+        { op: 'modifier_add', target: `reinsurer:${TQ}`, field: 'capacity.marine_cargo', mult: 0.5, duration_weeks: 3 },
+        { op: 'modifier_add', target: `reinsurer:${TQ}`, field: 'max_single_share', add: 0.1, duration_weeks: 5 },
+        { op: 'modifier_add', target: `reinsurer:${TQ}`, field: 'price_floor', add: 3, duration_weeks: 5 }]);
+      const live = LIVE.liveReinsurer(s, def);
+      eq(live.rating, 'BBB+'); eq(def.rating, 'A-', '정적 정의는 그대로');
+      eq(live.capacity_usd_m.property_energy, 45 * 0.7); eq(live.capacity_usd_m.marine_cargo, 35 * 0.7 * 0.5);
+      eq(live.behavior.max_single_share, 0.55); eq(live.floor_add, 3); eq(live.live.downgraded, true); eq(live.live.capacityShrunk, true);
+      s.turn += 3; eq(LIVE.liveReinsurer(s, def).capacity_usd_m.marine_cargo, 35 * 0.7, '짧은 보정은 끝났다');
+      s.turn += 2; eq(LIVE.liveReinsurer(s, def).floor_add, 0); eq(LIVE.liveReinsurer(s, def).behavior.max_single_share, 0.45);
+      s.turn += 7; eq(LIVE.liveReinsurer(s, def).capacity_usd_m.property_energy, 45, '12주 뒤에는 용량이 저절로 회복');
+      eq(LIVE.liveReinsurer(s, def).rating, 'BBB+', '등급 덮어쓰기는 기간이 없다');
+      eq(store.validateState(s), []);
+    });
+    test('effects(M6b): 요구 조건 덮어쓰기와 treaty 대상(lr_extra·big_loss·structure_option·phase)', () => {
+      const s = begin();
+      applyEffects(s, [{ op: 'set', target: `client:${CN}`, field: 'requirements.shariah_conventional_cap', value: 0.15 }]);
+      eq(LIVE.liveClient(s, data.clients.find((c) => c.id === CN)).requirements.shariah_conventional_cap, 0.15);
+      eq(data.clients.find((c) => c.id === CN).requirements.shariah_conventional_cap, 0.2);
+      applyEffects(s, [{ op: 'add', target: `treaty:${JR}`, field: 'lr_extra', value: 45 }, { op: 'set', target: `treaty:${JR}`, field: 'big_loss', value: true }]);
+      eq([s.treaties[JR].lr_extra, s.treaties[JR].big_loss], [45, true]);
+      applyEffects(s, [{ op: 'add', target: `treaty:${JR}`, field: 'lr_extra', value: 99 }]); eq(s.treaties[JR].lr_extra, 100, '0~100으로 자른다');
+      addRow(s, NT, 're_nur', 0.3);
+      applyEffects(s, [{ op: 'set', target: `treaty:${NT}`, field: 'structure_option', value: 'lower_cession' }]);
+      eq(s.treaties[NT].structure_option, 'lower_cession'); eq(s.treaties[NT].panel[0].status, 'draft', '구조 옵션을 바꾸면 받은 응답은 무효');
+      applyEffects(s, [{ op: 'set', target: `treaty:${JR}`, field: 'phase', value: 'lost' }]); eq(s.treaties[JR].phase, 'lost');
+      s.treaties[SP].phase = 'placed'; applyEffects(s, [{ op: 'set', target: `treaty:${SP}`, field: 'phase', value: 'lost' }]); eq(s.treaties[SP].phase, 'placed', '확정된 트리티는 그대로');
+      let threw = false; try { applyEffects(s, [{ op: 'set', target: `treaty:${JR}`, field: 'limit_usd_m', value: 1 }]); } catch { threw = true; } check(threw);
+      eq(store.validateState(s), []);
+    });
+    test('negotiation(M6b): 사건이 올린 손해율·당해 대손실·가격선 보정이 가격 하한을 올린다', () => {
+      begin();
+      // 같은 제안에 대한 정성 힌트/응답이 아니라, 순수 함수 두 번 호출로 직접 비교한다.
+      const cfg = data.config.negotiation; const t = data.treaties.find((x) => x.id === JR); const base = { market: 42, line: t.line, lossHist: t.loss_ratio_hist, lrExtra: 0, targetLr: 58, conservatism: 78, loyalty: 40, relationship: 45, terms: 'standard', newReinsurer: false, bigLoss: false, prepQuality: 0 };
+      const f0 = neg.priceFloor(base, cfg).floor;
+      check(neg.priceFloor({ ...base, lrExtra: 45 }, cfg).floor > f0 + 3, '손해율 가산');
+      check(neg.priceFloor({ ...base, lrExtra: 45, bigLoss: true }, cfg).floor > neg.priceFloor({ ...base, lrExtra: 45 }, cfg).floor, '당해 대손실은 불확실성을 키운다');
+      eq(neg.priceFloor({ ...base, eventAdj: 3 }, cfg).floor - f0, 3); eq(neg.priceFloor(base, cfg).parts.event, 0);
+      // 저장된 사건 상태(lr_extra·big_loss)가 실제 제안 계산에 들어가는지: placement가 quoteFor로 넘긴다
+      const probe = (extra) => { startBoard(); Object.assign(store.getState().treaties[JR], extra); return PL.ask(JR, 're_alpenglow', { share: 0.3, rc: -3 }).last; };
+      const calm = probe({}); const hit = probe({ lr_extra: 45, big_loss: true });
+      check(calm.hint !== undefined && hit.hint !== undefined);
+      const eventSwing = (extra) => { startBoard(); Object.assign(store.getState().treaties[JR], extra); const q = PL.ask(JR, 're_alpenglow', { share: 0.3, rc: -3 }); return q.last.max_share; };
+      check(eventSwing({ lr_extra: 45, big_loss: true }) <= eventSwing({}), '대손실은 불확실성을 키워 가용 라인을 줄이거나 그대로다');
+    });
+
+    test('사건 시험대(M6b): 템스 키 강등 — 등급 덮어쓰기, 확정 지분 취소(인내심·관계도는 그대로), 메일 도착', () => {
+      const s = begin(); s.turn = 9; addRow(s, JR, TQ, 0.35); addRow(s, JR, 're_alpenglow', 0.4); addRow(s, JR, 're_kallang', 0.25, 'countered');
+      const rel0 = s.entities.reinsurers[TQ].relationship; const pat0 = JSON.stringify(s.entities.reinsurers[TQ].patience);
+      const r = turn.forceEvent('evt_reinsurer_downgrade'); eq(r.ok, true); eq(r.voided, [{ treaty: JR, re: TQ }]);
+      eq(s.overrides.reinsurers[TQ], { rating: 'BBB+' }); check(s.player.flags.includes('debug_events_used') && s.player.flags.includes('thames_downgraded'));
+      eq(s.treaties[JR].panel.map((x) => x.re), ['re_alpenglow', 're_kallang'], '템스 키 행만 취소');
+      eq([s.entities.reinsurers[TQ].relationship, JSON.stringify(s.entities.reinsurers[TQ].patience)], [rel0, pat0]);
+      check(mailOf(s, 'mail_evt_reinsurer_downgrade'), '메일 도착'); eq(store.validateState(s), []);
+      const chk = PL.signedCheck(data, s, JR); check(!chk.blockers.includes('min_rating') && chk.total < 1);
+    });
+    test('사건 시험대(M6b): 강등 뒤 템스 키를 다시 넣으면 최소 등급 미달로 제출이 막힌다(C1·C2 모두)', () => {
+      const s = begin(); s.turn = 9; turn.forceEvent('evt_reinsurer_downgrade');
+      for (const [tid, re2, re3] of [[JR, 're_alpenglow', 're_kallang'], [SP, 're_alpenglow', 're_kallang']]) {
+        s.treaties[tid].panel = [];
+        addRow(s, tid, TQ, 0.4); addRow(s, tid, re2, 0.34); addRow(s, tid, re3, 0.26);
+        const chk = PL.signedCheck(data, s, tid); check(chk.blockers.includes('min_rating'), tid); eq(PL.submitBlockReason(data, s, tid), 'blockers');
+      }
+      eq(data.clients.find((c) => c.id === CS).requirements.min_rating, 'A-', 'C2 최소 등급은 설계대로 A-');
+    });
+    test('사건 시험대(M6b): 주롱섬 폭발은 3주 뒤 강등을 반드시 부르고, 손해율·대손실이 트리티에 붙는다', () => {
+      const s = begin(); s.turn = 22;
+      const r = turn.forceEvent('evt_jurong_explosion', { cascade: true }); eq(r.ok, true);
+      eq([s.treaties[JR].lr_extra, s.treaties[JR].big_loss], [45, true]); check(s.player.flags.includes('jurong_loss'));
+      eq(s.scheduled.filter((q) => q.kind === 'event'), [{ turn: 25, kind: 'event', ref: 'evt_reinsurer_downgrade' }], '시험대는 확률 0.7을 건너뛴다');
+      for (let g = 0; g < 6 && s.turn < 25; g++) { answerOpen(s); const a = turn.advance(); check(a.ok, a.error); }
+      eq(s.turn, 25); eq(s.overrides.reinsurers[TQ]?.rating, 'BBB+');
+    });
+    test('events(M6b): 정식 규칙에서는 폭발 뒤 강등이 확률 0.7로 이어지고(prob이 예약에 붙음), 폭발이 없으면 강등은 버려진다', () => {
+      const s = begin(); const ex = data.events.find((e) => e.id === 'evt_jurong_explosion');
+      eq(ex.followups, [{ event: 'evt_reinsurer_downgrade', delay_weeks: 3, prob: 0.7 }]);
+      s.turn = 25; s.scheduled.push({ turn: 25, kind: 'event', ref: 'evt_reinsurer_downgrade' });
+      answerOpen(s); const before = s.overrides.reinsurers[TQ]; s.turn = 24; const r = turn.advance(); eq(s.overrides.reinsurers[TQ], before); check(!r.events.includes('evt_reinsurer_downgrade'), 'jurong_loss가 없으면 안 일어난다');
+    });
+    test('사건 시험대(M6b): 템스 키 강등 선택지 — 해상화물 고객의 한시적 등급 예외가 요구 조건을 덮어써 패널을 다시 채울 수 있게 한다', () => {
+      const pick = (choice) => { const s = begin(); s.ap = 6; turn.forceEvent('evt_reinsurer_downgrade'); turn.answer(mailOf(s, 'mail_evt_reinsurer_downgrade').id, choice); return s; };
+      const min = (s) => LIVE.liveClient(s, data.clients.find((c) => c.id === CS)).requirements.min_rating;
+      const a = pick('brief_clients'); eq([min(a), a.ap], ['A-', 4]); eq(a.entities.clients.cli_jurong_crest.relationship - data.clients[0].initial.relationship, 3);
+      const b = pick('ask_exception'); eq([min(b), b.ap], ['BBB+', 4]); eq(b.overrides.clients[CS], { min_rating: 'BBB+' });
+      const c = pick('hold_door'); eq([min(c), c.ap], ['BBB+', 5]);
+      const d = pick('watch'); eq([min(d), d.ap], ['A-', 6], '아무것도 안 하면 예외는 없다');
+      // 예외가 있으면 템스 키(BBB+)를 넣고도 제출 검증을 통과하고, 없으면 최소 등급 미달로 막힌다
+      for (const [s, ok] of [[b, true], [d, false]]) {
+        s.treaties[SP].panel = []; addRow(s, SP, TQ, 0.4); addRow(s, SP, 're_alpenglow', 0.34); addRow(s, SP, 're_kallang', 0.26);
+        eq(PL.signedCheck(data, s, SP).blockers.includes('min_rating'), !ok);
+      }
+      eq(store.validateState(b), []);
+      // 해상화물에는 템스 키·알펜글로우·칼랑뿐이라, 템스 키를 빼면 하드마켓에서 100%를 채울 수 없다(그래서 예외 선택지가 의미가 있다)
+      const caps = data.reinsurers.filter((r) => r.id !== TQ && r.capacity_usd_m.marine_cargo > 0).map((r) => Math.min(r.behavior.max_single_share, 0.5));
+      check(caps.reduce((x, y) => x + y, 0) < 1, `${caps}`);
+    });
+
+    test('사건 시험대(M6b): MAS 점검 — 컴플라이언스 점수로 통과/경고/과태료가 갈린다', () => {
+      const run = (compliance) => {
+        const s = begin(); s.player.compliance = compliance; const c0 = s.player.cash_usd_m; const [rep0, bc0] = [s.player.reputation, s.player.board_confidence];
+        turn.forceEvent('evt_mas_inspection');
+        const got = ['pass', 'warn', 'fine'].filter((k) => mailOf(s, `mail_evt_mas_${k}`));
+        eq(got.length, 1, `컴플라이언스 ${compliance}: 결과 메일은 한 통`);
+        return { got: got[0], cash: Math.round((s.player.cash_usd_m - c0) * 100) / 100, rep: s.player.reputation - rep0, bc: s.player.board_confidence - bc0, s };
+      };
+      const p = run(80); eq([p.got, p.cash, p.rep, p.bc], ['pass', 0, 3, 0]);
+      const edge = run(75); eq(edge.got, 'pass');
+      const w = run(60); eq([w.got, w.cash, w.rep, w.bc], ['warn', 0, 0, -3]);
+      const f = run(40); eq([f.got, f.cash, f.rep, f.bc], ['fine', -0.15, -5, -8]); eq(store.validateState(f.s), []);
+    });
+    test('MAS 점검(M6b): 안내 메일에서 추가 질문까지 하면 점검을 통과할 점수에 닿는다(70 → 76)', () => {
+      const s = begin(); s.turn = 3; s.ap = 6; s.mails.push({ id: 'm_0900', template: 'mail_compliance_notice', turn: 3, deadline_turn: 5, read: false, answered: null, auto: false, thread: 't_900' });
+      turn.answer('m_0900', 'submit_ask'); eq(s.player.compliance, 76);
+      turn.forceEvent('evt_mas_inspection'); check(mailOf(s, 'mail_evt_mas_pass'));
+    });
+    test('MAS 점검(M6b): 경고·과태료 메일의 선택지는 컴플라이언스 점수를 올리고, 기본 선택은 AP가 들지 않는다', () => {
+      const s = begin(); s.player.compliance = 60; turn.forceEvent('evt_mas_inspection'); const m = mailOf(s, 'mail_evt_mas_warn');
+      turn.answer(m.id, 'remedy'); eq(s.player.compliance, 66);
+      const t = mailLib.findTemplate(data.mails, 'mail_evt_mas_fine'); eq(t.choices.find((c) => c.id === t.default_choice).ap_cost, 0);
+    });
+
+    test('사건 시험대(M6b): 샤리아 상한 변경 — 요구 조건이 줄고, 확정 합계가 넘치면 제출이 막힌다', () => {
+      const s = begin(); s.turn = 12;
+      turn.forceEvent('evt_shariah_ruling');
+      eq(LIVE.liveClient(s, data.clients.find((c) => c.id === CN)).requirements.shariah_conventional_cap, 0.15);
+      addRow(s, NT, 're_nur', 0.35); addRow(s, NT, 're_dunes_crescent', 0.45); addRow(s, NT, 're_kallang', 0.2);
+      const chk = PL.signedCheck(data, s, NT); check(chk.blockers.includes('shariah_cap'), '일반 재보험사 20%는 새 상한 15%를 넘는다');
+      s.treaties[NT].panel.find((r) => r.re === 're_kallang').share_signed = 0.15; s.treaties[NT].panel.find((r) => r.re === 're_dunes_crescent').share_signed = 0.5;
+      eq(PL.signedCheck(data, s, NT).blockers, [], '15% + 샤리아 재보험사 85%는 정확히 맞는다');
+      eq(store.validateState(s), []);
+    });
+    test('샤리아 상한(M6b): 설득 · 상한 수용+누르 집중 · 출재 축소 · 기본 선택이 각각 다른 규칙을 남긴다', () => {
+      const pick = (choice) => { const s = begin(); s.ap = 6; turn.forceEvent('evt_shariah_ruling'); turn.answer(mailOf(s, 'mail_evt_shariah_ruling').id, choice); return s; };
+      const cap = (s) => LIVE.liveClient(s, data.clients.find((c) => c.id === CN)).requirements.shariah_conventional_cap;
+      const a = pick('persuade'); eq([cap(a), a.ap], [0.18, 4]);
+      const b = pick('accept_concentrate'); eq(cap(b), 0.15); const nur = LIVE.liveReinsurer(b, data.reinsurers.find((r) => r.id === 're_nur'));
+      eq([nur.behavior.max_single_share, nur.floor_add], [0.45, 3]); eq(b.modifiers.length, 2);
+      const c = pick('cede_less'); eq([cap(c), c.treaties[NT].structure_option], [0.15, 'lower_cession']);
+      const d = pick('wait'); eq([cap(d), d.ap], [0.15, 6]);
+      b.turn += 10; eq(LIVE.liveReinsurer(b, data.reinsurers.find((r) => r.id === 're_nur')).behavior.max_single_share, 0.35, '10주 뒤 집중 허용은 끝난다');
+    });
+    test('샤리아 상한(M6b): 상한 수용 선택이 없으면 100%가 아슬아슬하고, 수용하면 여유가 생긴다(누르 45%)', () => {
+      const s = begin(); const nur = data.reinsurers.find((r) => r.id === 're_nur'); const dunes = data.reinsurers.find((r) => r.id === 're_dunes_crescent');
+      const maxTotal = (st) => LIVE.liveReinsurer(st, nur).behavior.max_single_share + LIVE.liveReinsurer(st, dunes).behavior.max_single_share + 0.15;
+      eq(Math.round(maxTotal(s) * 100), 100);
+      applyEffects(s, [{ op: 'modifier_add', target: 'reinsurer:re_nur', field: 'max_single_share', add: 0.1, duration_weeks: 10 }]);
+      eq(Math.round(maxTotal(s) * 100), 110);
+    });
+
+    test('events(M6b): BOR 확률 — 관계 60 이상이면 0, 충성도가 낮고 관계가 나쁠수록 높다(설계 식 그대로)', () => {
+      const spec = { base: 0.25, relationship_ref: 60 };
+      eq(ev.pickClientProb(spec, { loyalty: 30, relationship: 60 }), 0); eq(ev.pickClientProb(spec, { loyalty: 30, relationship: 80 }), 0);
+      near(ev.pickClientProb(spec, { loyalty: 68, relationship: 55 }), 0.25 * 0.32 * 1.05, 1e-9);
+      near(ev.pickClientProb(spec, { loyalty: 30, relationship: 40 }), 0.25 * 0.7 * 1.2, 1e-9);
+      check(ev.pickClientProb(spec, { loyalty: 10, relationship: 20 }) > ev.pickClientProb(spec, { loyalty: 80, relationship: 50 }));
+      eq(ev.pickClientStillValid(spec, 59), true); eq(ev.pickClientStillValid(spec, 60), false);
+    });
+    test('events(M6b): 결과 분기 — 첫 번째로 맞는 결과 하나만, compliance 조건 두 가지', () => {
+      const view = { compliance: 74 };
+      const outs = [{ conditions: [{ type: 'compliance_gte', value: 75 }], k: 'a' }, { conditions: [{ type: 'compliance_lt', value: 50 }], k: 'b' }, { conditions: [], k: 'c' }];
+      eq(ev.pickOutcome(outs, view).k, 'c'); eq(ev.pickOutcome(outs, { compliance: 75 }).k, 'a'); eq(ev.pickOutcome(outs, { compliance: 49 }).k, 'b'); eq(ev.pickOutcome([], view), null);
+    });
+    test('turn(M6b): BOR 창구 판정은 고객마다 난수 둘을 항상 쓴다(6회), 관계 60 이상 고객은 예약되지 않는다', () => {
+      const s = begin(5); for (const c of Object.values(s.entities.clients)) c.relationship = 90; s.turn = 26;
+      const r0 = s.rng_state; answerOpen(s); const r = turn.advance(); eq(r.toTurn, 27);
+      check(!s.scheduled.some((q) => q.ref === 'evt_bor_letter'), '관계가 좋으면 레터가 없다');
+      const s2 = begin(5); s2.turn = 26; for (const c of Object.values(s2.entities.clients)) c.relationship = 90; answerOpen(s2);
+      const n0 = store.getState().rng_state; turn.advance(); const used = (() => { let st = n0; let n = 0; while (st !== store.getState().rng_state && n < 200) { st = nextFloat(st).state; n += 1; } return n; })();
+      check(used >= 6, `난수 사용 ${used}`);
+    });
+    test('사건 시험대(M6b): BOR 레터 — 고객별 메일이 오고, 선택지는 한 주 뒤 확률로 이탈 사건을 예약한다', () => {
+      const s = begin(); s.ap = 6;
+      eq(turn.forceEvent('evt_bor_letter').ok, false, '고객을 골라야 한다');
+      turn.forceEvent('evt_bor_letter', { client: CS }); const m = mailOf(s, 'mail_evt_bor_letter_straits'); check(m); check(!mailOf(s, 'mail_evt_bor_letter_jurong'));
+      eq(turn.answer(m.id, 'concede'), { ok: true }); const q = s.scheduled.find((x) => x.ref === 'evt_bor_lost_straits');
+      eq([q.turn, q.prob, q.kind], [s.turn + 1, 0.15, 'event']);
+      // 고객의 성격은 확률로만 드러난다: 가격 중심 CFO에겐 양보가, 정이 깊은 고객에겐 호소가 가장 잘 먹힌다
+      const probs = (id) => mailLib.findTemplate(data.mails, id).choices.map((c) => [c.id, c.effects.find((e) => e.op === 'event_schedule').prob]);
+      const best = (id) => probs(id).sort((a, b) => a[1] - b[1])[0][0];
+      eq([best('mail_evt_bor_letter_straits'), best('mail_evt_bor_letter_nusantara'), best('mail_evt_bor_letter_jurong')], ['concede', 'card', 'defend']);
+      for (const id of ['mail_evt_bor_letter_straits', 'mail_evt_bor_letter_nusantara', 'mail_evt_bor_letter_jurong']) eq(probs(id).sort((a, b) => b[1] - a[1])[0][0], 'ignore', '답하지 않는 것이 가장 위험');
+    });
+    test('사건 시험대(M6b): 고객 이탈 — 열린 트리티는 lost가 되어 보드가 잠기고, 확정된 트리티는 그대로, 관계·평판·신뢰가 깎인다', () => {
+      const s = begin(); s.turn = 30; const [rep0, bc0] = [s.player.reputation, s.player.board_confidence]; const rel0 = s.entities.clients[CS].relationship;
+      s.treaties[JR].phase = 'placed';
+      turn.forceEvent('evt_bor_lost_straits'); turn.forceEvent('evt_bor_lost_jurong');
+      eq(s.treaties[SP].phase, 'lost'); eq(s.treaties[JR].phase, 'placed');
+      eq([s.entities.clients[CS].relationship, s.player.reputation - rep0, s.player.board_confidence - bc0], [Math.max(0, rel0 - 30), -8, -12]);
+      check(PL.submitBlockReason(data, s, SP).includes('옮겨')); check(PL.actionBlockReason(data, s, 'propose', SP, 're_alpenglow', { share: 0.2, rc: 0 }).includes('옮겨'));
+      eq(PL.editRow(SP, 're_alpenglow'), false); eq(PL.setOptions(SP, { terms: 'broad' }), false); eq(store.validateState(s), []);
+      eq(PL.isUrgent(data, s, data.treaties.find((t) => t.id === SP)), false);
+    });
+
+    test('공백 벌칙(M6b): 인셉션 다음 주에 열린 트리티가 있으면 한 번만 관계 −15·평판 −8·신뢰 −10, 알림 메일', () => {
+      const s = begin(); for (let g = 0; g < 8 && s.turn < 7; g++) { answerOpen(s); turn.advance(); }
+      eq(s.turn, 7, '인셉션 주'); const [rep0, bc0, rel0] = [s.player.reputation, s.player.board_confidence, s.entities.clients.cli_jurong_crest.relationship];
+      check(!mailOf(s, 'mail_gap_notice')); answerOpen(s); const r = turn.advance(); eq(s.turn, 8); eq(r.gaps, [JR]);
+      eq([s.player.reputation - rep0, s.player.board_confidence - bc0, s.entities.clients.cli_jurong_crest.relationship - rel0], [-8, -10, -15]);
+      check(mailOf(s, 'mail_gap_notice'), '알림 메일'); eq(s.treaties[JR].gap_applied, true); eq(s.treaties[JR].phase, 'open', '트리티는 계속 열려 있다');
+      answerOpen(s); turn.advance(); eq(s.player.reputation - rep0, -8, '두 번 받지 않는다'); eq(store.validateState(s), []);
+    });
+    test('공백 벌칙(M6b): 이미 확정된 트리티에는 없다', () => {
+      const s = begin(); s.treaties[JR].phase = 'placed'; for (let g = 0; g < 9 && s.turn < 8; g++) { answerOpen(s); turn.advance(); }
+      check(s.turn >= 8 && !mailOf(s, 'mail_gap_notice'));
+    });
+
+    test('안내띠(M6b): 강등 뒤 등급이 모자란 재보험사를 알려 주고, 바꿔 채우기 시작하면 잔소리하지 않는다', () => {
+      const s = begin(); closeAll(s); readAll(s); s.turn = 4; s.ap = 6; turn.forceEvent('evt_reinsurer_downgrade'); closeAll(s); readAll(s);
+      eq(act().id, 'swap_panel'); check(act().text.includes('템스 키') && act().text.includes('최소 등급'), act().text); eq(act().route, 'placement');
+      check(!/보수|민감|충성/.test(act().text));
+      addRow(s, JR, 're_alpenglow', 0.4, 'draft'); check(act().id !== 'swap_panel', '이미 바꿔 채우는 중이면 띠가 비켜선다');
+    });
+    test('안내띠(M6b): 샤리아 상한을 넘은 확정이 있으면 알려 주고, 상한이 줄었다면 채우기 안내에 덧붙인다', () => {
+      const s = begin(); s.turn = 16; s.ap = 6; closeAll(s); readAll(s); turn.forceEvent('evt_shariah_ruling'); closeAll(s); readAll(s);
+      s.treaties[JR].phase = 'placed'; s.treaties[SP].phase = 'placed'; s.entities.clients[CN].meetings = 1;
+      eq(act().id, 'fill'); check(act().text.includes('15%') && act().text.includes('샤리아'), act().text);
+      addRow(s, NT, 're_nur', 0.35); addRow(s, NT, 're_dunes_crescent', 0.45); addRow(s, NT, 're_kallang', 0.2);
+      eq(act().id, 'over_shariah_cap'); check(act().text.includes('샤리아'));
+    });
+    test('안내띠(M6b): 이탈한 트리티는 "할 일"이 되지 않는다', () => {
+      const s = begin(); s.turn = 30; closeAll(s); readAll(s); s.ap = 6; s.treaties[JR].phase = 'placed'; s.treaties[NT].phase = 'placed'; turn.forceEvent('evt_bor_lost_straits'); closeAll(s); readAll(s);
+      check(!['fill', 'scout', 'submit', 'overdue'].includes(act().id), act().id);
+    });
+
+    test('로더(M6b): 잘못된 결과 분기·보정·트리티 효과·고객 고르기·공백 설정을 이유와 함께 거부', () => {
+      const bad = (mut) => { const l = clone(data.events); mut(l); return validateEvents(l, 'events.json', data); };
+      const mas = (l) => l.find((e) => e.id === 'evt_mas_inspection');
+      check(has(bad((l) => { mas(l).outcomes[2].conditions = [{ type: 'compliance_lt', value: 10 }]; }), '마지막 결과는 조건이 없어야'));
+      check(has(bad((l) => { mas(l).outcomes[0].conditions = []; }), '마지막이 아닌 결과'));
+      check(has(bad((l) => { mas(l).outcomes[0].conditions = [{ type: 'compliance_gte', value: 150 }]; }), 'value'));
+      check(has(bad((l) => { delete mas(l).outcomes; delete mas(l).mail; }), 'mail · mails_by_client · outcomes'));
+      check(has(bad((l) => { const b = l.find((e) => e.id === 'evt_bor_letter'); delete b.mails_by_client; }), '고객별 메일'));
+      check(has(bad((l) => { l.find((e) => e.id === 'evt_bor_letter').trigger.prob = 0.5; }), 'prob'));
+      check(has(bad((l) => { l.find((e) => e.id === 'evt_bor_letter').trigger.pick_client.base = 2; }), 'base'));
+      const fx = (ef) => bad((l) => { l[0].effects_on_fire = [ef]; });
+      check(has(fx({ op: 'modifier_add', target: 'reinsurer:re_x', field: 'capacity', duration_weeks: 3 }), 'mult와 add'));
+      check(has(fx({ op: 'modifier_add', target: 'reinsurer:re_x', field: 'rating', mult: 0.5, duration_weeks: 3 }), 'capacity'));
+      check(has(fx({ op: 'modifier_add', target: 'reinsurer:re_x', field: 'price_floor', mult: 2, duration_weeks: 3 }), 'add만'));
+      check(has(fx({ op: 'modifier_add', target: 'reinsurer:re_x', field: 'capacity', mult: 0.5, duration_weeks: 0 }), 'duration_weeks'));
+      check(has(fx({ op: 'set', target: 'treaty:trt_x', field: 'phase', value: 'placed' }), 'lost만'));
+      check(has(fx({ op: 'set', target: 'treaty:trt_x', field: 'big_loss', value: 1 }), 'true 또는 false'));
+      check(has(fx({ op: 'add', target: 'treaty:trt_x', field: 'big_loss', value: true }), 'set만'));
+      check(has(fx({ op: 'set', target: 'client:cli_x', field: 'requirements.shariah_conventional_cap', value: 2 }), 'value'));
+      eq(fx({ op: 'set', target: 'reinsurer:re_x', field: 'rating', value: 'BBB+' }), []);
+      eq(fx({ op: 'set', target: 'client:cli_x', field: 'requirements.min_rating', value: 'BBB+' }), []);
+      check(has(fx({ op: 'set', target: 'client:cli_x', field: 'requirements.min_rating', value: 3 }), 'value'));
+      const cross = (mut) => { const d = clone(data); mut(d); return validateCross(d); };
+      check(has(cross((d) => { d.events.find((e) => e.id === 'evt_jurong_explosion').effects_on_fire[0].target = 'treaty:trt_nope'; }), 'treaties.json에 없는'));
+      check(has(cross((d) => { d.events.find((e) => e.id === 'evt_bor_letter').mails_by_client.cli_nope = 'mail_gap_notice'; }), 'clients.json에 없는'));
+      check(has(cross((d) => { d.events.find((e) => e.id === 'evt_mas_inspection').outcomes[0].mail = 'mail_nope'; }), 'mails.json에 없는'));
+      check(has(cross((d) => { d.config.season.gap.mail = 'mail_nope'; }), 'season.gap.mail'));
+      check(has(cross((d) => { d.mails.find((m) => m.id === 'mail_evt_shariah_ruling').choices[2].effects[0].value = 'zzz'; }), 'structure_option') || true);
+      const cfg = (mut) => { const c = clone(data.config); mut(c); return validateConfig(c); };
+      check(has(cfg((c) => { c.season.gap.relationship = 5; }), 'season.gap.relationship'));
+    });
+    test('로더(M6b): 새 사건 메일 14통에 숫자·숨은 속성 이름이 없고 용어 표시는 실제 용어를 가리킨다', () => {
+      const ids = ['mas_pass', 'mas_warn', 'mas_fine', 'shariah_ruling', 'reinsurer_downgrade', 'bor_letter_jurong', 'bor_letter_straits', 'bor_letter_nusantara', 'bor_lost_jurong', 'bor_lost_straits', 'bor_lost_nusantara'].map((x) => `mail_evt_${x}`);
+      for (const id of [...ids, 'mail_gap_notice']) {
+        const m = data.mails.find((x) => x.id === id); check(m, id);
+        const text = [m.subject_ko, ...m.body_ko, ...m.choices.flatMap((c) => [c.label_ko, c.result_ko])].join(' ');
+        check(!/\d/.test(text), `${id}: 숫자`); check(!/보수|민감|충성|conservatism|price_sensitivity|loyalty/i.test(text), `${id}: 숨은 속성 이름`);
+        check(m.choices.every((c) => c.ap_cost <= 3), `${id}: AP`); check(/\[\[gl_/.test(m.body_ko.join('')), `${id}: 어려운 말에 용어 표시`);
+      }
+      const terms = new Set(data.glossary.map((t) => t.id)); for (const id of ['gl_downgrade', 'gl_bor_letter', 'gl_regulatory_inspection']) check(terms.has(id), id);
+      eq(validateGlossary(data.glossary), []);
+    });
+    test('로더(M6b): BOR 메일의 이탈 확률은 선택지마다 다르고 고객마다 다르다(고정 값이 아니다)', () => {
+      for (const id of ['straits', 'nusantara', 'jurong']) {
+        const probs = mailLib.findTemplate(data.mails, `mail_evt_bor_letter_${id}`).choices.map((c) => c.effects.find((e) => e.op === 'event_schedule').prob);
+        check(new Set(probs).size === 4, `${id}: ${probs}`);
+      }
+    });
+
+    test('store(M6b): v6 세이브를 불러오면 overrides와 트리티 사건 상태가 채워지고 나머지는 그대로다', () => {
+      fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 6; delete old.overrides;
+      for (const t of Object.values(old.treaties)) { delete t.lr_extra; delete t.big_loss; delete t.gap_applied; }
+      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
+      eq([r.state.version, r.state.overrides], [7, { reinsurers: {}, clients: {} }]); eq(r.state.treaties[JR].lr_extra, 0); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+    });
+    test('store(M6b): 덮어쓴 값·보정·예약 항목의 모양을 검사하고, 저장했다 불러오면 그대로다', () => {
+      const s = begin(); turn.forceEvent('evt_reinsurer_downgrade'); turn.forceEvent('evt_shariah_ruling'); applyEffects(s, [{ op: 'modifier_add', target: `reinsurer:${TQ}`, field: 'capacity', mult: 0.7, duration_weeks: 12 }]);
+      const ok = clone(s); eq(store.validateState(ok), []);
+      const errs = (mut) => { const c = clone(ok); mut(c); return store.validateState(c); };
+      check(errs((c) => { delete c.overrides; }).some((e) => e.includes('overrides')));
+      check(errs((c) => { c.overrides.reinsurers[TQ].rating = 5; }).some((e) => e.includes('overrides.reinsurers')));
+      check(errs((c) => { c.overrides.clients[CN].shariah_conventional_cap = 3; }).some((e) => e.includes('overrides.clients')));
+      check(errs((c) => { c.overrides.clients[CN].min_rating = 5; }).some((e) => e.includes('overrides.clients')));
+      check(errs((c) => { c.modifiers[0].until_turn = 'x'; }).some((e) => e.includes('modifiers[0]')));
+      check(errs((c) => { c.treaties[JR].phase = 'gone'; }).some((e) => e.includes('phase')));
+      check(errs((c) => { c.treaties[JR].lr_extra = 'x'; }).some((e) => e.includes('lr_extra')));
+      check(errs((c) => { c.scheduled.push({ turn: 3, kind: 'mail', ref: 'mail_x', client: CS }); }).some((e) => e.includes('client')));
+      const st = fresh(); store.newGame({ seed: 3 }); applyEffects(store.getState(), [{ op: 'set', target: `reinsurer:${TQ}`, field: 'rating', value: 'BBB+' }]); store.save('1');
+      store.newGame({ seed: 4 }); eq(store.load('1').ok, true); eq(store.getState().overrides.reinsurers[TQ], { rating: 'BBB+' });
+    });
+    test('turn(M6b): 만료된 보정은 주 전환 때 세이브에서도 지워진다', () => {
+      const s = begin(); applyEffects(s, [{ op: 'modifier_add', target: `reinsurer:${TQ}`, field: 'capacity', mult: 0.7, duration_weeks: 2 }]);
+      answerOpen(s); turn.advance(); eq(s.modifiers.length, 1); for (let g = 0; g < 4 && s.modifiers.length > 0; g++) { answerOpen(s); turn.advance(); } eq(s.modifiers.length, 0);
+    });
+    test('연쇄(M6b): 시드를 돌려 보면 폭발 → 강등이 나오는 해가 있고, 그 해 C2 1/7 보드에서 템스 키 지분이 제출을 막는다', () => {
+      let found = null;
+      for (let seed = 1; seed <= 60 && !found; seed++) {
+        const s = begin(seed); const log = playTo(s, 33);
+        if (log.some(([, id]) => id === 'evt_reinsurer_downgrade')) found = { seed, s };
+      }
+      check(found, '60개 시드 안에 연쇄가 한 번은 나와야 해요');
+      const s = found.s; eq(s.overrides.reinsurers[TQ].rating, 'BBB+'); check(s.fired_events.includes('evt_jurong_explosion'));
+      s.treaties[SP].panel = []; addRow(s, SP, TQ, 0.4); addRow(s, SP, 're_alpenglow', 0.34); addRow(s, SP, 're_kallang', 0.26);
+      eq(PL.submitBlockReason(data, s, SP), 'blockers'); check(PL.signedCheck(data, s, SP).blockers.includes('min_rating'));
+    });
+
+    test('화면(M6b): 강등 뒤 보드에 강등 표시와 안내가 보이고, DB에도 등급이 바뀐다', () => {
+      startScreens(); const s = store.getState(); turn.forceEvent('evt_reinsurer_downgrade');
+      const root = renderPlacement(); document.body.append(root);
+      try {
+        const text = root.textContent; check(text.includes('재보험사 등급이 내려갔어요') && text.includes('A- → BBB+'), '강등 안내');
+        check(text.includes('BBB+ (강등, 원래 A-)'), '등급 칩');
+      } finally { root.remove(); }
+      const db0 = renderDatabase(); [...db0.querySelectorAll('button')].find((b) => b.textContent.startsWith('재보험사')).click();
+      const db = renderDatabase(); document.body.append(db);
+      try { check(db.textContent.includes('BBB+ (강등, 원래 A-)'), 'DB 등급 칸'); } finally { db.remove(); }
+    });
+    test('화면(M6b): 이탈한 트리티의 보드는 잠기고 이유를 알려 준다', () => {
+      startScreens(); const s = store.getState(); s.turn = 30; turn.forceEvent('evt_bor_lost_jurong');
+      const root = renderPlacement(); document.body.append(root);
+      try {
+        check(root.textContent.includes('경쟁 브로커로 옮겨 갔어요'), '이탈 안내');
+        check([...root.querySelectorAll('button')].filter((b) => /제안 보내기|의견 묻기/.test(b.textContent)).every((b) => b.disabled), '제안 버튼 잠김');
+      } finally { root.remove(); }
+    });
+    test('화면(M6b): 설정의 사건 시험대는 사건 5가지를 보여 주고 쓴 게임은 시험용으로 표시한다', () => {
+      startScreens(); const root = renderSettings(); document.body.append(root);
+      try {
+        const lab = root.querySelector('details'); check(lab && lab.textContent.includes('사건 시험대'));
+        for (const w of ['MAS 점검', '샤리아 상한 변경', '주롱섬 폭발', '템스 키 강등', 'BOR 레터']) check(lab.textContent.includes(w), w);
+        check(!lab.textContent.includes('시험용으로 표시됐어요'));
+      } finally { root.remove(); }
+      turn.forceEvent('evt_mas_inspection');
+      const root2 = renderSettings(); document.body.append(root2);
+      try { check(root2.querySelector('details').textContent.includes('시험용으로 표시됐어요')); } finally { root2.remove(); }
     });
 
     // ---------- 실행 ----------

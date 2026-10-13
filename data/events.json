@@ -3,14 +3,15 @@
     "id": "evt_global_cat_hardening",
     "category": "market",
     "trigger": {
-      "window": { "from_turn": 20, "to_turn": 24 },
+      "window": {"from_turn": 20, "to_turn": 24},
       "prob": 1,
       "once": true,
       "conditions": []
     },
     "effects_on_fire": [
-      { "op": "add", "target": "market", "field": "index", "value": 14 },
-      { "op": "flag_set", "flag": "global_cat_loss" }
+      {"op": "add", "target": "market", "field": "index", "value": 14},
+      {"op": "modifier_add", "target": "reinsurer:re_thames_quay", "field": "capacity", "mult": 0.7, "duration_weeks": 12},
+      {"op": "flag_set", "flag": "global_cat_loss"}
     ],
     "mail": "mail_evt_global_cat_hardening",
     "followups": []
@@ -19,29 +20,35 @@
     "id": "evt_jurong_explosion",
     "category": "loss",
     "trigger": {
-      "window": { "from_turn": 22, "to_turn": 28 },
+      "window": {"from_turn": 22, "to_turn": 28},
       "prob": 0.6,
       "once": true,
-      "conditions": [ { "type": "flag_absent", "flag": "jurong_loss" } ]
+      "conditions": [{"type": "flag_absent", "flag": "jurong_loss"}]
     },
     "effects_on_fire": [
-      { "op": "add", "target": "market", "field": "index", "value": 4 },
-      { "op": "flag_set", "flag": "jurong_loss" }
+      {"op": "add", "target": "treaty:trt_jurong_property_xl", "field": "lr_extra", "value": 45},
+      {"op": "set", "target": "treaty:trt_jurong_property_xl", "field": "big_loss", "value": true},
+      {"op": "add", "target": "market", "field": "index", "value": 4},
+      {"op": "flag_set", "flag": "jurong_loss"}
     ],
     "mail": "mail_evt_jurong_explosion",
-    "followups": []
+    "followups": [{"event": "evt_reinsurer_downgrade", "delay_weeks": 3, "prob": 0.7}]
   },
   {
     "id": "evt_malacca_collision",
     "category": "loss",
     "trigger": {
-      "window": { "from_turn": 34, "to_turn": 42 },
+      "window": {"from_turn": 34, "to_turn": 42},
       "prob": 0.6,
       "once": true,
       "conditions": []
     },
     "effects_on_fire": [
-      { "op": "flag_set", "flag": "malacca_loss" }
+      {"op": "add", "target": "treaty:trt_straits_marine_xl", "field": "lr_extra", "value": 30},
+      {"op": "set", "target": "treaty:trt_straits_marine_xl", "field": "big_loss", "value": true},
+      {"op": "modifier_add", "target": "reinsurer:re_alpenglow", "field": "capacity.marine_cargo", "mult": 0.85, "duration_weeks": 8},
+      {"op": "modifier_add", "target": "reinsurer:re_thames_quay", "field": "capacity.marine_cargo", "mult": 0.85, "duration_weeks": 8},
+      {"op": "flag_set", "flag": "malacca_loss"}
     ],
     "mail": "mail_evt_malacca_collision",
     "followups": []
@@ -50,14 +57,14 @@
     "id": "evt_capital_inflow",
     "category": "market",
     "trigger": {
-      "window": { "from_turn": 36, "to_turn": 45 },
+      "window": {"from_turn": 36, "to_turn": 45},
       "prob": 0.5,
       "once": true,
-      "conditions": [ { "type": "market_gte", "value": 62 } ]
+      "conditions": [{"type": "market_gte", "value": 62}]
     },
     "effects_on_fire": [
-      { "op": "add", "target": "market", "field": "index", "value": -9 },
-      { "op": "flag_set", "flag": "capital_inflow" }
+      {"op": "add", "target": "market", "field": "index", "value": -9},
+      {"op": "flag_set", "flag": "capital_inflow"}
     ],
     "mail": "mail_evt_capital_inflow",
     "followups": []
@@ -66,13 +73,13 @@
     "id": "evt_sea_local_retention",
     "category": "sea",
     "trigger": {
-      "window": { "from_turn": 46, "to_turn": 52 },
+      "window": {"from_turn": 46, "to_turn": 52},
       "prob": 0.5,
       "once": true,
       "conditions": []
     },
     "effects_on_fire": [
-      { "op": "flag_set", "flag": "sea_local_retention" }
+      {"op": "flag_set", "flag": "sea_local_retention"}
     ],
     "mail": "mail_evt_sea_local_retention",
     "followups": []
@@ -81,15 +88,135 @@
     "id": "evt_monsoon_flood_my",
     "category": "loss",
     "trigger": {
-      "window": { "from_turn": 52, "to_turn": 58 },
+      "window": {"from_turn": 52, "to_turn": 58},
       "prob": 0.7,
       "once": true,
       "conditions": []
     },
     "effects_on_fire": [
-      { "op": "flag_set", "flag": "monsoon_flood" }
+      {"op": "add", "target": "treaty:trt_nusantara_takaful_qs", "field": "lr_extra", "value": 20},
+      {"op": "flag_set", "flag": "monsoon_flood"}
     ],
     "mail": "mail_evt_monsoon_flood_my",
+    "followups": []
+  },
+  {
+    "id": "evt_mas_inspection",
+    "category": "regulatory",
+    "trigger": {
+      "window": {"from_turn": 9, "to_turn": 13},
+      "prob": 0.7,
+      "once": true,
+      "conditions": []
+    },
+    "effects_on_fire": [
+      {"op": "flag_set", "flag": "mas_inspected"}
+    ],
+    "outcomes": [
+      {"conditions": [{"type": "compliance_gte", "value": 75}], "effects": [{"op": "add", "target": "player", "field": "reputation", "value": 3}], "mail": "mail_evt_mas_pass"},
+      {"conditions": [{"type": "compliance_gte", "value": 50}], "effects": [{"op": "add", "target": "player", "field": "board_confidence", "value": -3}], "mail": "mail_evt_mas_warn"},
+      {"conditions": [], "effects": [{"op": "cash", "value": -0.15}, {"op": "add", "target": "player", "field": "reputation", "value": -5}, {"op": "add", "target": "player", "field": "board_confidence", "value": -8}], "mail": "mail_evt_mas_fine"}
+    ],
+    "followups": []
+  },
+  {
+    "id": "evt_shariah_ruling",
+    "category": "regulatory",
+    "trigger": {
+      "window": {"from_turn": 12, "to_turn": 14},
+      "prob": 1,
+      "once": true,
+      "conditions": []
+    },
+    "effects_on_fire": [
+      {"op": "set", "target": "client:cli_nusantara", "field": "requirements.shariah_conventional_cap", "value": 0.15},
+      {"op": "flag_set", "flag": "shariah_cap_tight"}
+    ],
+    "mail": "mail_evt_shariah_ruling",
+    "followups": []
+  },
+  {
+    "id": "evt_reinsurer_downgrade",
+    "category": "loss",
+    "trigger": {
+      "prob": 1,
+      "once": true,
+      "conditions": [{"type": "flag_set", "flag": "jurong_loss"}]
+    },
+    "effects_on_fire": [
+      {"op": "set", "target": "reinsurer:re_thames_quay", "field": "rating", "value": "BBB+"},
+      {"op": "flag_set", "flag": "thames_downgraded"}
+    ],
+    "mail": "mail_evt_reinsurer_downgrade",
+    "followups": []
+  },
+  {
+    "id": "evt_bor_letter",
+    "category": "competition",
+    "trigger": {
+      "window": {"from_turn": 27, "to_turn": 45},
+      "pick_client": {"base": 0.25, "relationship_ref": 60},
+      "once": true,
+      "conditions": []
+    },
+    "effects_on_fire": [
+      {"op": "flag_set", "flag": "bor_letter_received"}
+    ],
+    "mails_by_client": {"cli_jurong_crest": "mail_evt_bor_letter_jurong", "cli_straits_port": "mail_evt_bor_letter_straits", "cli_nusantara": "mail_evt_bor_letter_nusantara"},
+    "followups": []
+  },
+  {
+    "id": "evt_bor_lost_jurong",
+    "category": "competition",
+    "trigger": {
+      "prob": 1,
+      "once": true,
+      "conditions": []
+    },
+    "effects_on_fire": [
+      {"op": "add", "target": "client:cli_jurong_crest", "field": "relationship", "value": -30},
+      {"op": "add", "target": "player", "field": "reputation", "value": -4},
+      {"op": "add", "target": "player", "field": "board_confidence", "value": -6},
+      {"op": "set", "target": "treaty:trt_jurong_property_xl", "field": "phase", "value": "lost"},
+      {"op": "flag_set", "flag": "bor_lost_jurong"}
+    ],
+    "mail": "mail_evt_bor_lost_jurong",
+    "followups": []
+  },
+  {
+    "id": "evt_bor_lost_straits",
+    "category": "competition",
+    "trigger": {
+      "prob": 1,
+      "once": true,
+      "conditions": []
+    },
+    "effects_on_fire": [
+      {"op": "add", "target": "client:cli_straits_port", "field": "relationship", "value": -30},
+      {"op": "add", "target": "player", "field": "reputation", "value": -4},
+      {"op": "add", "target": "player", "field": "board_confidence", "value": -6},
+      {"op": "set", "target": "treaty:trt_straits_marine_xl", "field": "phase", "value": "lost"},
+      {"op": "flag_set", "flag": "bor_lost_straits"}
+    ],
+    "mail": "mail_evt_bor_lost_straits",
+    "followups": []
+  },
+  {
+    "id": "evt_bor_lost_nusantara",
+    "category": "competition",
+    "trigger": {
+      "prob": 1,
+      "once": true,
+      "conditions": []
+    },
+    "effects_on_fire": [
+      {"op": "add", "target": "client:cli_nusantara", "field": "relationship", "value": -30},
+      {"op": "add", "target": "player", "field": "reputation", "value": -4},
+      {"op": "add", "target": "player", "field": "board_confidence", "value": -6},
+      {"op": "set", "target": "treaty:trt_nusantara_takaful_qs", "field": "phase", "value": "lost"},
+      {"op": "flag_set", "flag": "bor_lost_nusantara"}
+    ],
+    "mail": "mail_evt_bor_lost_nusantara",
     "followups": []
   }
 ]

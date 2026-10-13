@@ -4,7 +4,7 @@
 import { nextFloat, normalizeSeed } from './rng.js';
 import { marketBand } from './market.js';
 
-export const SAVE_VERSION = 6; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
+export const SAVE_VERSION = 7; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
 export const SLOTS = ['auto', '1', '2', '3'];
 export const MANUAL_SLOTS = ['1', '2', '3'];
 const KEY_PREFIX = 'rbs:save:v1:'; // 키 형식 버전(구조 버전과 별개)
@@ -16,6 +16,7 @@ const MAX_SAVE_CHARS = 2_000_000; // 가져오기 파일 크기 방어선
 // v3→v4: 트리티에 고객 반응의 이유 종류(verdict_reason)를 더한다.
 // v4→v5: 패널 행에 반제 유효 기간(counter_until)을 더한다. 옛 반제는 저장된 그 주까지 유효하다.
 // v5→v6(M6a): 시장에 마지막으로 알린 분위기 묶음(band)을 더한다. 그 시점의 분위기는 이미 알린 것으로 본다.
+// v6→v7(M6b): 사건이 덮어쓴 값(overrides)과 트리티의 사건 상태(lr_extra·big_loss·gap_applied)를 더한다.
 export const MIGRATIONS = {
   1: (s) => fillEntities({ ...s, entities: { clients: { ...s.entities?.clients }, reinsurers: { ...s.entities?.reinsurers } } }),
   2: (s) => fillTreaties({
@@ -35,6 +36,11 @@ export const MIGRATIONS = {
     }])),
   }),
   5: (s) => ({ ...s, market: { ...s.market, band: marketBand(s.market?.index ?? 0, ctx.config.market.family) } }),
+  6: (s) => ({
+    ...s,
+    overrides: { reinsurers: {}, clients: {} },
+    treaties: Object.fromEntries(Object.entries(s.treaties ?? {}).map(([id, t]) => [id, { lr_extra: 0, big_loss: false, gap_applied: false, ...t }])),
+  }),
 };
 
 let ctx = null; // { config, calendar } — loader가 검증한 정적 데이터
@@ -129,6 +135,7 @@ export function initialTreatyState(t) {
   return {
     phase: 'open', prep_quality: 0, target_rc: t.target_rc, terms: t.terms.preferred, structure_option: '', panel: [],
     retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, verdict_reason: null, final_rc: null, obligations: [],
+    lr_extra: 0, big_loss: false, gap_applied: false,
   };
 }
 
@@ -161,6 +168,7 @@ export function newGame({ seed } = {}) {
     mails: [],
     scheduled: [],
     fired_events: [],
+    overrides: { reinsurers: {}, clients: {} },
     modifiers: [],
     log: [],
   };
@@ -205,7 +213,7 @@ const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isInt = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 const isNum = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 
-const TREATY_PHASES = ['open', 'placed'];
+const TREATY_PHASES = ['open', 'placed', 'lost'];
 const ROW_STATUSES = ['draft', 'accepted', 'countered', 'rejected'];
 const VERDICTS = ['delighted', 'accept', 'renegotiate', 'reject'];
 const MARKET_BANDS = ['soft', 'neutral', 'hard'];
@@ -225,6 +233,9 @@ function validateTreatyStates(s, bad) {
     if (typeof t.structure_option !== 'string') bad(`${p}.structure_option`, '글자여야 해요');
     if (!isNum(t.target_rc, -100, 100)) bad(`${p}.target_rc`, '숫자여야 해요');
     if (!isInt(t.retry_turn, 0, 999)) bad(`${p}.retry_turn`, '0 이상 정수여야 해요');
+    if (!isNum(t.lr_extra, 0, 100)) bad(`${p}.lr_extra`, '0~100 사이 숫자여야 해요');
+    if (typeof t.big_loss !== 'boolean') bad(`${p}.big_loss`, 'true 또는 false여야 해요');
+    if (typeof t.gap_applied !== 'boolean') bad(`${p}.gap_applied`, 'true 또는 false여야 해요');
     for (const k of ['renegotiations', 'rejections', 'moves']) if (!isInt(t[k], 0, 9999)) bad(`${p}.${k}`, '0 이상 정수여야 해요');
     if (t.verdict !== null && !VERDICTS.includes(t.verdict)) bad(`${p}.verdict`, '고객 반응 라벨이거나 null이어야 해요');
     if (t.verdict_reason !== null && !VERDICT_REASONS.includes(t.verdict_reason)) bad(`${p}.verdict_reason`, '이유 종류이거나 null이어야 해요');
@@ -313,6 +324,18 @@ export function validateState(s) {
       if (typeof m.auto !== 'boolean') bad(`${p}.auto`, 'true 또는 false여야 해요');
     });
   }
+  if (!isObj(s.overrides) || !isObj(s.overrides.reinsurers) || !isObj(s.overrides.clients)) bad('overrides', 'reinsurers·clients 객체가 필요해요');
+  else {
+    for (const [id, o] of Object.entries(s.overrides.reinsurers)) if (!isObj(o) || (o.rating !== undefined && typeof o.rating !== 'string')) bad(`overrides.reinsurers.${id}`, '{ rating: 글자 } 모양이어야 해요');
+    for (const [id, o] of Object.entries(s.overrides.clients)) if (!isObj(o) || (o.shariah_conventional_cap !== undefined && !isNum(o.shariah_conventional_cap, 0, 1)) || (o.min_rating !== undefined && typeof o.min_rating !== 'string')) bad(`overrides.clients.${id}`, '{ shariah_conventional_cap: 0~1, min_rating: 글자 } 모양이어야 해요');
+  }
+  if (Array.isArray(s.modifiers)) {
+    s.modifiers.forEach((m, i) => {
+      if (!isObj(m) || typeof m.target !== 'string' || typeof m.field !== 'string' || !isNum(m.mult, 0, 100) || !isNum(m.add, -1000, 1000) || !isInt(m.until_turn, 1, 999)) {
+        bad(`modifiers[${i}]`, '{ target, field, mult, add, until_turn } 모양이어야 해요');
+      }
+    });
+  }
   if (Array.isArray(s.scheduled)) {
     s.scheduled.forEach((q, i) => {
       if (!isObj(q) || !isInt(q.turn, 1, 999) || typeof q.kind !== 'string' || typeof q.ref !== 'string') {
@@ -321,6 +344,8 @@ export function validateState(s) {
         bad(`scheduled[${i}].kind`, `${SCHEDULED_KINDS.join(' / ')} 중 하나여야 해요`);
       } else if (q.prob !== undefined && (q.kind !== 'event' || !isNum(q.prob, 0, 1))) {
         bad(`scheduled[${i}].prob`, '이벤트 예약에만 쓰는 0~1 사이 숫자예요');
+      } else if (q.client !== undefined && (q.kind !== 'event' || typeof q.client !== 'string')) {
+        bad(`scheduled[${i}].client`, '이벤트 예약에만 쓰는 고객 id예요');
       }
     });
   }

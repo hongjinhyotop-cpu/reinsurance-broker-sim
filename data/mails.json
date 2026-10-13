@@ -184,7 +184,7 @@
             "op": "add",
             "target": "player",
             "field": "compliance",
-            "value": 4
+            "value": 6
           },
           {
             "op": "add",
@@ -921,5 +921,795 @@
         "result_ko": "아직 확정되지 않은 일에 힘을 쏟지 않기로 했습니다. 점수는 아꼈지만, 변화가 오면 대비 없이 맞게 됩니다."
       }
     ]
+  },
+  {
+    "id": "mail_evt_mas_pass",
+    "type": "regulatory",
+    "from": {
+      "kind": "regulator",
+      "name_ko": "금융감독당국 감독부 (가상)"
+    },
+    "subject_ko": "[결과] 정기 점검을 마쳤습니다 — 특이사항 없음",
+    "body_ko": [
+      "{player.firm} 귀중. 이번 [[gl_regulatory_inspection|정기 점검]]을 마쳤습니다. 고객 자금을 따로 분리해 두는 절차와 이해상충 공시 기록은 점검 기준에 부합했습니다.",
+      "담당 조사관이 점검표 여백에 '기록이 읽기 쉬웠다'고 적어 두었다는 점을 전해 드립니다. 이런 말은 흔치 않습니다. 이 수준을 유지해 주시기 바랍니다.",
+      "업계에는 점검 결과가 조용히 퍼집니다. 좋은 소식은 특히 그렇습니다."
+    ],
+    "priority": "normal",
+    "blocking": false,
+    "choices": []
+  },
+  {
+    "id": "mail_evt_mas_warn",
+    "type": "regulatory",
+    "from": {
+      "kind": "regulator",
+      "name_ko": "금융감독당국 감독부 (가상)"
+    },
+    "subject_ko": "[경고] 정기 점검 결과 — 보완 요청",
+    "body_ko": [
+      "{player.firm} 귀중. [[gl_regulatory_inspection|정기 점검]]에서 보완이 필요한 부분이 확인되었습니다. 고객 자금을 옮긴 날의 기록 일부가 비어 있었고, 접대 내역의 승인 서명이 며칠 늦게 붙은 건이 있었습니다.",
+      "중대한 위반은 아닙니다. 그래서 과태료는 없습니다. 다만 이 사실은 귀사 이사회에도 보고됩니다. 보완 계획서를 기한 안에 내 주십시오.",
+      "한 번은 실수로 봅니다. 두 번은 습관이라고 부릅니다."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "let_it_slide",
+    "choices": [
+      {
+        "id": "remedy",
+        "label_ko": "빈 기록을 채우고 보완 계획서를 정리해 제출한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "player",
+            "field": "compliance",
+            "value": 6
+          }
+        ],
+        "result_ko": "계획서가 접수되었습니다. 감독부가 '성의 있는 대응'이라고 적어 두었습니다. 컴플라이언스 점수가 올랐습니다."
+      },
+      {
+        "id": "let_it_slide",
+        "label_ko": "기한을 넘기지 않을 정도로만 짧게 답한다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "add",
+            "target": "player",
+            "field": "compliance",
+            "value": -2
+          }
+        ],
+        "result_ko": "형식은 갖췄지만 성의가 없다는 인상이 남았습니다. 컴플라이언스 점수가 조금 내렸습니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_mas_fine",
+    "type": "regulatory",
+    "from": {
+      "kind": "regulator",
+      "name_ko": "금융감독당국 감독부 (가상)"
+    },
+    "subject_ko": "[통보] 정기 점검 결과 — 과태료 부과",
+    "body_ko": [
+      "{player.firm} 귀중. [[gl_regulatory_inspection|정기 점검]]에서 고객 자금의 분리 관리와 이해상충 공시에 시정이 필요한 사항이 되풀이해서 확인되었습니다.",
+      "이에 따라 과태료를 부과합니다. 납부 절차는 별도 안내를 따라 주십시오. 이 결과는 귀사 이사회와, 필요하다면 주요 고객에게도 알려질 수 있습니다.",
+      "재발 방지 계획을 서면으로 받겠습니다. 계획이 없다면 다음 점검 때 같은 문장을 다시 쓰게 될 것입니다."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "pay_only",
+    "choices": [
+      {
+        "id": "prevention_plan",
+        "label_ko": "재발 방지 계획을 직접 써서 담당관에게 설명한다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "add",
+            "target": "player",
+            "field": "compliance",
+            "value": 8
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 1
+          }
+        ],
+        "result_ko": "계획서가 받아들여졌습니다. 담당관이 '이 정도 의지라면 다음에는 달라지겠군요'라고 했습니다. 컴플라이언스 점수가 오르고 평판도 조금 회복됐습니다."
+      },
+      {
+        "id": "pay_only",
+        "label_ko": "과태료만 납부하고 별도의 설명은 하지 않는다",
+        "ap_cost": 0,
+        "effects": [],
+        "result_ko": "과태료는 납부했습니다. 이사회에서 한동안 이 이야기가 오르내릴 것입니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_shariah_ruling",
+    "type": "regulatory",
+    "from": {
+      "kind": "client",
+      "name_ko": "누산타라 무티아라 타카풀 리타카풀 책임자 (가상)"
+    },
+    "subject_ko": "[안내] 샤리아 위원회 결정 — 협력 재보험사 구성에 관하여",
+    "body_ko": [
+      "파라 아지즈입니다. 늘 세심하게 챙겨 주셔서 감사합니다. 어제 저녁 저희 [[gl_shariah|샤리아]] 위원회가 열렸고, 일반 재보험사에 맡기는 몫을 이전보다 더 좁게 두기로 결정했습니다.",
+      "위원님들은 '원칙은 지키되 사업이 멈추지는 않을 만큼'이라고 표현하셨습니다. 현실에서는 [[gl_retakaful|리타카풀]] 쪽의 몫을 늘려야 한다는 뜻이겠지요. 저로서는 위원회의 결정을 거스를 수 없고, 한편으로는 [[gl_renewal|갱신]] 일정이 빠듯해질까 걱정입니다.",
+      "브로커님이 어떻게 접근하시면 좋을지 의견을 들려주세요. 이번 [[gl_panel|패널]]을 어떻게 짜실지에 따라 저도 답을 달리 드릴 수 있을 것 같습니다."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "wait",
+    "choices": [
+      {
+        "id": "persuade",
+        "label_ko": "위원회에 직접 자료를 들고 가서 상한을 조금만 풀어 달라고 청한다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "set",
+            "target": "client:cli_nusantara",
+            "field": "requirements.shariah_conventional_cap",
+            "value": 0.18
+          },
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": 2
+          }
+        ],
+        "result_ko": "위원회는 원칙을 바꾸지는 않았지만 한 걸음 물러서 주었습니다. 파라가 '준비를 많이 하셨더군요'라고 적었습니다. 일반 재보험사에 맡길 수 있는 몫이 조금 늘었습니다."
+      },
+      {
+        "id": "accept_concentrate",
+        "label_ko": "상한은 받아들이고, 누르 리타카풀에 더 큰 몫을 맡아 달라고 청한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "modifier_add",
+            "target": "reinsurer:re_nur",
+            "field": "max_single_share",
+            "add": 0.1,
+            "duration_weeks": 10
+          },
+          {
+            "op": "modifier_add",
+            "target": "reinsurer:re_nur",
+            "field": "price_floor",
+            "add": 3,
+            "duration_weeks": 10
+          },
+          {
+            "op": "add",
+            "target": "reinsurer:re_nur",
+            "field": "relationship",
+            "value": 4
+          },
+          {
+            "op": "add",
+            "target": "reinsurer:re_nur",
+            "field": "scout.loyalty",
+            "value": 4
+          },
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": 3
+          }
+        ],
+        "result_ko": "누르의 아미나가 '더 맡을 수 있습니다. 다만 그만큼의 값을 요구하겠습니다'라고 답했습니다. 한 곳이 가져갈 수 있는 몫이 커졌지만 가격선도 올라갔습니다. 파라는 위원회 결정을 존중해 준 데 감사했습니다."
+      },
+      {
+        "id": "cede_less",
+        "label_ko": "출재 비율을 줄이는 구조를 먼저 정해 둔다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "set",
+            "target": "treaty:trt_nusantara_takaful_qs",
+            "field": "structure_option",
+            "value": "lower_cession"
+          },
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": -2
+          }
+        ],
+        "result_ko": "파라가 '비율을 줄이는 방향도 검토하겠습니다'라고 답했습니다. 구조 옵션이 미리 골라졌지만 상한 자체는 그대로입니다. 고객은 소극적인 선택이라 조금 아쉬워하는 눈치입니다."
+      },
+      {
+        "id": "wait",
+        "label_ko": "일단 결정이 자리 잡을 때까지 지켜본다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": -2
+          }
+        ],
+        "result_ko": "'알겠습니다'라는 짧은 답이 왔습니다. 결정을 혼자 받아든 쪽은 고객이었다는 느낌이 남았습니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_reinsurer_downgrade",
+    "type": "event",
+    "from": {
+      "kind": "reinsurer",
+      "name_ko": "템스 키 신디케이트 리드 언더라이터 (가상)"
+    },
+    "subject_ko": "[선공지] 등급 조정 발표 전에 먼저 알려 드립니다",
+    "body_ko": [
+      "기스 해링턴입니다. 평가회사가 오늘 아침 저희 신디케이트의 [[gl_rating|재무 등급]]을 한 단계 내렸습니다. 주롱섬 사고의 손실이 반영된 결과입니다. 저는 자본이 아니라 평가 방식의 문제라고 생각하지만, 시장은 글자만 봅니다.",
+      "[[gl_downgrade|강등]] 소식은 오후면 모두가 알게 됩니다. 귀사의 고객 중 최소 등급을 문서로 박아 둔 곳은 이제 저희와 함께 가기 어려워질 겁니다. 숨기지 않겠습니다.",
+      "길은 둘입니다. 고객에게 한시적으로 예외를 허락받거나, 저희 자리를 대신할 곳을 찾거나. 솔직히 뒤쪽은 어렵습니다. 이 시장에 저희만 한 자리를 내줄 곳이 얼마나 되겠습니까. 그래도 관계는 관계지요. 나중에 다시 봅시다."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "watch",
+    "choices": [
+      {
+        "id": "ask_exception",
+        "label_ko": "스트레이츠 포트 CFO를 찾아가 템스 키를 한시적으로 인정해 달라고 직접 청한다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "set",
+            "target": "client:cli_straits_port",
+            "field": "requirements.min_rating",
+            "value": "BBB+"
+          },
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": -1
+          },
+          {
+            "op": "add",
+            "target": "reinsurer:re_thames_quay",
+            "field": "relationship",
+            "value": 2
+          }
+        ],
+        "result_ko": "메논이 한참 뒤에 '이번 한 번뿐입니다. 대신 값으로 보답하세요'라고 답했습니다. 템스 키가 패널에 계속 들어올 수 있게 됐지만, 담보가 약해진 만큼 고객은 값을 더 따질 것입니다."
+      },
+      {
+        "id": "brief_clients",
+        "label_ko": "고객들에게 먼저 사정을 설명하고, 대신할 재보험사를 찾겠다고 약속한다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "relationship",
+            "value": 3
+          },
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": 3
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 1
+          }
+        ],
+        "result_ko": "'미리 말해 줘서 고맙다'는 회신이 고객들에게서 왔습니다. 다만 대신할 자리가 마땅치 않다는 걱정은 그대로 남았습니다. 약속은 했으니 이제 지켜야 합니다."
+      },
+      {
+        "id": "hold_door",
+        "label_ko": "해링턴 편에 서서, 고객에게 예외를 청하는 일까지 맡겠다고 약속한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "set",
+            "target": "client:cli_straits_port",
+            "field": "requirements.min_rating",
+            "value": "BBB+"
+          },
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": -4
+          },
+          {
+            "op": "add",
+            "target": "reinsurer:re_thames_quay",
+            "field": "relationship",
+            "value": 6
+          },
+          {
+            "op": "add",
+            "target": "reinsurer:re_thames_quay",
+            "field": "scout.loyalty",
+            "value": 5
+          }
+        ],
+        "result_ko": "해링턴이 '의리가 있군요'라고 했습니다. 예외는 받아 냈지만 메논은 템스 키 편을 든다며 불편한 기색을 숨기지 않았습니다. 해링턴과의 관계는 한층 깊어졌습니다."
+      },
+      {
+        "id": "watch",
+        "label_ko": "시장 소식이 퍼지는 것을 지켜본다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": -2
+          },
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "relationship",
+            "value": -1
+          }
+        ],
+        "result_ko": "아무것도 하지 않은 사이 고객들은 다른 경로로 소식을 들었습니다. '왜 우리가 먼저 듣지 못했느냐'는 말이 짧게 돌아왔습니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_bor_letter_jurong",
+    "type": "event",
+    "from": {
+      "kind": "client",
+      "name_ko": "주롱 크레스트 손해보험 CRO (가상)"
+    },
+    "subject_ko": "[확인 요청] 다른 중개사가 가져온 서한에 관하여",
+    "body_ko": [
+      "탄 웨이밍입니다. 사실관계부터 공유드립니다. 오늘 오전 경쟁 중개회사가 [[gl_bor_letter|BOR 레터]]를 가져왔습니다. 제가 서명하면 귀사 대신 그쪽이 저희 주롱섬 트리티를 맡게 됩니다. 아직 서명하지 않았습니다.",
+      "정직하게 말씀드리면 귀사의 일 자체에 불만이 있는 것은 아닙니다. 다만 최근 몇 달, 제가 묻는 질문에 돌아오는 답이 늘 한 박자 늦다고 느꼈습니다. 이사회에 '왜 바꾸지 않는가'를 설명해야 하는 쪽은 저입니다.",
+      "설명할 근거를 보여 주십시오. 말보다 문서로 부탁드립니다. 한 주 안에 답을 기다리겠습니다."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "ignore",
+    "choices": [
+      {
+        "id": "defend",
+        "label_ko": "자료를 들고 직접 찾아가 지난 몇 달의 대응을 항목별로 설명한다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "relationship",
+            "value": 4
+          },
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "scout.loyalty",
+            "value": 4
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 1
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_jurong",
+            "delay_weeks": 1,
+            "prob": 0.1
+          }
+        ],
+        "result_ko": "탄은 문서를 한 장씩 넘기며 질문을 던졌고, 끝에는 '이 정도면 이사회에 설명할 수 있겠습니다'라고 했습니다. 결과는 한 주 안에 알게 됩니다."
+      },
+      {
+        "id": "concede",
+        "label_ko": "다음 갱신의 수수료를 낮출 수 있다고 제안한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "relationship",
+            "value": 2
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "board_confidence",
+            "value": -2
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_jurong",
+            "delay_weeks": 1,
+            "prob": 0.25
+          }
+        ],
+        "result_ko": "탄이 '조건은 검토하겠습니다'라고 짧게 답했습니다. 그는 값보다 답의 속도를 문제 삼았던 사람이라 마음이 풀렸는지는 알 수 없습니다. 결과는 한 주 안에 알게 됩니다."
+      },
+      {
+        "id": "card",
+        "label_ko": "오랜 거래를 이야기하며 한 번만 더 믿어 달라고 부탁한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "relationship",
+            "value": 1
+          },
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "scout.loyalty",
+            "value": 3
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_jurong",
+            "delay_weeks": 1,
+            "prob": 0.3
+          }
+        ],
+        "result_ko": "탄은 정중히 들었지만 '감사합니다. 그래도 확인할 것은 확인하겠습니다'라고 말했습니다. 결과는 한 주 안에 알게 됩니다."
+      },
+      {
+        "id": "ignore",
+        "label_ko": "'검토해 보겠다'고만 답하고 지켜본다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "relationship",
+            "value": -3
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_jurong",
+            "delay_weeks": 1,
+            "prob": 0.6
+          }
+        ],
+        "result_ko": "답장은 한 줄이었고 탄의 답은 더 짧았습니다. 상대가 움직이는 동안 이쪽은 가만히 있었습니다. 결과는 한 주 안에 알게 됩니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_bor_letter_straits",
+    "type": "event",
+    "from": {
+      "kind": "client",
+      "name_ko": "스트레이츠 포트 마린 CFO (가상)"
+    },
+    "subject_ko": "[통보] 다른 중개사가 BOR 레터 들고 왔습니다",
+    "body_ko": [
+      "메논입니다. 다른 중개사가 [[gl_bor_letter|BOR 레터]]를 들고 왔습니다. 수수료를 깎아 주겠답니다. 저한테는 나쁜 얘기가 아니죠.",
+      "귀사는 어떻게 할 겁니까. 말로 하지 마시고 숫자로 답해 주세요. 한 주 드립니다.",
+      "참고로 저는 사람이 좋아서 거래하는 게 아닙니다. 이득이 되니까 합니다."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "ignore",
+    "choices": [
+      {
+        "id": "defend",
+        "label_ko": "직접 찾아가 지난 갱신에서 얻어낸 결과를 숫자로 보여 준다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": 4
+          },
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "scout.loyalty",
+            "value": 4
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 1
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_straits",
+            "delay_weeks": 1,
+            "prob": 0.35
+          }
+        ],
+        "result_ko": "메논은 표를 끝까지 보더니 '이건 인정합니다'라고만 했습니다. 마음을 얻었는지는 한 주 안에 알게 됩니다."
+      },
+      {
+        "id": "concede",
+        "label_ko": "수수료를 양보하겠다고 바로 제안한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": 2
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "board_confidence",
+            "value": -2
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_straits",
+            "delay_weeks": 1,
+            "prob": 0.15
+          }
+        ],
+        "result_ko": "'그렇게 나와야죠'라는 답이 왔습니다. 이사회에서는 수익을 깎았다는 말이 나올 수 있습니다. 결과는 한 주 안에 알게 됩니다."
+      },
+      {
+        "id": "card",
+        "label_ko": "오랜 거래의 정을 내세워 설득해 본다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": 1
+          },
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "scout.loyalty",
+            "value": 3
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_straits",
+            "delay_weeks": 1,
+            "prob": 0.55
+          }
+        ],
+        "result_ko": "'정은 정이고 장부는 장부입니다'라는 답이 왔습니다. 효과가 있었는지는 한 주 안에 알게 됩니다."
+      },
+      {
+        "id": "ignore",
+        "label_ko": "당장은 답하지 않고 지켜본다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": -3
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_straits",
+            "delay_weeks": 1,
+            "prob": 0.8
+          }
+        ],
+        "result_ko": "메논은 답이 없는 것을 대답으로 받아들였을 겁니다. 결과는 한 주 안에 알게 됩니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_bor_letter_nusantara",
+    "type": "event",
+    "from": {
+      "kind": "client",
+      "name_ko": "누산타라 무티아라 타카풀 리타카풀 책임자 (가상)"
+    },
+    "subject_ko": "[급한 문의] 중개사 변경 서한을 받았습니다",
+    "body_ko": [
+      "파라 아지즈입니다. 갑작스러운 소식을 전하게 되어 마음이 무겁습니다. 오늘 한 중개회사에서 저희 타카풀 트리티의 중개를 맡겠다는 [[gl_bor_letter|BOR 레터]]가 왔습니다.",
+      "최근 [[gl_shariah|샤리아]] 위원회 일로 저희 그룹 안에서도 바빴고, 그 사이 소통이 소홀했다고 느끼는 분이 있습니다. 저는 지금까지 함께한 시간을 소중하게 생각합니다. 다만 그룹 이사회가 어떻게 볼지는 제가 장담하기 어렵습니다.",
+      "말씀을 기다리겠습니다. 서두르지는 않으셔도 되지만, 너무 늦지는 않았으면 합니다."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "ignore",
+    "choices": [
+      {
+        "id": "defend",
+        "label_ko": "위원회와 이사회에 직접 가서 지난 시간의 일을 설명한다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": 4
+          },
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "scout.loyalty",
+            "value": 4
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 1
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_nusantara",
+            "delay_weeks": 1,
+            "prob": 0.15
+          }
+        ],
+        "result_ko": "파라가 '이렇게까지 와 주시니 큰 힘이 됩니다'라고 적었습니다. 결과는 한 주 안에 알게 됩니다."
+      },
+      {
+        "id": "concede",
+        "label_ko": "수수료를 낮춰 드리겠다고 먼저 제안한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": 2
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "board_confidence",
+            "value": -2
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_nusantara",
+            "delay_weeks": 1,
+            "prob": 0.3
+          }
+        ],
+        "result_ko": "파라는 정중히 감사했지만, 조건을 앞세운 제안이 조금 서운했는지 답이 짧았습니다. 결과는 한 주 안에 알게 됩니다."
+      },
+      {
+        "id": "card",
+        "label_ko": "함께한 시간을 이야기하며 진심으로 한 번 더 부탁한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": 1
+          },
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "scout.loyalty",
+            "value": 3
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_nusantara",
+            "delay_weeks": 1,
+            "prob": 0.08
+          }
+        ],
+        "result_ko": "파라가 '그 말씀이 가장 듣고 싶었습니다'라고 답했습니다. 이사회를 설득하는 일에도 힘이 될 것입니다. 결과는 한 주 안에 알게 됩니다."
+      },
+      {
+        "id": "ignore",
+        "label_ko": "지금은 답하지 않고 기다린다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": -3
+          },
+          {
+            "op": "event_schedule",
+            "event": "evt_bor_lost_nusantara",
+            "delay_weeks": 1,
+            "prob": 0.45
+          }
+        ],
+        "result_ko": "파라의 이후 연락이 눈에 띄게 줄었습니다. 결과는 한 주 안에 알게 됩니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_bor_lost_jurong",
+    "type": "event",
+    "from": {
+      "kind": "client",
+      "name_ko": "주롱 크레스트 손해보험 CRO (가상)"
+    },
+    "subject_ko": "[통지] 중개사 변경 결정에 관하여",
+    "body_ko": [
+      "탄 웨이밍입니다. 이사회 결정에 따라 앞으로 저희 트리티의 중개를 다른 회사에 맡기기로 했습니다. 오늘 [[gl_bor_letter|BOR 레터]]에 서명했습니다.",
+      "귀사의 노력을 모르는 것이 아닙니다. 그러나 결정은 내려졌습니다. 지금까지 함께해 주셔서 감사합니다.",
+      "진행 중이던 문서는 정리해서 넘겨받을 담당자 앞으로 보내 주십시오."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "choices": []
+  },
+  {
+    "id": "mail_evt_bor_lost_straits",
+    "type": "event",
+    "from": {
+      "kind": "client",
+      "name_ko": "스트레이츠 포트 마린 CFO (가상)"
+    },
+    "subject_ko": "[통보] 중개사 바꿉니다",
+    "body_ko": [
+      "메논입니다. 다른 중개사로 갑니다. [[gl_bor_letter|BOR 레터]]는 이미 보냈습니다. 조건이 더 나았습니다.",
+      "개인적인 감정은 없습니다. 같이 일하면서 배운 것도 있습니다. 그래도 장부가 우선입니다.",
+      "서류는 정리해서 새 담당에게 넘겨 주세요."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "choices": []
+  },
+  {
+    "id": "mail_evt_bor_lost_nusantara",
+    "type": "event",
+    "from": {
+      "kind": "client",
+      "name_ko": "누산타라 무티아라 타카풀 리타카풀 책임자 (가상)"
+    },
+    "subject_ko": "[통지] 중개 계약에 관하여, 마음이 무겁습니다",
+    "body_ko": [
+      "파라 아지즈입니다. 끝내 좋은 소식을 전하지 못하게 되었습니다. 그룹 이사회가 중개사를 바꾸기로 하고 [[gl_bor_letter|BOR 레터]]에 서명했습니다. 제가 더 설득했어야 한다는 생각이 듭니다.",
+      "함께한 시간 동안 많이 배웠습니다. 샤리아 위원회 쪽 분들도 아쉬워하셨다는 말씀을 꼭 전하고 싶었습니다.",
+      "언젠가 다시 인연이 닿기를 바랍니다."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "choices": []
+  },
+  {
+    "id": "mail_gap_notice",
+    "type": "board",
+    "from": {
+      "kind": "board",
+      "name_ko": "이사회 (가상)"
+    },
+    "subject_ko": "[이사회] 계약 공백 발생 보고",
+    "body_ko": [
+      "{player.firm} 임원진에게. [[gl_inception|인셉션]]이 지났는데 확정되지 않은 트리티가 있습니다. 해당 고객 입장에서는 재보험 보호가 비는 기간이 생긴 셈입니다.",
+      "고객의 신뢰와 업계 평판, 그리고 이사회의 신뢰에 타격이 있습니다. 늦게라도 확정되면 거래는 이어지지만 이미 생긴 공백이 지워지는 것은 아닙니다.",
+      "이 문제를 어떻게 풀고 있는지 보고를 기다립니다."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "choices": []
   }
 ]

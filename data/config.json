@@ -51,6 +51,14 @@
       }
     }
   },
+  "season": {
+    "gap": {
+      "relationship": -15,
+      "reputation": -8,
+      "board_confidence": -10,
+      "mail": "mail_gap_notice"
+    }
+  },
   "turn": {
     "deadline_warning_weeks": 1
   },

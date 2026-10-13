@@ -819,5 +819,97 @@
       "database",
       "placement"
     ]
+  },
+  {
+    "id": "gl_downgrade",
+    "term_ko": "등급 강등",
+    "term_en": "Downgrade",
+    "gloss_ko": "성적표가 내려감",
+    "aliases": [
+      "강등",
+      "등급 하향",
+      "downgrade",
+      "downgraded"
+    ],
+    "category": "security",
+    "level1_ko": "평가회사가 재보험사의 재무 등급을 지금보다 낮게 다시 매기는 일이에요.",
+    "level2_ko": "성적이 떨어져 한 단계 낮은 반으로 가는 것과 비슷해요. 고객이 정한 최소 등급 아래로 내려가면 그 재보험사는 더 쓸 수 없어요.",
+    "level3": {
+      "industry_ko": "등급 강등(downgrade)은 신용평가회사가 보험·재보험사의 재무 건전성 등급을 낮추는 것입니다. 큰 손실이나 자본 약화가 이유가 되는 경우가 많고, 출재사의 최소 등급 요건을 넘어 내려가면 계약에서 해당 재보험사를 교체하거나 해약할 수 있는 조항이 작동하기도 합니다.",
+      "industry_en": [
+        "\"The reinsurer was downgraded by one notch following the loss.\"",
+        "\"A downgrade below A- triggers a special termination clause.\""
+      ],
+      "game_example_ko": "사건으로 재보험사의 등급이 내려가면 DB와 보드에 '강등' 표시가 붙어요. 고객의 최소 등급에 못 미치면 그 재보험사의 확정 지분이 취소되고, 다른 재보험사로 패널을 바꿔야 제출할 수 있어요."
+    },
+    "related": [
+      "gl_rating",
+      "gl_panel"
+    ],
+    "appears_in": [
+      "inbox",
+      "database",
+      "placement"
+    ]
+  },
+  {
+    "id": "gl_bor_letter",
+    "term_ko": "BOR 레터",
+    "term_en": "Broker of Record letter",
+    "gloss_ko": "중개사 변경 서한",
+    "aliases": [
+      "BOR",
+      "브로커 오브 레코드",
+      "중개사 지정 서한",
+      "BOR letter"
+    ],
+    "category": "market",
+    "level1_ko": "고객이 '이 계약의 중개는 앞으로 저 회사에 맡긴다'고 쓴 서한이에요.",
+    "level2_ko": "휴대폰 번호이동 신청서처럼, 서명되는 순간 담당 중개사가 바뀌어요. 서명 전이라면 붙잡을 시간이 있어요.",
+    "level3": {
+      "industry_ko": "BOR 레터(Broker of Record letter)는 출재사가 특정 중개회사를 해당 계약의 공식 중개사로 지정한다는 서한입니다. 경쟁 중개회사가 이를 받아오면 기존 중개사는 고객과 재보험사에 대한 권한을 잃을 수 있어, 서한이 효력을 갖기 전에 고객을 설득하는 것이 흔한 대응입니다.",
+      "industry_en": [
+        "\"We received a BOR letter from a competing broker this morning.\"",
+        "\"The BOR becomes effective after a ten-day waiting period.\""
+      ],
+      "game_example_ko": "고객과의 관계가 두텁지 않으면 경쟁 브로커의 BOR 레터가 도착할 수 있어요. 메일의 선택지에 따라 한 주 뒤 고객이 떠날 확률이 달라지고, 떠나면 열려 있던 트리티는 더 협상할 수 없어요."
+    },
+    "related": [
+      "gl_broker",
+      "gl_cedant"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
+  },
+  {
+    "id": "gl_regulatory_inspection",
+    "term_ko": "감독 점검",
+    "term_en": "Regulatory inspection",
+    "gloss_ko": "당국의 정기 검사",
+    "aliases": [
+      "정기 점검",
+      "컴플라이언스 점검",
+      "규제 점검",
+      "inspection",
+      "thematic review"
+    ],
+    "category": "sg",
+    "level1_ko": "금융감독당국이 회사가 규칙을 지키는지 직접 들여다보는 검사예요.",
+    "level2_ko": "학교의 위생 점검처럼 예고 없이 오기도 해요. 평소의 기록이 깔끔한 곳은 무사히 넘어가요.",
+    "level3": {
+      "industry_ko": "감독 점검(regulatory inspection)은 금융감독당국이 중개회사의 고객 자금 분리 관리, 이해상충 공시, 접대·선물 기록 같은 영업 행위 규정 준수 여부를 확인하는 절차입니다. 결과에 따라 통과, 보완 요청, 과태료 같은 조치가 나올 수 있고, 평소 컴플라이언스 기록이 판단의 근거가 됩니다.",
+      "industry_en": [
+        "\"The regulator conducted a routine inspection of our client money handling.\"",
+        "\"We were asked to submit a remediation plan within 30 days.\""
+      ],
+      "game_example_ko": "컴플라이언스 점수가 높을수록 점검 결과가 좋아요. 점수가 충분하면 통과하고 평판이 오르고, 중간이면 경고와 함께 이사회 신뢰가 깎이고, 낮으면 과태료가 붙어요."
+    },
+    "related": [
+      "gl_broker"
+    ],
+    "appears_in": [
+      "inbox"
+    ]
   }
 ]

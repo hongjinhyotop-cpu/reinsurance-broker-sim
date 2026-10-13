@@ -3,6 +3,7 @@
 import * as store from '../store.js';
 import { ATTRS, revealAttr, stageOf, awareness } from '../reveal.js';
 import { unlockedNotes } from '../scouting.js';
+import { liveClients, liveReinsurers } from '../live.js';
 import { meet, meetBlockReason } from '../turn.js';
 import { h, toast, rangeBar, gauge } from './components.js';
 import { richText, glossaryLink } from './glossary_view.js';
@@ -45,19 +46,20 @@ let topic = 'general';
 let lastMeeting = null; // { id, topicLabel, newNotes, stageUps }
 
 function entitiesOf(data, state, kind) {
-  const defs = kind === 'client' ? data.clients : data.reinsurers;
+  const defs = kind === 'client' ? liveClients(state, data.clients) : liveReinsurers(state, data.reinsurers); // 사건이 바꾼 등급·용량·요구 조건
   const dyn = kind === 'client' ? state.entities.clients : state.entities.reinsurers;
   return defs.map((def) => ({ def, dyn: dyn[def.id] }));
 }
 
 function ratingOf(def) {
-  return def.profile ? def.profile.rating : def.rating;
+  if (def.profile) return def.profile.rating;
+  return def.live?.downgraded ? `${def.rating} (강등, 원래 ${def.live.baseRating})` : def.rating;
 }
 
 function scaleText(def) {
   if (def.profile) return `수입보험료 $${def.profile.gwp_usd_m}m`;
   const total = Object.values(def.capacity_usd_m).reduce((a, b) => a + b, 0);
-  return `총 용량 $${total}m`;
+  return `총 용량 $${Math.round(total * 10) / 10}m${def.live?.capacityShrunk ? ' (일시 축소)' : ''}`;
 }
 
 function renderTable(rows, kind) {
@@ -99,7 +101,7 @@ function renderProfile(def, dyn, kind) {
     add('담당자', `${def.contact.name} (${def.contact.title})`);
     add('싱가포르 지점', def.onshore ? '있음' : '없음');
     add(glossaryLink('gl_shariah', { label: '샤리아 준수' }), def.shariah_ok ? '가능' : '해당 없음');
-    add(glossaryLink('gl_capacity', { label: '인수 용량' }), Object.entries(def.capacity_usd_m).filter(([, v]) => v > 0).map(([l, v]) => `${LINE_KO[l]} $${v}m`).join(' · '));
+    add(glossaryLink('gl_capacity', { label: '인수 용량' }), Object.entries(def.capacity_usd_m).filter(([, v]) => v > 0).map(([l, v]) => `${LINE_KO[l]} $${Math.round(v * 10) / 10}m`).join(' · ') + (def.live?.capacityShrunk ? ' (일시 축소 중)' : ''));
   }
   add('관계도', `${Math.round(dyn.relationship)} / 100`);
   const intro = kind === 'client' ? def.profile.intro_ko : def.intro_ko;

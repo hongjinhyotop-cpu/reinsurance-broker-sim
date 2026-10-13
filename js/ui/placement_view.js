@@ -6,6 +6,7 @@ import * as store from '../store.js';
 import { describeTurn } from '../calendar.js';
 import { boardCheck, publicShareCap } from '../negotiation.js';
 import * as placement from '../placement.js';
+import { liveClient, liveReinsurers } from '../live.js';
 import { responseHint, verdictHint } from '../guide.js';
 import { h, toast, confirmDialog } from './components.js';
 import { glossaryLink, resetTermScope } from './glossary_view.js';
@@ -51,17 +52,19 @@ function initBoard(data, state, treatyId) {
 // 이 트리티 라인을 받는 재보험사들. 만기 패널 순서를 먼저 두어 고스트 막대와 정렬이 맞게 한다.
 function boardContext(data, state) {
   const treaty = data.treaties.find((t) => t.id === board.treatyId);
-  const client = data.clients.find((c) => c.id === treaty.client);
+  const client = liveClient(state, data.clients.find((c) => c.id === treaty.client)); // 사건이 덮어쓴 요구 조건(M6b)
   const expiringIds = treaty.expiring.panel.map((m) => m.re);
-  const byId = new Map(data.reinsurers.map((r) => [r.id, r]));
+  const liveRe = liveReinsurers(state, data.reinsurers); // 사건이 바꾼 등급·용량
+  const byId = new Map(liveRe.map((r) => [r.id, r]));
   const takes = (r) => r.capacity_usd_m[treaty.line] > 0 || expiringIds.includes(r.id);
-  const ordered = [...expiringIds.map((id) => byId.get(id)), ...data.reinsurers.filter((r) => !expiringIds.includes(r.id))].filter(takes);
+  const ordered = [...expiringIds.map((id) => byId.get(id)), ...liveRe.filter((r) => !expiringIds.includes(r.id))].filter(takes);
   const timing = placement.treatyTiming(data, state, treaty);
   return {
     treaty, client, expiringIds, reinsurers: ordered, season: timing.season, t: state.treaties[treaty.id],
     colorOf: new Map(ordered.map((r, i) => [r.id, i % 5])),
     toInception: timing.toInception,
-    placed: state.treaties[treaty.id].phase === 'placed',
+    placed: state.treaties[treaty.id].phase !== 'open', // 확정(placed)이거나 고객 이탈(lost)이면 보드를 잠근다
+    lost: state.treaties[treaty.id].phase === 'lost',
   };
 }
 
@@ -114,7 +117,7 @@ function deferRender(rerender) {
 // 지분·RC를 바꾸면 제안했던 행은 "미제안"으로 돌아간다(확정 지분도 사라진다).
 function changeInput(kind, id, value, rerender, { deferred = false } = {}) {
   const t = store.getState().treaties[board.treatyId];
-  if (t.phase === 'placed') return;
+  if (t.phase !== 'open') return;
   const map = kind === 'share' ? board.shares : board.rcs;
   const same = (map[id] ?? (kind === 'share' ? 0 : undefined)) === value;
   if (!same) {
@@ -347,7 +350,9 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
     h('div', { class: 'pl-row-head' },
       h('span', { class: 'pl-swatch', 'aria-hidden': 'true' }),
       h('strong', {}, reinsurer.name_ko),
-      h('span', { class: 'tag' }, reinsurer.rating),
+      h('span', { class: reinsurer.live?.downgraded ? 'tag tag-bad' : 'tag', title: reinsurer.live?.downgraded ? `사건으로 등급이 ${reinsurer.live.baseRating}에서 내려갔어요` : null },
+        reinsurer.live?.downgraded ? `${reinsurer.rating} (강등, 원래 ${reinsurer.live.baseRating})` : reinsurer.rating),
+      reinsurer.live?.capacityShrunk ? h('span', { class: 'tag tag-warn', title: '사건으로 일정 기간 인수 용량이 줄었어요' }, '용량 일시 축소') : null,
       reinsurer.shariah_ok ? h('span', { class: 'tag' }, glossaryLink('gl_shariah', { label: '샤리아' })) : null,
       h('span', { class: 'dim pl-cap' }, `${cap.exact ? '확인된 상한' : '이론 상한'} ${cap.exact ? '' : '~'}${share(cap.value)}`),
       expiringShare > 0 ? h('span', { class: 'dim pl-cap' }, `만기 ${share(expiringShare)}`) : null,
@@ -506,7 +511,7 @@ export function renderPlacement() {
             id: 'pl-treaty', class: 'pl-select',
             onchange: (ev) => { initBoard(data, state, ev.target.value); focusKey = 'treaty'; rerender(); }, 'data-key': 'treaty',
           }, data.treaties.map((t) => h('option', { value: t.id, selected: t.id === board.treatyId ? true : null },
-            `${t.name_ko}${state.treaties[t.id].phase === 'placed' ? ' (확정)' : ''}`)))),
+            `${t.name_ko}${state.treaties[t.id].phase === 'placed' ? ' (확정)' : state.treaties[t.id].phase === 'lost' ? ' (고객 이탈)' : ''}`)))),
         h('div', { class: 'field' },
           h('label', { for: 'pl-terms' }, '약관 조건'),
           h('select', {
@@ -564,6 +569,15 @@ export function renderPlacement() {
         '를 쓰고, 너무 낮은 가격으로 거절당하면 그 재보험사의 인내심과 관계도가 깎여요. 입력칸에서 ← → 로 5%씩, Shift+← →로 1%씩 조절할 수 있어요.'),
       !locked && state.ap < Math.min(cfg.ask_ap, cfg.propose_ap) ? h('div', { class: 'notice notice-warn', role: 'status' }, '이번 주 행동 점수를 다 썼어요. Continue로 다음 주로 넘어가면 새로 채워져요.') : null);
 
+    const lostBanner = ctx.lost
+      ? h('div', { class: 'notice notice-warn', role: 'status' }, h('strong', {}, '고객이 경쟁 브로커로 옮겨 갔어요. '), '이 트리티는 더 협상할 수 없어요.')
+      : null;
+    const downgradeBanner = !locked && ctx.reinsurers.some((r) => r.live?.downgraded)
+      ? h('div', { class: 'notice notice-warn', role: 'status' },
+        h('strong', {}, '재보험사 등급이 내려갔어요. '),
+        ctx.reinsurers.filter((r) => r.live?.downgraded).map((r) => `${r.name_ko}: ${r.live.baseRating} → ${r.rating}`).join(' · '),
+        ' — 고객의 최소 등급에 못 미치는 곳은 패널에서 빼야 제출할 수 있어요.')
+      : null;
     const urgent = !locked && placement.isUrgent(data, state, trt)
       ? h('div', { class: 'pl-urgent', role: 'status' },
         h('span', { class: 'pl-urgent-icon', 'aria-hidden': 'true' }, '⏰'),
@@ -581,7 +595,9 @@ export function renderPlacement() {
     const verdict = verdictText(data, ctx);
     const nextText = verdict ? verdictHint(data, state, ctx.t) : null;
     const submitChildren = [h('h2', {}, '고객에게 제출')];
-    if (locked) {
+    if (ctx.lost) {
+      submitChildren.push(h('p', { class: 'pl-resp pl-resp-reject', role: 'status' }, '고객이 다른 브로커로 옮겨 가서 제출할 수 없어요.'));
+    } else if (locked) {
       submitChildren.push(
         h('p', { class: 'pl-resp pl-resp-accept', role: 'status' }, verdict),
         nextText ? nextLine(nextText) : null,
@@ -611,7 +627,7 @@ export function renderPlacement() {
     // 서두름 띠처럼 없을 수 있는 조각은 null이다. replaceChildren에 null을 그대로 넘기면 "null"이라는 글자가 들어가므로 걸러서 넘긴다.
     root.replaceChildren(...[
       h('h1', {}, '플레이스먼트 — ', glossaryLink('gl_line', { label: '라인' }), ' 구성 보드'),
-      urgent, header, boardCard, rows,
+      urgent, lostBanner, downgradeBanner, header, boardCard, rows,
       h('section', { class: 'card', 'aria-label': '표로 보기' }, h('h2', {}, '표로 보기'), accessibleTable(ctx, state, check)),
       h('div', { class: 'pl-bottom' }, submit, log),
     ].filter((node) => node !== null));
