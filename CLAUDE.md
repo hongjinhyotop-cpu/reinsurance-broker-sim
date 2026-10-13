@@ -10,7 +10,7 @@
 ## 1차 범위 (고정)
 - 1년 4분기 + 프리시즌, 고객 3 · 재보험사 5 · 이벤트 10.
 - 핵심 기능 3가지: ① 용어집(3단계 카드·도감. Anki CSV는 보류 — design.md §13.1) ② 숨겨진 속성 스카우팅(미팅할수록 공개) ③ 라인 구성 보드(리스크 100%를 재보험사들이 나눠 채움).
-- 직원 육성, 경쟁 브로커 이직 오퍼, 시장 사이클 그래프, 딜 복기, 멘토 메일, 엔딩 분기는 **2차 확장**이다. 요청 없이 구현하지 않는다.
+- 직원 육성, 경쟁 브로커 이직 오퍼, 시장 사이클 그래프, 딜 복기, 상황별 멘토 메일, 엔딩 분기는 **2차 확장**이다. 요청 없이 구현하지 않는다. (프리시즌 선배 메일 4통·안내띠·"다음엔 이렇게"는 길잡이로 v1에 들어왔다 — design.md §2.6·§6.0.1·§6.3)
 
 ## 파일 구조
 ```
@@ -18,7 +18,7 @@ index.html            진입점
 docs/design.md        설계 문서
 css/                  base.css(토큰·셸), screens.css
 js/                   main, loader, store, rng, calendar, market, negotiation, placement, reveal,
-                      scouting, glossary, anki, effects, events, mail, turn, finance, rivals
+                      scouting, glossary, anki, effects, events, mail, turn, finance, rivals, guide, prefs
 js/ui/                components, shell, start, settings, inbox, database,
                       placement_view, glossary_view, calendar_view, standings, review
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
@@ -42,7 +42,7 @@ tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연
 - 숨은 속성(`hidden.*`)의 원값을 UI에 직접 출력하지 않는다. 반드시 `reveal.js`를 거친다.
 
 ## 세이브 규칙
-- 키 `rbs:save:v1:<slot>`, 도감은 별도 키 `rbs:codex:v1`(새 게임에도 유지).
+- 키 `rbs:save:v1:<slot>`, 도감은 별도 키 `rbs:codex:v1`(새 게임에도 유지), 화면 설정(안내띠 켜기/끄기)은 별도 키 `rbs:prefs:v1`.
 - 세이브에는 동적 상태만 저장하고 정적 콘텐츠는 id로 참조한다.
 - 구조를 바꾸면 `version`을 올리고 `store.js`에 마이그레이션을 추가한다. localStorage 접근은 try/catch로 감싼다.
 
