@@ -31,6 +31,12 @@
         "loyalty": 20
       }
     },
+    "meeting_reactions": {
+      "general": "탄 웨이밍은 출력본 귀퉁이에 뭔가를 적더니 \"오늘 내용은 이사회 자료에 한 줄로 정리해 두겠습니다\"라고 했다.",
+      "conservatism": "\"좋은 제안이네요. 다만 작년 구조와 달라지는 부분을 표로 정리해 주시겠어요?\" 탄은 펜을 내려놓지 않았다.",
+      "price_sensitivity": "\"숫자는 이해했습니다. 그 근거가 된 자료는 어디 있죠?\" 탄은 목표 요율 칸에 동그라미를 쳤다.",
+      "loyalty": "\"다른 중개사들도 만나 보셨겠죠.\" 탄은 웃으며 말했지만, 그 옆에는 우리와 거래한 이력을 뽑은 인쇄본이 놓여 있었다."
+    },
     "scout_notes": [
       {
         "attr": "conservatism",
@@ -69,7 +75,10 @@
       "preferred_terms": "standard",
       "shariah_required": false,
       "shariah_conventional_cap": null
-    }
+    },
+    "treaties": [
+      "trt_jurong_property_xl"
+    ]
   },
   {
     "id": "cli_straits_port",
@@ -102,6 +111,12 @@
         "price_sensitivity": 15,
         "loyalty": 10
       }
+    },
+    "meeting_reactions": {
+      "general": "라지브는 시계를 두 번 보더니 \"좋아요, 다음 건은요?\" 하고 일어섰다.",
+      "conservatism": "\"새 구조요? 싸면 하고, 비싸면 말죠.\" 라지브는 설명을 반쯤 듣다 말고 어깨를 으쓱했다.",
+      "price_sensitivity": "\"그래서 얼마요?\" 이야기가 끝나기도 전에 라지브는 숫자부터 물었고, 메모지에는 숫자 하나만 적혀 있었다.",
+      "loyalty": "\"올해는 같이 갑시다. 내년은 그때 가서 보죠.\" 라지브가 건넨 명함의 직함이 또 바뀌어 있었다."
     },
     "scout_notes": [
       {
@@ -141,7 +156,10 @@
       "preferred_terms": "standard",
       "shariah_required": false,
       "shariah_conventional_cap": null
-    }
+    },
+    "treaties": [
+      "trt_straits_marine_xl"
+    ]
   },
   {
     "id": "cli_nusantara",
@@ -174,6 +192,12 @@
         "price_sensitivity": 10,
         "loyalty": 15
       }
+    },
+    "meeting_reactions": {
+      "general": "파라는 가족 안부를 한참 물은 뒤에야 본론으로 들어갔다. \"서두르실 일은 아니지요.\"",
+      "conservatism": "\"좋은 말씀이십니다. 샤리아 위원회와 상의해 보고 답드리겠습니다.\" 파라는 정중하게 고개를 끄덕였다.",
+      "price_sensitivity": "\"가격도 중요하지만, 함께 갈 분들이 누구인지가 먼저예요.\" 파라는 차를 한 모금 마셨다.",
+      "loyalty": "\"작년에도, 재작년에도 함께해 주셨지요.\" 파라는 지난 거래 때 있었던 일을 하나하나 기억하고 있었다."
     },
     "scout_notes": [
       {
@@ -213,6 +237,7 @@
       "preferred_terms": "standard",
       "shariah_required": true,
       "shariah_conventional_cap": 0.2
-    }
+    },
+    "treaties": []
   }
 ]
