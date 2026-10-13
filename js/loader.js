@@ -74,6 +74,10 @@ export function validateConfig(cfg, file = 'config.json') {
     c.str(g.firm_name, 'game.firm_name', 60);
   }
 
+  if (c.object(cfg.turn, 'turn')) {
+    c.int(cfg.turn.deadline_warning_weeks, 'turn.deadline_warning_weeks', 0, 10);
+  }
+
   if (c.object(cfg.market, 'market')) {
     const m = cfg.market;
     c.num(m.intel_error_k, 'market.intel_error_k', 0, 100);
@@ -150,6 +154,136 @@ export function validateCalendar(cal, file = 'calendar.json') {
   return errors;
 }
 
+// ---------- 메일 (design.md §10.5, §10.8) ----------
+
+export const MAIL_TYPES = ['client_request', 'reinsurer_response', 'event', 'regulatory', 'market_report', 'board', 'system'];
+export const MAIL_FROM_KINDS = ['client', 'reinsurer', 'regulator', 'market', 'board', 'system'];
+export const MAIL_PRIORITIES = ['urgent', 'normal', 'low'];
+// M1에서 쓸 수 있는 치환 변수. {client.*} 등은 해당 데이터가 생기는 마일스톤에서 추가한다.
+export const MAIL_VARS = ['market.label', 'turn.label', 'player.firm'];
+// 효과 연산자: 닫힌 집합(§10.8). 아직 구현하지 않은 연산자는 별도로 안내한다.
+export const EFFECT_OPS = ['add', 'set', 'mul', 'flag_set', 'flag_clear', 'mail_send', 'cash'];
+const LATER_OPS = { event_schedule: 'M6', modifier_add: 'M6' };
+// M1에서 효과가 닿을 수 있는 곳: player / market 의 수치 필드뿐.
+export const EFFECT_FIELDS = {
+  player: ['reputation', 'compliance', 'board_confidence', 'market_intel'],
+  market: ['index'],
+};
+const ID_RE = /^[a-z][a-z0-9_]*$/;
+
+function validateText(c, text, path) {
+  if (typeof text !== 'string') return;
+  if (text.includes('[[')) c.fail(path, '용어 마크업 [[…]]은 M2(용어집)부터 쓸 수 있어요', text);
+  for (const m of text.matchAll(/\{([^{}]*)\}/g)) {
+    if (!MAIL_VARS.includes(m[1])) c.fail(path, `쓸 수 없는 치환 변수 {${m[1]}} — 지금은 ${MAIL_VARS.map((v) => `{${v}}`).join(' ')}만 돼요`);
+  }
+}
+
+function validateEffects(c, effects, path, mailIds) {
+  if (!c.array(effects, path)) return;
+  effects.forEach((ef, i) => {
+    const p = `${path}[${i}]`;
+    if (!c.object(ef, p)) return;
+    if (LATER_OPS[ef.op]) {
+      c.fail(`${p}.op`, `${ef.op}는 ${LATER_OPS[ef.op]} 단계에서 지원해요`, ef.op);
+      return;
+    }
+    if (!EFFECT_OPS.includes(ef.op)) {
+      c.fail(`${p}.op`, `알 수 없는 연산자예요(${EFFECT_OPS.join(' / ')} 중 하나)`, ef.op);
+      return;
+    }
+    if (ef.op === 'add' || ef.op === 'set' || ef.op === 'mul') {
+      if (ef.target !== 'player' && ef.target !== 'market') {
+        c.fail(`${p}.target`, '지금은 player 또는 market만 쓸 수 있어요', ef.target);
+      } else if (!EFFECT_FIELDS[ef.target].includes(ef.field)) {
+        c.fail(`${p}.field`, `${ef.target}에서 쓸 수 있는 필드는 ${EFFECT_FIELDS[ef.target].join(' / ')}예요`, ef.field);
+      }
+      c.num(ef.value, `${p}.value`);
+      if (ef.min !== undefined) c.num(ef.min, `${p}.min`);
+      if (ef.max !== undefined) c.num(ef.max, `${p}.max`);
+    } else if (ef.op === 'cash') {
+      c.num(ef.value, `${p}.value`);
+    } else if (ef.op === 'flag_set' || ef.op === 'flag_clear') {
+      if (c.str(ef.flag, `${p}.flag`, 60) && !ID_RE.test(ef.flag)) c.fail(`${p}.flag`, 'snake_case 영문이어야 해요', ef.flag);
+    } else if (ef.op === 'mail_send') {
+      if (c.str(ef.mail, `${p}.mail`, 80) && !mailIds.has(ef.mail)) c.fail(`${p}.mail`, 'mails.json에 없는 메일 id예요', ef.mail);
+      if (ef.delay_weeks !== undefined) c.int(ef.delay_weeks, `${p}.delay_weeks`, 0, 60);
+    }
+  });
+}
+
+export function validateMails(mails, file = 'mails.json', calendar = null) {
+  const errors = [];
+  const c = checker(file, errors);
+  if (!c.array(mails, '(최상위)')) return errors;
+
+  const ids = new Set();
+  for (const m of mails) if (isObj(m) && typeof m.id === 'string') ids.add(m.id);
+  const seen = new Set();
+  const turns = calendar?.turns ?? Infinity;
+
+  mails.forEach((m, i) => {
+    const p = `[${i}]`;
+    if (!c.object(m, p)) return;
+    const label = typeof m.id === 'string' ? `${p}(${m.id})` : p;
+    if (c.str(m.id, `${label}.id`, 80)) {
+      if (!/^mail_[a-z0-9_]+$/.test(m.id)) c.fail(`${label}.id`, 'mail_ 로 시작하는 snake_case여야 해요', m.id);
+      if (seen.has(m.id)) c.fail(`${label}.id`, '다른 메일과 id가 겹쳐요', m.id);
+      seen.add(m.id);
+    }
+    if (!MAIL_TYPES.includes(m.type)) c.fail(`${label}.type`, `${MAIL_TYPES.join(' / ')} 중 하나여야 해요`, m.type);
+    if (c.object(m.from, `${label}.from`)) {
+      if (!MAIL_FROM_KINDS.includes(m.from.kind)) c.fail(`${label}.from.kind`, `${MAIL_FROM_KINDS.join(' / ')} 중 하나여야 해요`, m.from.kind);
+      c.str(m.from.name_ko, `${label}.from.name_ko`, 60);
+    }
+    if (c.str(m.subject_ko, `${label}.subject_ko`, 120)) validateText(c, m.subject_ko, `${label}.subject_ko`);
+    if (c.array(m.body_ko, `${label}.body_ko`, 1)) {
+      m.body_ko.forEach((line, j) => {
+        if (c.str(line, `${label}.body_ko[${j}]`, 600)) validateText(c, line, `${label}.body_ko[${j}]`);
+      });
+    }
+    if (!MAIL_PRIORITIES.includes(m.priority)) c.fail(`${label}.priority`, `${MAIL_PRIORITIES.join(' / ')} 중 하나여야 해요`, m.priority);
+    if (typeof m.blocking !== 'boolean') c.fail(`${label}.blocking`, 'true 또는 false여야 해요', m.blocking);
+
+    const hasDeadline = m.deadline_weeks !== undefined;
+    if (hasDeadline) c.int(m.deadline_weeks, `${label}.deadline_weeks`, 1, 20);
+    if (m.schedule !== undefined && c.object(m.schedule, `${label}.schedule`)) {
+      c.int(m.schedule.turn, `${label}.schedule.turn`, 1, turns);
+    }
+
+    if (!c.array(m.choices, `${label}.choices`)) return;
+    const choiceIds = new Set();
+    m.choices.forEach((ch, j) => {
+      const cp = `${label}.choices[${j}]`;
+      if (!c.object(ch, cp)) return;
+      if (c.str(ch.id, `${cp}.id`, 40)) {
+        if (!ID_RE.test(ch.id)) c.fail(`${cp}.id`, 'snake_case 영문이어야 해요', ch.id);
+        if (choiceIds.has(ch.id)) c.fail(`${cp}.id`, '같은 메일의 다른 선택지와 겹쳐요', ch.id);
+        choiceIds.add(ch.id);
+      }
+      if (c.str(ch.label_ko, `${cp}.label_ko`, 120)) validateText(c, ch.label_ko, `${cp}.label_ko`);
+      c.int(ch.ap_cost, `${cp}.ap_cost`, 0, 6);
+      validateEffects(c, ch.effects, `${cp}.effects`, ids);
+      if (c.str(ch.result_ko, `${cp}.result_ko`, 400)) validateText(c, ch.result_ko, `${cp}.result_ko`);
+    });
+
+    // 마감·기본 선택·막힘의 약속
+    if (m.choices.length === 0) {
+      if (m.blocking === true) c.fail(`${label}.blocking`, '선택지가 없는 메일은 막힘(blocking)일 수 없어요', m.blocking);
+      if (hasDeadline) c.fail(`${label}.deadline_weeks`, '선택지가 없는 메일에는 마감이 필요 없어요', m.deadline_weeks);
+      if (m.default_choice !== undefined) c.fail(`${label}.default_choice`, '선택지가 없는 메일에는 필요 없어요', m.default_choice);
+    } else if (!hasDeadline) {
+      if (m.blocking === true) c.fail(`${label}.blocking`, '막힘 메일은 deadline_weeks가 있어야 해요', m.blocking);
+      if (m.default_choice !== undefined) c.fail(`${label}.default_choice`, 'deadline_weeks가 없으면 필요 없어요', m.default_choice);
+    } else {
+      const def = m.choices.find((ch) => isObj(ch) && ch.id === m.default_choice);
+      if (!def) c.fail(`${label}.default_choice`, '선택지 id 중 하나여야 해요', m.default_choice);
+      else if (def.ap_cost !== 0) c.fail(`${label}.default_choice`, '마감 자동 처리에는 행동 점수가 들지 않으니 ap_cost 0인 선택지여야 해요', m.default_choice);
+    }
+  });
+  return errors;
+}
+
 // 파일 사이의 약속(서로 다른 파일이 같은 값을 말해야 하는 것).
 export function validateCross({ config, calendar }) {
   const errors = [];
@@ -166,6 +300,7 @@ export function validateCross({ config, calendar }) {
 export const DATA_FILES = [
   { key: 'config', file: 'config.json', validate: validateConfig },
   { key: 'calendar', file: 'calendar.json', validate: validateCalendar },
+  { key: 'mails', file: 'mails.json', validate: (mails, file, raw) => validateMails(mails, file, raw.calendar) },
 ];
 
 // 정적 콘텐츠를 실수로 고치는 코드를 바로 잡아내려고 통째로 얼린다.
@@ -199,9 +334,9 @@ export async function loadData({ baseUrl = new URL('../data/', import.meta.url),
 
   // 오류 순서가 매번 같도록 DATA_FILES 순서로 모은다.
   const errors = [];
-  for (const { key, validate } of DATA_FILES) {
+  for (const { key, file, validate } of DATA_FILES) {
     if (fetchErrors[key]) errors.push(fetchErrors[key]);
-    else errors.push(...validate(raw[key]));
+    else errors.push(...validate(raw[key], file, raw));
   }
   if (errors.length === 0) errors.push(...validateCross(raw));
 
