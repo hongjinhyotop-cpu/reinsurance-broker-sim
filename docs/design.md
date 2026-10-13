@@ -449,7 +449,11 @@ UI 톤: 표 중심의 고밀도 레이아웃, 다크 기본. 색·간격은 CSS 
   - **거부**: 같은 방식으로 다음 주부터 다시 제출할 수 있고 거부 횟수(`rejections`)를 센다. 타 브로커 검토·BOR 사건(§8)은 M6에서 이 숫자를 읽는다.
 - `placed`가 된 트리티는 보드가 읽기 전용이 되고, 확정 패널과 최종 평균 RC(`final_rc`)만 보여 준다. 브로커리지·재무 반영은 M7이다.
 - **저장**: 의견 묻기·제안·반제 수락·제출을 할 때마다 자동 저장한다. 행 전체는 `treaty.panel[]`(§10.9)에 남고, 아직 제안하지 않은 입력 중인 숫자는 화면에만 있다(다시 열면 마지막 제안값에서 시작).
-- 구조 옵션의 `client_cons_penalty`(고객 평가 감점)는 아직 평가식에 넣지 않았다(M5b 범위 밖, §14).
+- 구조 옵션의 `client_cons_penalty`는 이제 고객 평가식에 들어간다(§7.5 "구조 옵션 감점"). 화면에는 숫자 없이 "보수적인 고객에게는 부담일 수 있어요"라는 안내만 띄운다.
+
+**목소리와 이유 한 줄 (M5b 후속)**
+- **재보험사 목소리**: 제안 응답(수락/반제/거절)에는 그 재보험사의 말투로 한두 줄이 붙는다. 문구는 `reinsurers.json`의 `response_lines`(§10.2)에 있고, 응답 종류로 골라 보여 줄 뿐 세이브에는 저장하지 않는다. 숨은 성격 이름이나 숫자는 쓰지 않는다. 식욕 없음·샤리아 불가 같은 사유 있는 거절과 의견 묻기에는 붙이지 않는다(사유 문구가 이미 있다).
+- **고객 이유 한 줄**: 제출 결과(매우 만족/수락/재협상/거부)에는 고객이 자기 말투로 이유를 한 줄 말한다. 어떤 이유인지는 실제 평가 계산에서 정한다(§7.5 "이유 고르기"). 문구는 `clients.json`의 `verdict_reasons`(§10.1)에 있고, 고른 이유 종류(`verdict_reason`)만 세이브에 남는다.
 
 ### 6.4 캘린더
 - 58턴을 분기별 그리드로 표시. 시즌 창구(6주 띠), 인셉션 마크, 메일 마감일, 예정 이벤트(알려진 것만), 이번 주 강조.
@@ -521,7 +525,7 @@ max_share  = min( max_line_r / treaty.limit , R.max_single_share , client.max_si
 | 번들 약속 | `A_bundle` 감소 | 이행 의무 생성, 불이행 시 페널티 |
 | 경쟁 견적 언급(진실) | 실제 보유한 타사 견적 `q`가 있으면 `F_r −= min(2, 0.5 × (F_r − q))` | 상대방 기밀 공개 시 컴플라이언스 −3 |
 | 경쟁 견적 언급(허세) | 같은 효과를 주장 | 탐지 확률 `0.3 + 0.4 × conservatism_r/100`(보수적인 곳일수록 확인함); 들키면 관계 −6, 컴플라이언스 −3, 해당 재보험사 인내심 0 |
-| 구조 옵션 | 트리티 `structure_options` 선택 (예: 자기부담 상향) → `F_r += f_adj` (음수가 일반적) | 고객 보수성 따라 `U` 감점 |
+| 구조 옵션 | 트리티 `structure_options` 선택 (예: 자기부담 상향) → `F_r += f_adj` (음수가 일반적) | 고객 보수성 따라 `U` 감점 (§7.5 "구조 옵션 감점") |
 | 관계 호의 사용 | 인내심 +1 또는 반제 폭 확대 | 관계 −3 |
 
 ### 7.4 지분 배정 규칙
@@ -548,6 +552,18 @@ w_T = 0.10                      w_V = 0.15      (합이 1이 되도록 정규화
 U   = Σ w_k × score_k
 θ_c = 70 − 0.10 × goodwill_c                     # 수락 임계값 (60–70)
 ```
+
+**구조 옵션 감점**: 구조 옵션을 골랐다면 `U`에서 직접 뺀다.
+```
+structure_cut = structure_k × (conservatism_c/100) × client_cons_penalty     # structure_k = 2.5 (config)
+U = Σ w_k × score_k − structure_cut
+```
+보수적인 고객일수록 감점이 크다. 옵션은 가격 하한을 낮춰(`f_adj`) PS를 올려 주지만, 보수성 높은 고객에게는 그 이득을 감점이 상쇄하거나 넘어서므로 "가격만 낮추는 공짜 수단"이 아니다. 가격에 민감하고 보수성이 낮은 고객에게는 여전히 쓸 만하다. 화면에는 감점 숫자를 보이지 않는다.
+
+**이유 고르기**(`clientReason`, 순수 함수): 결과가 재협상/거부면 "깎인 몫"이 가장 큰 항목을, 수락/매우 만족이면 "기여한 몫"이 가장 큰 항목을 이유로 고른다.
+- 나쁜 이유 후보: `price`·`security`·`continuity`·`terms`·`service`는 `w_k × (100 − score_k)`, `structure`는 `structure_cut` (구조 옵션을 고른 경우만).
+- 좋은 이유 후보: `price`·`security`·`continuity`·`terms`·`service`의 `w_k × score_k`.
+- 동점이면 위 나열 순서가 앞선 항목. 고객마다 가중치가 달라 같은 패키지라도 이유가 다를 수 있다. 문구는 항목의 상황만 말하고 성격 이름·숫자는 쓰지 않는다.
 
 | U | 결과 |
 |---|---|
@@ -669,6 +685,10 @@ U   = Σ w_k × score_k
   "meeting_reactions": {                      // 미팅 직후 보여 주는 반응 한 줄(M4 추가). 주제별 1줄, 성격 이름·숫자 금지
     "general": "…", "conservatism": "…", "price_sensitivity": "…", "loyalty": "…"
   },
+  "verdict_reasons": {                        // 제출 결과 이유 한 줄(M5b 후속). good = 수락·매우 만족, bad = 재협상·거부
+    "good": { "price": "…", "security": "…", "continuity": "…", "terms": "…", "service": "…" },
+    "bad":  { "price": "…", "security": "…", "continuity": "…", "terms": "…", "service": "…", "structure": "…" }
+  },
   "scout_notes": [                            // s ≥ min_scout 이면 스카우트 리포트에 인용
     { "attr": "conservatism",     "min_scout": 25, "text_ko": "\"패널은 가급적 그대로 가져가고 싶습니다.\" 지난 3년간 재보험사 구성이 바뀐 적이 없다." },
     { "attr": "conservatism",     "min_scout": 60, "text_ko": "신규 재보험사 소개에는 늘 '내부 위원회 심사 필요'라고 답한다." },
@@ -700,6 +720,7 @@ U   = Σ w_k × score_k
   "behavior": { "response_weeks": 1, "patience": 3, "max_single_share": 0.40 },
   "initial": { "relationship": 45, "scout": { "conservatism": 15, "price_sensitivity": 20, "loyalty": 5 } },
   "meeting_reactions": { /* 고객과 동일한 형식 (M4 추가) */ },
+  "response_lines": { "accept": "…", "counter": "…", "reject": "…" },   // 제안 응답 한두 줄(M5b 후속). 그 사람의 말투, 성격 이름·숫자 금지
   "scout_notes": [ /* 고객과 동일한 형식 */ ]
 }
 ```
@@ -952,7 +973,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
                    "terms": "standard", "status": "accepted",       // draft | accepted | countered | rejected
                    "last": { "mode": "propose", "kind": "accept", "rc": -1.0, "share": 0.30, "hint": "near", "err_pp": 3.0, "limited": false, "reason": null },
                    "cap_known": 0.38, "history": [ { "n": 1, "turn": 3, "mode": "propose", "kind": "accept", "rc": -1.0, "share": 0.30 } ] } ],   // n = 트리티 안에서 몇 번째 행동인지(로그 순서)
-      "retry_turn": 0, "renegotiations": 0, "rejections": 0, "moves": 1, "verdict": null,
+      "retry_turn": 0, "renegotiations": 0, "rejections": 0, "moves": 1, "verdict": null, "verdict_reason": null,
       "final_rc": null, "obligations": [] } },
   "mails": [ { "id": "m_0001", "template": "mail_renewal_kickoff_c1", "turn": 1, "read": true,
                "answered": "assist", "thread": "t_01" } ],
@@ -963,6 +984,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
 }
 ```
 - `version` 불일치 시 `store.js`의 마이그레이션 체인(`migrate_1_to_2` …)을 거친다. 마이그레이션 없이 구조를 바꾸지 않는다.
+- **세이브 v4** (이유 한 줄): 트리티에 `verdict_reason`(`price`·`security`·`continuity`·`terms`·`service`·`structure` 중 하나 또는 `null`)을 더했다. 고객 반응을 받을 때 채워지고, 문구는 `clients.json`에서 찾는다. `3→4` 변환은 모든 트리티에 `verdict_reason: null`을 채운다.
 - **M5b: 세이브 v3.** v2의 `treaties`는 비어 있었다. v3부터 새 게임이 시작될 때 트리티마다 `{ phase: "open", prep_quality: 0, target_rc, terms: 선호 조건, structure_option: "", panel: [], retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, final_rc: null, obligations: [] }`를 채운다. `phase`는 `open`(협상 중) → `placed`(고객이 수락해 확정). 재보험사의 `patience`는 `{ 트리티id: 남은 횟수 }`이고, 항목이 없으면 `patience_start`로 본다. `2→3` 변환은 v2 세이브에 빠진 트리티 상태만 같은 방식으로 채우고 나머지는 그대로 둔다.
 - **M3: 세이브 v2.** M1의 `entities`는 비어 있었다. v2부터 새 게임이 시작될 때 고객·재보험사마다 `{ relationship, meetings, notes, scout }`(재보험사는 `patience: {}`도)를 `initial`에서 채워 넣는다. v1 세이브는 `1→2` 변환에서 같은 방식으로 채운다.
 - JSON 파일 내보내기/가져오기(백업) 지원.
@@ -1089,5 +1111,5 @@ v1에서는 구현하지 않으며, 여기서는 항목만 정리한다.
    **M3 조정**: 위 값은 선명까지 비용이 커서, 계수를 주제 +16 / 나머지 +5로 올렸다(체감식은 그대로). 같은 방식으로 시뮬레이션하면 세 속성 모두 선명까지 약 5회(4~6회), 한 속성만 집중하면 약 3회, 세 속성 모두 확정까지 약 15회다. 7곳 전체를 선명까지 끌어올리는 비용은 약 35회(70 AP, 연간 AP의 약 20%)다. 수치는 `data/config.json`의 `scouting`만 고치면 된다.
 
    확정은 소수의 핵심 상대에게만 가능하고, 선명까지는 대부분 가능하게 하려는 의도다. 협상·마케팅에도 AP가 들어가므로 실제로는 더 빡빡하다. 이 곡선이 "어디에 AP를 쓸지"의 선택이 되는지, 아니면 너무 비싼지는 플레이 후 `data/config.json`의 `scouting` 계수로 조정한다.
-10. **(M5b에서 남김) 구조 옵션의 고객 감점**: `structure_options[].client_cons_penalty`(보수적인 고객일수록 U 감점, §7.3)는 아직 `evaluatePackage`에 반영하지 않았다. 지금은 구조 옵션이 가격 하한만 낮추는 공짜 수단이다. 반영 방식(보수성에 비례해 U에서 직접 뺄지, 담보 점수에 반영할지)을 정한 뒤 넣는다.
-11. **(M5b에서 남김) 반제·재협상의 정보량**: 고객 반응은 네 라벨뿐이라 "재협상 요구"·"거부"를 받았을 때 무엇이 문제인지 알려 주지 않는다. 고객 기분 게이지(§7.5 끝)나 가격/연속성 같은 방향 힌트를 스카우트 값에 비례해 주는 것은 별도 단계에서 정한다. 인내심을 되살리는 관계 호의 레버(§7.3)도 아직 없다.
+10. **(M5b에서 남김, 해결) 구조 옵션의 고객 감점**: `structure_options[].client_cons_penalty`를 `U`에서 직접 빼기로 했다(`structure_k × 보수성/100 × penalty`, §7.5). 담보 점수에 섞지 않은 이유는 감점이 어디서 왔는지 이유 한 줄("구조가 달라서 불안")로 따로 말해 주기 위해서다. 계수 `structure_k`(2.5)는 플레이 후 조정한다.
+11. **(M5b에서 남김, 일부 해결) 반제·재협상의 정보량**: 고객 반응에 이유 한 줄을 붙였다(§6.3, §7.5 "이유 고르기"). 이유는 실제 계산에서 고르므로 무엇을 고쳐야 하는지 알 수 있다. 다만 이유는 스카우트 값과 무관하게 항상 정확하다. 스카우트 값에 비례해 흐려지는 고객 기분 게이지(§7.5 끝)와, 인내심을 되살리는 관계 호의 레버(§7.3)는 아직 없다.

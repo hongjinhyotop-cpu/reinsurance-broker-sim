@@ -298,7 +298,7 @@ export function submit(treatyId) {
   const panel = t.panel.filter((r) => r.status === 'accepted').map((r) => ({ re: r.re, share: r.share_signed, rc: r.rc_req, terms: t.terms }));
   const ev = evaluateSigned({
     treaty, client, clientRelationship: state.entities.clients[client.id].relationship, reinsurers: data.reinsurers,
-  }, { market: Math.round(state.market.index), targetRc: t.target_rc, panel }, cfg);
+  }, { market: Math.round(state.market.index), targetRc: t.target_rc, panel, structureOption: t.structure_option || null }, cfg);
   if (ev.verdict === 'invalid') return { ok: false, error: '고객의 조건에 맞지 않는 패키지예요' };
 
   const reward = cfg.board.verdict_effects[ev.verdict] ?? null;
@@ -306,6 +306,7 @@ export function submit(treatyId) {
   store.commit((s) => {
     const tt = s.treaties[treatyId];
     tt.verdict = ev.verdict;
+    tt.verdict_reason = ev.reason;
     if (placed) {
       tt.phase = 'placed';
       tt.final_rc = round2(ev.avgRc);
@@ -320,5 +321,5 @@ export function submit(treatyId) {
     }
   });
   store.autosave();
-  return { ok: true, verdict: ev.verdict, placed, reward };
+  return { ok: true, verdict: ev.verdict, reason: ev.reason, placed, reward };
 }

@@ -1,6 +1,8 @@
 // data/*.json 로드 + 검증. 하나라도 잘못되면 시작하지 않고, 어느 파일의 어느 항목인지 전부 알려 준다.
 // 새 정적 파일(clients 등)은 마일스톤마다 DATA_FILES에 한 줄 + 검증 함수로 추가한다.
 
+import { REASONS_GOOD, REASONS_BAD } from './negotiation.js';
+
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 function show(v) {
@@ -178,6 +180,7 @@ function validateNegotiation(c, n) {
     c.num(cl.price_slope, `${P}.client.price_slope`, 0, 1000);
     c.num(cl.continuity_k, `${P}.client.continuity_k`, 0, 1000);
     c.num(cl.terms_step, `${P}.client.terms_step`, 0, 100);
+    c.num(cl.structure_k, `${P}.client.structure_k`, 0, 100);
     c.num(cl.accept_threshold_base, `${P}.client.accept_threshold_base`, 0, 100);
     c.num(cl.accept_threshold_goodwill_k, `${P}.client.accept_threshold_goodwill_k`, 0, 10);
     c.num(cl.delighted_margin, `${P}.client.delighted_margin`, 0, 100);
@@ -478,6 +481,16 @@ export function validateClients(list, file = 'clients.json') {
         if (typeof r.shariah_required !== 'boolean') c.fail(`${label}.requirements.shariah_required`, 'true 또는 false여야 해요', r.shariah_required);
         if (r.shariah_conventional_cap !== null) c.num(r.shariah_conventional_cap, `${label}.requirements.shariah_conventional_cap`, 0, 1);
       }
+      // 제출 결과 이유 한 줄: 좋은 이유(수락·매우 만족)와 나쁜 이유(재협상·거부)를 이유 종류마다 하나씩.
+      if (c.object(e.verdict_reasons, `${label}.verdict_reasons`)) {
+        for (const [side, keys] of [['good', REASONS_GOOD], ['bad', REASONS_BAD]]) {
+          const path = `${label}.verdict_reasons.${side}`;
+          if (!c.object(e.verdict_reasons[side], path)) continue;
+          for (const k of keys) {
+            if (c.str(e.verdict_reasons[side][k], `${path}.${k}`, 200)) validateText(c, e.verdict_reasons[side][k], `${path}.${k}`);
+          }
+        }
+      }
     },
   });
 }
@@ -501,6 +514,12 @@ export function validateReinsurers(list, file = 'reinsurers.json') {
         c.int(e.behavior.response_weeks, `${label}.behavior.response_weeks`, 0, 20);
         c.int(e.behavior.patience, `${label}.behavior.patience`, 0, 20);
         c.num(e.behavior.max_single_share, `${label}.behavior.max_single_share`, 0, 1);
+      }
+      // 제안 응답 한두 줄: 수락·반제·거절마다 하나씩.
+      if (c.object(e.response_lines, `${label}.response_lines`)) {
+        for (const k of ['accept', 'counter', 'reject']) {
+          if (c.str(e.response_lines[k], `${label}.response_lines.${k}`, 200)) validateText(c, e.response_lines[k], `${label}.response_lines.${k}`);
+        }
       }
     },
   });

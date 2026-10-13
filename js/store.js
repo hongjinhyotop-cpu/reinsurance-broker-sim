@@ -3,7 +3,7 @@
 
 import { nextFloat, normalizeSeed } from './rng.js';
 
-export const SAVE_VERSION = 3; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
+export const SAVE_VERSION = 4; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
 export const SLOTS = ['auto', '1', '2', '3'];
 export const MANUAL_SLOTS = ['1', '2', '3'];
 const KEY_PREFIX = 'rbs:save:v1:'; // 키 형식 버전(구조 버전과 별개)
@@ -12,12 +12,17 @@ const MAX_SAVE_CHARS = 2_000_000; // 가져오기 파일 크기 방어선
 // 구조가 바뀔 때마다 { [옛 버전]: (state) => 새 구조 } 를 한 줄씩 추가한다.
 // v1→v2(M3): 비어 있던 entities에 고객·재보험사의 동적 상태를 채운다.
 // v2→v3(M5b): 비어 있던 treaties에 트리티별 협상 상태를 채우고, 재보험사에 patience 자리를 보장한다.
+// v3→v4: 트리티에 고객 반응의 이유 종류(verdict_reason)를 더한다.
 export const MIGRATIONS = {
   1: (s) => fillEntities({ ...s, entities: { clients: { ...s.entities?.clients }, reinsurers: { ...s.entities?.reinsurers } } }),
   2: (s) => fillTreaties({
     ...s,
     entities: { ...s.entities, reinsurers: Object.fromEntries(Object.entries(s.entities?.reinsurers ?? {}).map(([id, e]) => [id, { patience: {}, ...e }])) },
     treaties: { ...s.treaties },
+  }),
+  3: (s) => ({
+    ...s,
+    treaties: Object.fromEntries(Object.entries(s.treaties ?? {}).map(([id, t]) => [id, { verdict_reason: null, ...t }])),
   }),
 };
 
@@ -112,7 +117,7 @@ function fillEntities(s) {
 export function initialTreatyState(t) {
   return {
     phase: 'open', prep_quality: 0, target_rc: t.target_rc, terms: t.terms.preferred, structure_option: '', panel: [],
-    retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, final_rc: null, obligations: [],
+    retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, verdict_reason: null, final_rc: null, obligations: [],
   };
 }
 
@@ -192,6 +197,7 @@ const isNum = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v 
 const TREATY_PHASES = ['open', 'placed'];
 const ROW_STATUSES = ['draft', 'accepted', 'countered', 'rejected'];
 const VERDICTS = ['delighted', 'accept', 'renegotiate', 'reject'];
+const VERDICT_REASONS = ['price', 'security', 'continuity', 'terms', 'service', 'structure'];
 
 // 트리티 협상 상태(M5b)와 재보험사 인내심의 모양을 확인한다.
 function validateTreatyStates(s, bad) {
@@ -208,6 +214,7 @@ function validateTreatyStates(s, bad) {
     if (!isInt(t.retry_turn, 0, 999)) bad(`${p}.retry_turn`, '0 이상 정수여야 해요');
     for (const k of ['renegotiations', 'rejections', 'moves']) if (!isInt(t[k], 0, 9999)) bad(`${p}.${k}`, '0 이상 정수여야 해요');
     if (t.verdict !== null && !VERDICTS.includes(t.verdict)) bad(`${p}.verdict`, '고객 반응 라벨이거나 null이어야 해요');
+    if (t.verdict_reason !== null && !VERDICT_REASONS.includes(t.verdict_reason)) bad(`${p}.verdict_reason`, '이유 종류이거나 null이어야 해요');
     if (t.final_rc !== null && !isNum(t.final_rc, -100, 100)) bad(`${p}.final_rc`, '숫자 또는 null이어야 해요');
     if (!Array.isArray(t.panel)) { bad(`${p}.panel`, '목록이어야 해요'); continue; }
     const seen = new Set();
