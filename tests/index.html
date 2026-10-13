@@ -3174,6 +3174,44 @@
       eq(run(), run());
     });
 
+    // ---------- M8: 표시 오류 ----------
+    const BAD_TEXT = /\bnull\b|undefined|NaN|\[object|Infinity|\{\w+\.\w+\}/;
+    test('M8 표시 오류: 모든 화면의 글자와 라벨에 null·undefined·NaN·치환 안 된 {변수}가 없다 (처음·연말·해고 상태, 쉬움·보통)', async () => {
+      const { renderStandings: standings } = await import('../js/ui/standings.js');
+      const { renderReview: review } = await import('../js/ui/review.js');
+      const screens = { inbox: renderInbox, database: renderDatabase, placement: renderPlacement, calendar: renderCalendar, standings, review, codex: renderCodex, settings: renderSettings };
+      const states = [
+        ['처음', () => beginLevel(1, 'normal')],
+        ['쉬움 처음', () => beginLevel(2, 'easy')],
+        ['연말', () => { const s = beginLevel(3, 'normal'); allPlaced(s); runYear(s); return s; }],
+        ['해고', () => { const s = beginLevel(4, 'normal'); runYear(s); return s; }],
+      ];
+      for (const [label, make] of states) {
+        make(); freshCodex();
+        for (const [id, render] of Object.entries(screens)) {
+          resetTermScope(); const root = render(); document.body.append(root);
+          try {
+            const attrs = [...root.querySelectorAll('[aria-label],[title],[alt],[placeholder]')].map((e) => ['aria-label', 'title', 'alt', 'placeholder'].map((a) => e.getAttribute(a) ?? '').join(' ')).join('\n');
+            for (const [kind, text] of [['글자', root.textContent], ['라벨', attrs]]) { const m = BAD_TEXT.exec(text); check(!m, `${label}/${id} ${kind}에 "${m && m[0]}"가 있어요: ${m && text.slice(Math.max(0, m.index - 30), m.index + 30)}`); }
+          } finally { root.remove(); }
+        }
+      }
+    });
+    test('M8 표시 오류: 모든 메일 템플릿(제목·본문·선택지 결과)이 치환을 거친 뒤에도 {변수}를 남기지 않는다', () => {
+      const s = begin(5); allPlaced(s); runYear(s); const vars = turn.mailVars(data, s);
+      for (const m of data.mails) {
+        const texts = [m.subject_ko, ...m.body_ko, ...m.choices.flatMap((c) => [c.label_ko, c.result_ko])];
+        for (const t of texts) { const out = mailLib.fillText(t, vars); check(!/\{[a-z_.]+\}/.test(out), `${m.id}: 치환 안 된 변수 — ${out.slice(0, 60)}`); check(!BAD_TEXT.test(out), `${m.id}: 이상한 글자 — ${out.slice(0, 60)}`); }
+      }
+    });
+    test('M8 숨은 값: 메일·성적표·고객 반응·재보험사 대사에 속마음 이름(보수성·가격 민감·충성도 등)이 없다', () => {
+      const HIDDEN = /보수성|가격 민감|충성도|conservatism|loyalty|price_sensitivity/i;
+      for (const m of data.mails) { const text = [m.subject_ko, ...m.body_ko, ...m.choices.flatMap((c) => [c.label_ko, c.result_ko])].join(' '); check(!HIDDEN.test(text), `${m.id}에 속마음 이름이 있어요`); }
+      check(!HIDDEN.test(JSON.stringify(data.report)), 'report.json에 속마음 이름이 있어요');
+      for (const c of data.clients) check(!HIDDEN.test(JSON.stringify(c.verdict_reasons)), `${c.id} 고객 반응에 속마음 이름이 있어요`);
+      for (const r of data.reinsurers) check(!HIDDEN.test(JSON.stringify(r.response_lines)), `${r.id} 응답 대사에 속마음 이름이 있어요`);
+    });
+
     // ---------- MD: 난이도 (쉬움 / 보통) ----------
     const beginLevel = (seed, difficulty) => { fresh(); store.newGame({ seed, difficulty }); turn.startGame(); return store.getState(); };
     const NEUTRAL = { gap_penalty_scale: 1, gap_cut_scale: 1, fired_below_shift: 0, scout_gain_scale: 1, reject_relationship_scale: 1, patience_bonus: 0, guide_detail: false };

@@ -196,7 +196,7 @@ function sampleSkill(scenario, seed) {
   };
 }
 
-export function playYear(data, { seed, difficulty, scenario }) {
+export function playYear(data, { seed, difficulty, scenario, hook = null }) {
   const k = sampleSkill(scenario, seed);
   store.newGame({ seed, difficulty });
   turn.startGame();
@@ -204,6 +204,7 @@ export function playYear(data, { seed, difficulty, scenario }) {
   const treatyOpts = {};
   for (let guard = 0; guard < 120; guard += 1) {
     const s = store.getState();
+    if (hook) hook(s);
     if (s.ending) break;
     // 메일: engage 확률로 공들여 답하고, 아니면 필수 메일만 기본 선택
     const policy = k.roll() < k.engage ? 'engaged' : 'blocking';
