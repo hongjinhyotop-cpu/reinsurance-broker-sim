@@ -24,6 +24,7 @@ js/ui/                components, shell, start, settings, inbox, database,
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
                       glossary, brokers, report  (.json)
 tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연 뒤 /tests/ 접속)
+tests/balance/        밸런싱 도구(Node: `node tests/balance/sim.mjs 300 normal,easy`). 게임 실행에는 쓰이지 않는다 — design.md §9.6
 ```
 
 ## 코드 규칙
@@ -49,5 +50,5 @@ tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연
 
 ## 작업 방식
 - 변경은 작게, 문서와 코드가 어긋나면 문서를 먼저 맞춘다.
-- 수치 튜닝은 `data/config.json`만 고친다. 계산식 구조를 바꾸면 design.md §7을 갱신한다.
+- 수치 튜닝은 `data/config.json`만 고친다. 계산식 구조를 바꾸면 design.md §7을 갱신한다. 숫자를 바꾸면 `tests/balance`로 등급·해고 분포가 어떻게 달라지는지 먼저 본다.
 - 용어집·단서 문구 같은 콘텐츠 작업은 코드 작업과 별도 커밋으로 나눈다.

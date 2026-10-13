@@ -10,7 +10,7 @@
     },
     "effects_on_fire": [
       {"op": "add", "target": "market", "field": "index", "value": 14},
-      {"op": "modifier_add", "target": "reinsurer:re_thames_quay", "field": "capacity", "mult": 0.7, "duration_weeks": 12},
+      {"op": "modifier_add", "target": "reinsurer:re_thames_quay", "field": "capacity", "mult": 0.85, "duration_weeks": 12},
       {"op": "flag_set", "flag": "global_cat_loss"}
     ],
     "mail": "mail_evt_global_cat_hardening",

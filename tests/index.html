@@ -752,12 +752,12 @@
       const r = neg.respond({ floor: f, p: -3, sReq: 0.3, maxShare: 0.4, weeksLeft: 4, priceSensitivity: 70, appetite: 0.8, noise: 0 }, ng);
       eq(r.kind, 'counter'); near(r.gap, -1.5, 0.06, 'gap'); near(r.rc, -0.8, 0.06, '역제안 RC'); eq(r.share, 0.3);
     });
-    test('negotiation §7.7: 고객 평가 — PS ≈ 90 · CS=100 · TS=100 · VS ≈ 44 · U ≈ 85 → 매우 만족', () => {
+    test('negotiation §7.7: 고객 평가 — PS ≈ 91 · CS=100 · TS=100 · VS ≈ 44 · U ≈ 86 → 매우 만족', () => {
       const e = evalPanel(42, -1.0);
-      near(e.reference, -2.3, 0.05, '공정가 기준'); near(e.scores.price, 90, 0.5, 'PS');
+      near(e.reference, -2.3, 0.05, '공정가 기준'); near(e.scores.price, 91, 0.5, 'PS');
       eq(e.scores.continuity, 100); near(e.scores.terms, 100, 1e-9, 'TS'); near(e.scores.service, 44.4, 0.1, 'VS');
       near(e.scores.security, 81.75 + 1.95, 1e-9, 'SS(온쇼어 보정 +3 지분가중)'); // 보정 전 81.75 ≈ 82
-      near(e.U, 85, 0.6, 'U'); eq(e.verdict, 'delighted'); eq(e.hardFails, []);
+      near(e.U, 86, 0.6, 'U'); eq(e.verdict, 'delighted'); eq(e.hardFails, []);
     });
     test('negotiation §7.7 하드마켓 대조: M=70, A_loss=+10 → F ≈ 17, 평균 RC +17이면 PS=0 · U ≈ 52 → 거부', () => {
       // 사고 가산 40.6%p → LR_exp 78 → A_loss = +10. 당해 대손실 플래그는 켜지 않는다(설계 예시의 가정).
@@ -801,10 +801,10 @@
       const base = { floor: 1, p: 1, sReq: 0.2, maxShare: 0.4, weeksLeft: 3, priceSensitivity: 50, appetite: 1 };
       near(neg.respond({ ...base, noise: 1 }, ng).gap, 1 - 1.3, 1e-9); near(neg.respond({ ...base, noise: -1 }, ng).gap, 1 - 0.7, 1e-9);
     });
-    test('negotiation: 가용 지분 상한 — 알펜글로우 ≈ 32%, 하드마켓일수록 줄고, 단일 한도가 최종 상한', () => {
+    test('negotiation: 가용 지분 상한 — 알펜글로우 ≈ 32.5%, 하드마켓일수록 줄고, 단일 한도가 최종 상한', () => {
       const re = reById('re_alpenglow');
       const args = (market, extra = {}) => ({ capacity: re.capacity_usd_m.property_energy, appetite: re.appetite.property_energy, marketIndex: market, conservatism: 78, N: 0.2, limit: 150, reinsurerMaxShare: 0.4, clientMaxShare: 0.35, ...extra });
-      near(neg.maxShare(args(42), ng), 0.322, 0.001);
+      near(neg.maxShare(args(42), ng), 0.325, 0.001);
       check(neg.maxShare(args(70), ng) < neg.maxShare(args(42), ng) && neg.maxShare(args(30), ng) > neg.maxShare(args(42), ng));
       eq(neg.maxShare(args(42, { limit: 10 }), ng), 0.35);
     });
@@ -852,10 +852,10 @@
     });
     test('negotiation §7.5 이유 고르기: 값이 비싸면 price, 구조 옵션 감점이 가장 크면 structure, 좋은 결과는 가장 많이 기여한 항목', () => {
       const dear = evalPanel(42, 12); eq(dear.verdict, 'reject'); eq(dear.reason, 'price');
-      eq(evalPanel(42, 1).verdict, 'delighted'); // 같은 가격이라도 옵션을 켜면 반응이 한참 나빠진다
-      const opt = evalPanel(42, 1, { structureOption: OPT });
+            const opt = evalPanel(42, 3, { structureOption: OPT });
       eq(opt.verdict, 'renegotiate'); eq(opt.reason, 'structure');
-      eq(evalPanel(42, -5, { structureOption: OPT }).verdict, 'accept'); // 가격이 아무리 좋아도 매우 만족까지는 못 간다
+      eq(evalPanel(42, 3).verdict, 'delighted'); // 같은 가격 3%에서 옵션이 없으면 매우 만족이다
+      eq(evalPanel(42, -1, { structureOption: OPT }).verdict, 'accept'); // 가격이 좋아도 옵션을 켜면 매우 만족까지는 못 간다
       const good = evalPanel(42, -1); eq(good.verdict, 'delighted'); eq(good.reason, 'price');
       near(evalPanel(42, -1, { terms: 'broad' }).scores.terms, 75, 1e-9); eq(evalPanel(42, -1, { terms: 'broad' }).reason, 'price'); // 조건이 달라도 가격이 가장 큰 기여
       const bad = evalPanel(42, 12, { terms: 'broad' }); eq(bad.reason, 'price');
@@ -871,7 +871,7 @@
     });
     test('negotiation §7.5: 가중치가 다른 고객은 같은 패키지에도 다른 이유를 말한다(보수적인 쪽은 새 얼굴, 가격 민감한 쪽은 가격)', () => {
       const mk = (cons, ps) => neg.evaluatePackage({
-        panel: [{ id: 'new', share: 0.5, rc: 0, rating: 'A-', onshore: false, shariahOk: false, terms: 'standard', maxShare: 0.6 }, { id: 'old', share: 0.5, rc: 0, rating: 'A-', onshore: false, shariahOk: false, terms: 'standard', maxShare: 0.6 }],
+        panel: [{ id: 'new', share: 0.5, rc: 2, rating: 'A-', onshore: false, shariahOk: false, terms: 'standard', maxShare: 0.6 }, { id: 'old', share: 0.5, rc: 2, rating: 'A-', onshore: false, shariahOk: false, terms: 'standard', maxShare: 0.6 }],
         expiringIds: ['old'],
         client: { conservatism: cons, priceSensitivity: ps, loyalty: 50, relationship: 50, targetRc: -6, minRating: 'A-', maxSingleShare: 0.6, preferredTerms: 'standard', shariahRequired: false, shariahConventionalCap: 1 },
         benchmark: -4,
@@ -1336,16 +1336,16 @@
 
     test('보드: 제출 — 수락은 관계도 +2(평판 그대로), 최종 RC는 확정 RC의 지분 가중 평균', () => {
       startBoard(1, 20);
-      PL.propose(JR, 're_alpenglow', { share: 0.4, rc: 2 }); PL.propose(JR, 're_kallang', { share: 0.24, rc: 6 }); PL.propose(JR, 're_thames_quay', { share: 0.36, rc: 4 });
+      PL.propose(JR, 're_alpenglow', { share: 0.4, rc: 6 }); PL.propose(JR, 're_kallang', { share: 0.24, rc: 8 }); PL.propose(JR, 're_thames_quay', { share: 0.36, rc: 7 });
       const r = PL.submit(JR);
       eq([r.ok, r.verdict, r.placed], [true, 'accept', true]);
       const t = store.getState().treaties[JR];
-      near(t.final_rc, 0.4 * 2 + 0.24 * 6 + 0.36 * 4, 0.01);
+      near(t.final_rc, 0.4 * 6 + 0.24 * 8 + 0.36 * 7, 0.01);
       eq(store.getState().entities.clients.cli_jurong_crest.relationship, 57); eq(store.getState().player.reputation, 50);
     });
 
     test('보드: 제출 — 재협상 요구는 확정 없이 열려 있고 다음 주부터 다시 낼 수 있다(횟수 기록)', () => {
-      startBoard(1, 20); fillJurong(6);
+      startBoard(1, 20); fillJurong(10);
       const r = PL.submit(JR);
       eq([r.ok, r.verdict, r.placed], [true, 'renegotiate', false]);
       const t = store.getState().treaties[JR];
@@ -1357,7 +1357,7 @@
     });
 
     test('보드: 제출 — 거부는 거부 횟수를 세고(M6 BOR 사건이 읽는다) 다음 주에 다시 낼 수 있으며, 가격을 낮추면 뒤집을 수 있다', () => {
-      startBoard(1, 30); fillJurong(9);
+      startBoard(1, 30); fillJurong(12);
       const r = PL.submit(JR);
       eq([r.ok, r.verdict, r.placed], [true, 'reject', false]);
       eq(store.getState().treaties[JR].rejections, 1); eq(store.getState().treaties[JR].phase, 'open');
@@ -1391,7 +1391,7 @@
     });
 
     test('보드: 제출하면 고객의 이유 종류가 세이브에 남고, 매우 만족·수락은 좋은 이유 / 재협상·거부는 나쁜 이유 문구로 이어진다', () => {
-      const st = startBoard(1, 20); fillJurong(9);
+      const st = startBoard(1, 20); fillJurong(12);
       const r = PL.submit(JR); eq(r.verdict, 'reject'); eq(r.reason, 'price');
       eq(store.getState().treaties[JR].verdict_reason, 'price');
       check(JSON.parse(st.map.get('rbs:save:v1:auto')).treaties[JR].verdict_reason === 'price', '저장됨');
@@ -1402,11 +1402,11 @@
     test('보드: 보수적인 주롱에 구조 옵션을 켜고 가격을 더 낮춰도 반응이 나아지지 않고, 이유는 구조다', () => {
       startBoard(1, 30);
       PL.setOptions(JR, { structureOption: OPT });
-      fillJurong(1); // 옵션이 하한을 4%p 낮춰 주므로 재보험사는 모두 수락한다
+      fillJurong(3); // 옵션이 하한을 4%p 낮춰 주므로 재보험사는 모두 수락한다
       const r = PL.submit(JR);
       eq(r.verdict, 'renegotiate'); eq(r.reason, 'structure'); eq(store.getState().treaties[JR].verdict_reason, 'structure');
       // 같은 가격이라도 옵션이 없으면 매우 만족이다
-      startBoard(1, 30); fillJurong(1); eq(PL.submit(JR).verdict, 'delighted');
+      startBoard(1, 30); fillJurong(3); eq(PL.submit(JR).verdict, 'delighted');
     });
     test('세이브 v4: v3 세이브(verdict_reason 없음)를 불러오면 null로 채워진다', () => {
       startBoard(5); const old = clone(store.getState());
@@ -2164,7 +2164,7 @@
       s.ap = 20; s.entities.clients.cli_jurong_crest.meetings = 1;
       const c = PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }); eq(c.status, 'countered');
       eq([act().id, act().route], ['counter_due', 'placement']);
-      startBoard(1, 20); fillJurong(6); eq(act().id, 'submit');
+      startBoard(1, 20); fillJurong(10); eq(act().id, 'submit');
       eq(PL.submit(JR).verdict, 'renegotiate'); eq([act().id, act().route], ['wait_retry', null], '고객이 생각할 시간');
       store.getState().turn += 1; eq(act().id, 'submit', '다음 주에는 다시 제출할 수 있다');
     });
@@ -2264,7 +2264,7 @@
       for (const line of lines) check(!said.has(line), '이유 한 줄과 겹쳐요');
     });
     test('화면(보드): 제안 응답과 고객 반응 밑에 "다음엔 이렇게" 한 줄이 붙는다', () => {
-      startBoard(1, 20); fillJurong(6); const r = PL.submit(JR); eq(r.verdict, 'renegotiate');
+      startBoard(1, 20); fillJurong(10); const r = PL.submit(JR); eq(r.verdict, 'renegotiate');
       const root = renderPlacement(); document.body.append(root);
       try {
         for (const row of root.querySelectorAll('.pl-row')) {
@@ -2978,7 +2978,7 @@
       for (const id of newMailIds) check(data.mails.some((m) => m.id === id), id);
     });
     test('M7b 로더: 시즌 평가·평판 효과·공백 감액 설정이 틀리면 알려 준다', () => {
-      const a = clone(data.config); a.board.season_eval.tiers[3].min_ratio = 0.5; check(has(validateConfig(a), '0부터'), '마지막 단계');
+      const a = clone(data.config); a.board.season_eval.tiers[4].min_ratio = 0.5; check(has(validateConfig(a), '0부터'), '마지막 단계');
       const b = clone(data.config); b.board.season_eval.tiers[1].min_ratio = 1.2; check(has(validateConfig(b), '작아져야'), '내림차순');
       const c = clone(data.config); c.board.season_eval.mails.up = 'mail_nope'; check(has(validateCross({ ...data, config: c }), '없는 메일 id'), '메일 id');
       const d = clone(data.config); d.rivals.reputation_flow.max_rate = 2; check(has(validateConfig(d), 'max_rate'), '상한');
@@ -3013,8 +3013,8 @@
       eq(s.finance.booked[JR].turn, 9); eq(s.finance.booked[JR].gap_weeks, 1); near(s.finance.booked[JR].brokerage_usd_m, 1.2 * 0.95, 1e-9);
     });
     test('M7b 평판 효과: 문턱 이하면 0, 넘으면 점마다 늘고 상한이 있다', () => {
-      const cfg = data.config.rivals; eq([0, 50, 55].map((r) => riv.flowRate(r, cfg)), [0, 0, 0]);
-      near(riv.flowRate(65, cfg), 0.008, 1e-12); near(riv.flowRate(100, cfg), 0.02, 1e-12, '상한'); eq(riv.flowRate(70, {}), 0, '설정이 없으면 0');
+      const cfg = data.config.rivals; eq([0, 40, 50].map((r) => riv.flowRate(r, cfg)), [0, 0, 0]);
+      near(riv.flowRate(55, cfg), 0.0175, 1e-12); near(riv.flowRate(100, cfg), 0.04, 1e-12, '상한'); eq(riv.flowRate(70, {}), 0, '설정이 없으면 0');
     });
     test('M7b 평판 효과: 라이벌에게서 떼어 낸 몫의 합이 플레이어의 몫이고, 평판이 낮으면 M7a와 똑같다', () => {
       const quarter = { id: 'q1', to: 19 }; const player = { q: 1, ytd: 1, placed_premium_usd_m: 10, clients: 3 };
@@ -3039,7 +3039,7 @@
     });
     test('M7b 시즌 평가: 비율 단계와 확정 전·이탈 값이 설정대로 나온다', () => {
       const cfg = data.config.board.season_eval; const evalRc = (rc) => seasonMod.evalSeason(tJR, { phase: 'placed' }, { brokerage_usd_m: fin.brokerageOf(tJR, rc) }, cfg);
-      eq([0, -3, -4, -7].map((rc) => evalRc(rc).delta), [4, 2, 0, -2]); near(evalRc(-3).ratio, 0.97, 1e-9);
+      eq([2, 0, -1, -3, -7].map((rc) => evalRc(rc).delta), [4, 2, 0, -2, -4]); near(evalRc(-3).ratio, 0.97, 1e-9);
       eq(seasonMod.evalSeason(tJR, { phase: 'open' }, undefined, cfg), { kind: 'open', ratio: null, delta: 0 });
       eq(seasonMod.evalSeason(tJR, { phase: 'lost' }, undefined, cfg), { kind: 'lost', ratio: null, delta: -3 });
       eq(seasonMod.evalSeason(tJR, { phase: 'placed' }, undefined, cfg).kind, 'open', '확정했지만 장부에 없으면 확정 전');
@@ -3047,15 +3047,15 @@
       near(seasonMod.expectedBrokerage(tJR), 1.2, 1e-9);
     });
     test('M7b 시즌 마감: 인셉션 다음 주에 리뷰가 굳고 이사회 신뢰가 ±되며 의장 편지가 온다', () => {
-      freshCodex(); const s = begin(5); allPlaced(s); eq(s.seasons[S0101].open.codex_count, 0, '출발 기록');
+      freshCodex(); const s = begin(5); allPlaced(s); s.treaties[JR].final_rc = 0; s.treaties[NT].final_rc = -1; eq(s.seasons[S0101].open.codex_count, 0, '출발 기록'); // 주롱 RC 0(비율 1.00)은 올림, 누산타라 RC -1(0.99)은 그대로, 스트레이츠 RC -4(0.96)는 내림
       gl.collect('gl_line', 1, 'T'); gl.collect('gl_panel', 2, 'T');
       playTo(s, 7); eq(s.seasons[S0101].review, null, '인셉션 주에는 아직'); eq(mailCount(s, 'mail_board_season_up'), 0);
       answerOpen(s); const before = s.player.board_confidence; const r = turn.advance(); eq(s.turn, 8); eq(r.seasonsClosed, [S0101]);
-      const rev = s.seasons[S0101].review; eq(rev.turn, 8); eq(rev.status, 'placed'); eq(rev.eval, { kind: 'tier', ratio: 0.97, delta: 2 });
+      const rev = s.seasons[S0101].review; eq(rev.turn, 8); eq(rev.status, 'placed'); eq(rev.eval, { kind: 'tier', ratio: 1, delta: 2 });
       eq(rev.codex_gain, 2); check(rev.rel_client_delta !== null && rev.scout_gain !== null, '변화량');
       near(rev.board_after - rev.board_before, 2, 1e-9); near(s.player.board_confidence, before + 2 + (rev.board_before - before), 1e-9);
       eq(mailCount(s, 'mail_board_season_up'), 1); eq(store.validateState(s), []);
-      playTo(s, 34); eq(Object.values(s.seasons).filter((x) => x.review).length, 3); eq([mailCount(s, 'mail_board_season_up'), mailCount(s, 'mail_board_season_flat')], [2, 1], '주롱·누산타라는 올림, 스트레이츠(RC -4)는 그대로');
+      playTo(s, 34); eq(Object.values(s.seasons).filter((x) => x.review).length, 3); eq([mailCount(s, 'mail_board_season_up'), mailCount(s, 'mail_board_season_flat'), mailCount(s, 'mail_board_season_down')], [1, 1, 1], '주롱(RC 0)은 올림, 누산타라(RC -1)는 그대로, 스트레이츠(RC -4)는 내림');
       eq(seasonMod.seasonRows(data, s).map((x) => [x.season.label, x.phase]), [['1/1', 'placed'], ['1/4', 'placed'], ['1/7', 'placed']]);
     });
     test('M7b 시즌 마감: 아직 확정 전이면 평가 0과 확정 전 편지, 이탈이면 이탈 값과 이탈 편지', () => {
@@ -3155,7 +3155,7 @@
       try { check(root.textContent.includes('공백으로 줄어든 수수료'), '있으면 보임'); } finally { root.remove(); }
     });
     test('M7b Continue: 시즌 리뷰가 나온 주를 넘기면 요약에 알려 주고 멈춘다', () => {
-      const s = begin(5); allPlaced(s); playTo(s, 7); answerOpen(s); const r = turn.advance();
+      const s = begin(5); allPlaced(s); s.treaties[JR].final_rc = 0; playTo(s, 7); answerOpen(s); const r = turn.advance();
       eq(r.seasonsClosed, [S0101]); check(r.stop !== null, '멈춤'); check(r.arrived.some((id) => s.mails.find((m) => m.id === id).template === 'mail_board_season_up'), '편지 도착');
     });
     test('M7b 결정성: 같은 시드·같은 행동이면 시즌 기록과 평판 효과가 똑같다', () => {
