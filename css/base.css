@@ -12,6 +12,11 @@
   --warn: #f0b94d;
   --danger: #f07178;
   --ok: #6cc799;
+  --re-0: #5aa9e6;
+  --re-1: #b48ae6;
+  --re-2: #e68ab4;
+  --re-3: #9ccf5a;
+  --re-4: #4dd0e1;
   --radius: 8px;
   --gap: 12px;
   --pad: 16px;
@@ -109,6 +114,7 @@ a { color: var(--accent); }
   background: var(--bg); color: var(--text-dim); border: 1px solid var(--border);
 }
 .tag-warn { color: var(--warn); border-color: var(--warn); }
+.tag-bad { color: var(--danger); border-color: var(--danger); }
 
 /* ---- 알림 · 대화상자 ---- */
 #toasts {

@@ -11,7 +11,7 @@ import { h, formatUsdM, toast } from './components.js';
 export const NAV = [
   { id: 'inbox', label: '인박스', when: null },
   { id: 'database', label: '고객·재보험사 DB', when: null },
-  { id: 'placement', label: '플레이스먼트', when: 'M5' },
+  { id: 'placement', label: '플레이스먼트', when: null },
   { id: 'bench', label: '협상 시험대', when: null, temp: true },
   { id: 'calendar', label: '캘린더', when: null },
   { id: 'standings', label: '순위표', when: 'M7' },
@@ -22,12 +22,10 @@ export const NAV = [
 
 const MILESTONES = {
   M2: '용어집',
-  M5: '라인 구성 보드',
   M7: '재무 · 순위표 · 리뷰',
 };
 
 const PLACEHOLDERS = {
-  placement: '리스크 전체를 100%로 보고, 재보험사들이 몇 %씩 맡을지 채워 넣는 라인 구성 보드예요.',
   standings: '경쟁 중개회사 7곳과 수익을 비교하고 이사회 목표를 확인하는 곳이에요.',
   review: '갱신 시즌이 끝날 때마다, 그리고 연말에 성적표를 보는 곳이에요.',
   codex: '눌러서 읽은 재보험 용어가 모이는 도감이에요. 파일로 내보내 Anki로 복습할 수도 있어요.',

@@ -1,5 +1,5 @@
 // 협상 시험대(임시 화면, design.md §6.8): M4의 계산을 손으로 확인한다. 세이브·행동 점수를 바꾸지 않는다.
-// 계산은 negotiation.js가 하고 여기서는 입력을 모아 결과를 그리기만 한다. M5에서 라인 구성 보드로 대체된다.
+// 계산은 negotiation.js가 하고 여기서는 입력을 모아 결과를 그리기만 한다. 라인 구성 보드가 고객 평가까지 맡는 M5b에서 지운다.
 
 import * as store from '../store.js';
 import { quoteProposal, evaluateExpiringPanel } from '../negotiation.js';
@@ -182,7 +182,7 @@ export function renderBench() {
     h('h1', {}, '협상 시험대'),
     h('div', { class: 'notice notice-warn' },
       h('strong', {}, '임시 화면이에요. '),
-      '재보험사가 어떻게 답하고 고객이 어떻게 평가하는지 계산을 눌러 보는 곳이에요. 저장, 행동 점수, 관계도는 바뀌지 않아요. 라인 구성 보드(M5)가 생기면 사라져요.'),
+      '재보험사가 어떻게 답하고 고객이 어떻게 평가하는지 계산을 눌러 보는 곳이에요. 저장, 행동 점수, 관계도는 바뀌지 않아요. 라인 구성 보드(플레이스먼트)가 고객 평가까지 맡게 되면(M5b) 사라져요.'),
     h('div', { class: 'row' }, presetButtons),
     h('p', { class: 'dim' }, '관계도와 스카우트 정보는 지금 게임 상태를 따라가요. 새 게임 직후가 아니면, 그리고 재보험사 응답에 섞이는 작은 노이즈(±0.3%p) 때문에 설계 문서 예시와 숫자가 조금 다를 수 있어요.'),
     h('div', { class: 'bench' }, h('section', { class: 'card', 'aria-label': '입력' }, h('h2', {}, '입력'), formBox,

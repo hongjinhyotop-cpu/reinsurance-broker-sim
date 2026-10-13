@@ -263,3 +263,57 @@ export function evaluateExpiringPanel({ treaty, client, clientRelationship, rein
     benchmark: marketBenchmark(market, treaty.line, cfg),
   }, cfg);
 }
+
+// ---------- 라인 구성 보드 제약 검사 (§6.3, §7.4) ----------
+
+// 공개 정보만으로 본 이론 상한: 인수 용량 ÷ 트리티 한도에 단일 한도를 겹친다. 시장·식욕·보수성은 쓰지 않는다(숨은 값 보호).
+export function publicShareCap({ capacity, limit, reinsurerMaxShare, clientMaxShare }) {
+  return Math.max(0, Math.min(capacity / limit, reinsurerMaxShare, clientMaxShare));
+}
+
+// 보드의 지분 배분을 점검한다. 입력을 막지 않고 위반 목록만 돌려준다(학습용 칩).
+// input: {
+//   shares: { 재보험사id: 지분(0~1) },
+//   members: [{ id, rating, shariahOk, maxSingleShare }],
+//   caps: { 재보험사id: 용량 상한(0~1) },           // 이론 상한이거나, 의견을 물은 뒤의 실제 상한
+//   expiringIds, client: { minRating, maxSingleShare, shariahRequired, shariahConventionalCap } }
+// 돌려주는 값: { total, remaining, over, filled, turnover, flags{id: [{kind, ...}]}, shariah, blockers[], canSubmit }
+//   flags 종류: single_share(limit) · capacity(cap) · min_rating. 용량 부족은 제출을 막지 않는 경고다.
+//   blockers: share_total · single_share · min_rating · shariah_cap (제출 버튼에서만 하드 검증)
+export function boardCheck({ shares, members, caps, expiringIds, client }, cfg) {
+  const tol = cfg.share_tolerance;
+  const total = members.reduce((s, m) => s + (shares[m.id] ?? 0), 0);
+  const minScore = ratingScore(client.minRating, cfg);
+  const expiring = new Set(expiringIds);
+  const flags = {};
+  for (const m of members) {
+    const share = shares[m.id] ?? 0;
+    flags[m.id] = [];
+    if (share <= 0) continue;
+    const limit = Math.min(client.maxSingleShare, m.maxSingleShare);
+    if (share > limit + tol) flags[m.id].push({ kind: 'single_share', limit });
+    if (caps[m.id] !== undefined && share > caps[m.id] + tol) flags[m.id].push({ kind: 'capacity', cap: caps[m.id] });
+    if (ratingScore(m.rating, cfg) < minScore) flags[m.id].push({ kind: 'min_rating' });
+  }
+
+  let shariah = null;
+  if (client.shariahRequired) {
+    const conventional = members.filter((m) => !m.shariahOk).reduce((s, m) => s + (shares[m.id] ?? 0), 0);
+    const cap = client.shariahConventionalCap ?? 1;
+    if (conventional > cap + tol) shariah = { conventional, cap };
+  }
+
+  const kinds = new Set(Object.values(flags).flat().map((f) => f.kind));
+  const blockers = [];
+  if (Math.abs(total - 1) > tol) blockers.push('share_total');
+  for (const k of ['single_share', 'min_rating']) if (kinds.has(k)) blockers.push(k);
+  if (shariah) blockers.push('shariah_cap');
+
+  const turnover = total > 0
+    ? members.filter((m) => !expiring.has(m.id)).reduce((s, m) => s + (shares[m.id] ?? 0), 0) / total
+    : 0;
+  return {
+    total, remaining: Math.max(0, 1 - total), over: total > 1 + tol, filled: Math.abs(total - 1) <= tol,
+    turnover, flags, shariah, blockers, canSubmit: blockers.length === 0,
+  };
+}
