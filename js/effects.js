@@ -7,10 +7,31 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+// target → 값이 들어 있는 객체. client:<id>·reinsurer:<id>는 세이브의 entities 항목이다(M5b).
 function resolveBox(state, target) {
   if (target === 'player') return state.player;
   if (target === 'market') return state.market;
+  const m = /^(client|reinsurer):(.+)$/.exec(target);
+  if (m) {
+    const box = (m[1] === 'client' ? state.entities.clients : state.entities.reinsurers)[m[2]];
+    if (!box) throw new Error(`없는 효과 대상: ${target}`);
+    return box;
+  }
   throw new Error(`지원하지 않는 효과 대상: ${target}`);
+}
+
+// 점 표기 경로(scout.loyalty, patience.trt_x)의 마지막 칸을 가리키는 { owner, key }.
+function resolveField(box, field) {
+  const parts = field.split('.');
+  let owner = box;
+  for (const p of parts.slice(0, -1)) {
+    if (p === '__proto__' || p === 'constructor' || p === 'prototype') throw new Error(`쓸 수 없는 경로: ${field}`);
+    owner = owner[p];
+    if (owner === null || typeof owner !== 'object') throw new Error(`없는 경로: ${field}`);
+  }
+  const key = parts[parts.length - 1];
+  if (key === '__proto__' || key === 'constructor' || key === 'prototype') throw new Error(`쓸 수 없는 경로: ${field}`);
+  return { owner, key };
 }
 
 export function applyEffect(state, effect) {
@@ -18,10 +39,10 @@ export function applyEffect(state, effect) {
     case 'add':
     case 'set':
     case 'mul': {
-      const box = resolveBox(state, effect.target);
-      const cur = box[effect.field];
+      const { owner, key } = resolveField(resolveBox(state, effect.target), effect.field);
+      const cur = owner[key];
       const raw = effect.op === 'add' ? cur + effect.value : effect.op === 'mul' ? cur * effect.value : effect.value;
-      box[effect.field] = clamp(raw, effect.min ?? CLAMP_DEFAULT.min, effect.max ?? CLAMP_DEFAULT.max);
+      owner[key] = clamp(raw, effect.min ?? CLAMP_DEFAULT.min, effect.max ?? CLAMP_DEFAULT.max);
       return;
     }
     case 'cash':

@@ -3,7 +3,7 @@
 
 import { nextFloat, normalizeSeed } from './rng.js';
 
-export const SAVE_VERSION = 2; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
+export const SAVE_VERSION = 3; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
 export const SLOTS = ['auto', '1', '2', '3'];
 export const MANUAL_SLOTS = ['1', '2', '3'];
 const KEY_PREFIX = 'rbs:save:v1:'; // 키 형식 버전(구조 버전과 별개)
@@ -11,8 +11,14 @@ const MAX_SAVE_CHARS = 2_000_000; // 가져오기 파일 크기 방어선
 
 // 구조가 바뀔 때마다 { [옛 버전]: (state) => 새 구조 } 를 한 줄씩 추가한다.
 // v1→v2(M3): 비어 있던 entities에 고객·재보험사의 동적 상태를 채운다.
+// v2→v3(M5b): 비어 있던 treaties에 트리티별 협상 상태를 채우고, 재보험사에 patience 자리를 보장한다.
 export const MIGRATIONS = {
   1: (s) => fillEntities({ ...s, entities: { clients: { ...s.entities?.clients }, reinsurers: { ...s.entities?.reinsurers } } }),
+  2: (s) => fillTreaties({
+    ...s,
+    entities: { ...s.entities, reinsurers: Object.fromEntries(Object.entries(s.entities?.reinsurers ?? {}).map(([id, e]) => [id, { patience: {}, ...e }])) },
+    treaties: { ...s.treaties },
+  }),
 };
 
 let ctx = null; // { config, calendar } — loader가 검증한 정적 데이터
@@ -92,12 +98,26 @@ function readSlotText(slot) {
 
 // 정적 데이터의 initial에서 고객·재보험사의 동적 상태를 만든다. 이미 있는 항목은 건드리지 않는다(새로 생긴 id만 채움).
 function fillEntities(s) {
-  for (const [group, list, extra] of [['clients', ctx.clients ?? [], {}], ['reinsurers', ctx.reinsurers ?? [], { patience: {} }]]) {
+  for (const [group, list, extra] of [['clients', ctx.clients ?? [], () => ({})], ['reinsurers', ctx.reinsurers ?? [], () => ({ patience: {} })]]) {
     for (const e of list) {
       if (s.entities[group][e.id]) continue;
-      s.entities[group][e.id] = { relationship: e.initial.relationship, meetings: 0, notes: '', ...extra, scout: { ...e.initial.scout } };
+      // 재보험사마다 patience 객체가 따로여야 한다(공유하면 한 곳의 인내심이 모두에게 번진다).
+      s.entities[group][e.id] = { relationship: e.initial.relationship, meetings: 0, notes: '', ...extra(), scout: { ...e.initial.scout } };
     }
   }
+  return s;
+}
+
+// 트리티마다 협상 상태 한 칸. 이미 있는 항목은 건드리지 않는다.
+export function initialTreatyState(t) {
+  return {
+    phase: 'open', prep_quality: 0, target_rc: t.target_rc, terms: t.terms.preferred, structure_option: '', panel: [],
+    retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, final_rc: null, obligations: [],
+  };
+}
+
+function fillTreaties(s) {
+  for (const t of ctx.treaties ?? []) if (!s.treaties[t.id]) s.treaties[t.id] = initialTreatyState(t);
   return s;
 }
 
@@ -129,6 +149,7 @@ export function newGame({ seed } = {}) {
     log: [],
   };
   fillEntities(state);
+  fillTreaties(state);
   generation += 1;
   emit('game');
   return state;
@@ -143,10 +164,11 @@ export function random() {
 }
 
 // 진행 중인 게임의 상태를 바꾸는 유일한 문. fn(state) 안에서 고치고, 끝나면 화면에 알린다.
-export function commit(fn) {
+// quiet: 입력칸 편집처럼 호출한 화면이 스스로 다시 그릴 때(전체 화면 갱신이 입력 중 포커스를 빼앗지 않게) 알림을 생략한다.
+export function commit(fn, { quiet = false } = {}) {
   if (!state) throw new Error('진행 중인 게임이 없어요');
   const result = fn(state);
-  emit('state');
+  if (!quiet) emit('state');
   return result;
 }
 
@@ -166,6 +188,49 @@ export function quitToStart() {
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isInt = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 const isNum = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+
+const TREATY_PHASES = ['open', 'placed'];
+const ROW_STATUSES = ['draft', 'accepted', 'countered', 'rejected'];
+const VERDICTS = ['delighted', 'accept', 'renegotiate', 'reject'];
+
+// 트리티 협상 상태(M5b)와 재보험사 인내심의 모양을 확인한다.
+function validateTreatyStates(s, bad) {
+  const known = new Set((ctx.treaties ?? []).map((t) => t.id));
+  const reIds = new Set((ctx.reinsurers ?? []).map((r) => r.id));
+  for (const [id, t] of Object.entries(s.treaties)) {
+    const p = `treaties.${id}`;
+    if (!isObj(t)) { bad(p, '객체여야 해요'); continue; }
+    if (ctx.treaties && !known.has(id)) bad(p, '없는 트리티 id예요');
+    if (!TREATY_PHASES.includes(t.phase)) bad(`${p}.phase`, `${TREATY_PHASES.join(' / ')} 중 하나여야 해요`);
+    if (typeof t.terms !== 'string') bad(`${p}.terms`, '글자여야 해요');
+    if (typeof t.structure_option !== 'string') bad(`${p}.structure_option`, '글자여야 해요');
+    if (!isNum(t.target_rc, -100, 100)) bad(`${p}.target_rc`, '숫자여야 해요');
+    if (!isInt(t.retry_turn, 0, 999)) bad(`${p}.retry_turn`, '0 이상 정수여야 해요');
+    for (const k of ['renegotiations', 'rejections', 'moves']) if (!isInt(t[k], 0, 9999)) bad(`${p}.${k}`, '0 이상 정수여야 해요');
+    if (t.verdict !== null && !VERDICTS.includes(t.verdict)) bad(`${p}.verdict`, '고객 반응 라벨이거나 null이어야 해요');
+    if (t.final_rc !== null && !isNum(t.final_rc, -100, 100)) bad(`${p}.final_rc`, '숫자 또는 null이어야 해요');
+    if (!Array.isArray(t.panel)) { bad(`${p}.panel`, '목록이어야 해요'); continue; }
+    const seen = new Set();
+    t.panel.forEach((row, i) => {
+      const q = `${p}.panel[${i}]`;
+      if (!isObj(row)) return bad(q, '객체여야 해요');
+      if (typeof row.re !== 'string' || (ctx.reinsurers && !reIds.has(row.re))) bad(`${q}.re`, '없는 재보험사 id예요');
+      else if (seen.has(row.re)) bad(`${q}.re`, '같은 재보험사가 두 번 들어 있어요');
+      else seen.add(row.re);
+      if (!isNum(row.share_req, 0, 1)) bad(`${q}.share_req`, '0~1 사이 숫자여야 해요');
+      if (!isNum(row.share_signed, 0, 1)) bad(`${q}.share_signed`, '0~1 사이 숫자여야 해요');
+      if (!isNum(row.rc_req, -100, 100)) bad(`${q}.rc_req`, '숫자여야 해요');
+      if (!ROW_STATUSES.includes(row.status)) bad(`${q}.status`, `${ROW_STATUSES.join(' / ')} 중 하나여야 해요`);
+      if (row.cap_known !== null && !isNum(row.cap_known, 0, 1)) bad(`${q}.cap_known`, '0~1 사이 숫자 또는 null이어야 해요');
+      if (!Array.isArray(row.history)) bad(`${q}.history`, '목록이어야 해요');
+    });
+  }
+  for (const [id, e] of Object.entries(s.entities?.reinsurers ?? {})) {
+    if (!isObj(e) || e.patience === undefined) continue;
+    if (!isObj(e.patience)) { bad(`entities.reinsurers.${id}.patience`, '객체여야 해요'); continue; }
+    for (const [tid, n] of Object.entries(e.patience)) if (!isInt(n, 0, 99)) bad(`entities.reinsurers.${id}.patience.${tid}`, '0 이상 정수여야 해요');
+  }
+}
 
 // 세이브 내용이 게임이 기대하는 모양인지 확인한다. 문제 목록을 돌려준다(비어 있으면 정상).
 export function validateState(s) {
@@ -209,6 +274,7 @@ export function validateState(s) {
     }
   }
   if (!isObj(s.treaties)) bad('treaties', '객체여야 해요');
+  else validateTreatyStates(s, bad);
   for (const key of ['mails', 'scheduled', 'fired_events', 'modifiers', 'log']) {
     if (!Array.isArray(s[key])) bad(key, '목록이어야 해요');
   }
@@ -362,7 +428,7 @@ export function importJson(text) {
 }
 
 function replaceState(next) {
-  state = fillEntities(next); // 새 버전 데이터에 추가된 고객·재보험사가 있어도 이어서 할 수 있게 한다
+  state = fillTreaties(fillEntities(next)); // 새 버전 데이터에 추가된 고객·재보험사가 있어도 이어서 할 수 있게 한다
   generation += 1;
   emit('game');
 }

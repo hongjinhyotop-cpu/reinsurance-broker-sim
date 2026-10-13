@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
+  <h1>테스트 (보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -223,11 +223,14 @@
 
     test('store: 새 게임의 모양이 설계(§10.9)와 시작값(config)을 따른다', () => {
       fresh(); const s = store.newGame({ seed: 777 });
-      eq(s.version, 2); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
+      eq(s.version, 3); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
       eq(s.player, { firm: 'Marina Bay Re Brokers', cash_usd_m: 1, reputation: 50, compliance: 70, board_confidence: 60, market_intel: 0, flags: [] });
       eq(s.market, { index: 42 });
       eq(Object.keys(s.entities.clients), data.clients.map((c) => c.id)); eq(Object.keys(s.entities.reinsurers), data.reinsurers.map((r) => r.id));
-      eq([s.treaties, s.mails, s.scheduled, s.fired_events, s.modifiers, s.log], [{}, [], [], [], [], []]);
+      eq([s.mails, s.scheduled, s.fired_events, s.modifiers, s.log], [[], [], [], [], []]);
+      eq(Object.keys(s.treaties), data.treaties.map((t) => t.id));
+      eq(s.treaties.trt_jurong_property_xl, { phase: 'open', prep_quality: 0, target_rc: -3, terms: 'standard', structure_option: '', panel: [],
+        retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, final_rc: null, obligations: [] });
       eq(store.validateState(s), []);
     });
     test('store: 시드는 uint32로 정규화', () => { fresh(); eq(store.newGame({ seed: -1 }).seed, 4294967295); });
@@ -294,7 +297,7 @@
       fresh(); store.newGame({ seed: 9 }); const base = clone(store.getState());
       const parse = (v) => { const s = clone(base); if (v === undefined) delete s.version; else s.version = v; return store.parseSave(JSON.stringify(s)); };
       for (const v of [undefined, 0, 1.5, '1', null]) check(!parse(v).ok, `version ${String(v)}`);
-      const future = parse(3); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
+      const future = parse(4); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
     });
     test('store: 마이그레이션 체인 (v1→v2→v3), 규칙 누락·실패 처리', () => {
       const raw = { version: 1, x: 1 };
@@ -302,7 +305,7 @@
       check(ok.ok); eq([ok.state.version, ok.state.a, ok.state.b], [3, 1, 2]);
       check(!store.migrate(raw, { current: 3, migrations: { 1: (s) => s } }).ok, '규칙 누락');
       check(!store.migrate(raw, { current: 2, migrations: { 1: () => null } }).ok, '변환 실패');
-      eq(store.SAVE_VERSION, 2); eq(store.migrate({ version: 1 }).ok, true);
+      eq(store.SAVE_VERSION, 3); eq(store.migrate({ version: 1 }).ok, true);
     });
     test('store: __proto__ 키가 든 세이브를 가져와도 오염되지 않는다', () => {
       fresh(); store.newGame({ seed: 4 });
@@ -632,11 +635,11 @@
     });
 
     // ---------- 세이브 v2 마이그레이션 ----------
-    test('store: v1 세이브(entities 비어 있음)를 불러오면 v2로 올라가며 고객·재보험사가 채워진다', () => {
+    test('store: v1 세이브(entities 비어 있음)를 불러오면 최신 버전으로 올라가며 고객·재보험사·트리티가 채워진다', () => {
       fresh(); store.newGame({ seed: 3 });
       const old = clone(store.getState()); old.version = 1; old.entities = { clients: {}, reinsurers: {} };
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 2);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 3); eq(Object.keys(r.state.treaties).length, 3);
       eq(Object.keys(r.state.entities.clients).length, 3); eq(Object.keys(r.state.entities.reinsurers).length, 5);
       eq(r.state.entities.reinsurers.re_alpenglow.scout, data.reinsurers[0].initial.scout);
     });
@@ -1018,6 +1021,267 @@
       check(has(bad((c) => { c[0].meeting_reactions.general = '[[gl_x|용어]]'; }), 'M2'));
       const badR = (mut) => { const r = clone(data.reinsurers); mut(r); return validateReinsurers(r); };
       check(has(badR((r) => { r[2].meeting_reactions.price_sensitivity = 'x'.repeat(201); }), 'meeting_reactions.price_sensitivity'));
+    });
+
+
+    // ---------- M5b: 라인 구성 보드의 상태 변경 (placement.js) ----------
+    const PL = await import('../js/placement.js');
+    const JR = 'trt_jurong_property_xl';
+    const startBoard = (seed = 1, ap = 6) => { const st = fresh(); store.newGame({ seed }); store.getState().ap = ap; return st; };
+    const reState = (id) => store.getState().entities.reinsurers[id];
+    // 주롱: 알펜글로우 40 + 칼랑 24 + 템스 36 = 100% (칼랑은 용량 상한이 24%대)
+    const PANEL = [['re_alpenglow', 0.4], ['re_kallang', 0.24], ['re_thames_quay', 0.36]];
+    const fillJurong = (rc) => { for (const [re, sh] of PANEL) { const r = PL.propose(JR, re, { share: sh, rc }); check(r.ok && r.status === 'accepted', `${re}: ${JSON.stringify(r)}`); } };
+
+    test('effects(M5b): client:/reinsurer: 대상은 entities 값을 0~100으로 잘라 고치고, 점 표기 경로와 위험한 경로를 다룬다', () => {
+      startBoard(); const s = store.getState();
+      applyEffects(s, [{ op: 'add', target: 'client:cli_jurong_crest', field: 'relationship', value: 70 }, { op: 'add', target: 'reinsurer:re_nur', field: 'relationship', value: -99 }]);
+      eq(s.entities.clients.cli_jurong_crest.relationship, 100); eq(s.entities.reinsurers.re_nur.relationship, 0);
+      applyEffects(s, [{ op: 'set', target: 'reinsurer:re_nur', field: 'patience.trt_x', value: 2, min: 0, max: 3 }, { op: 'add', target: 'reinsurer:re_nur', field: 'scout.loyalty', value: 5 }]);
+      eq(s.entities.reinsurers.re_nur.patience.trt_x, 2); eq(s.entities.reinsurers.re_nur.scout.loyalty, 20);
+      let threw = 0;
+      for (const ef of [{ op: 'add', target: 'client:nope', field: 'relationship', value: 1 }, { op: 'set', target: 'reinsurer:re_nur', field: '__proto__.x', value: 1 }, { op: 'set', target: 'reinsurer:re_nur', field: 'a.b.c', value: 1 }]) {
+        try { applyEffects(s, [ef]); } catch { threw += 1; }
+      }
+      eq(threw, 3); check(({}).x === undefined);
+    });
+
+    test('세이브 v3: v2 세이브(treaties 비어 있음)를 불러오면 트리티 상태가 채워지고 나머지는 그대로다', () => {
+      startBoard(5); const old = clone(store.getState());
+      old.version = 2; old.treaties = {}; old.ap = 3; old.entities.clients.cli_jurong_crest.relationship = 61;
+      for (const r of Object.values(old.entities.reinsurers)) delete r.patience;
+      const r = store.parseSave(JSON.stringify(old));
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 3);
+      eq(Object.keys(r.state.treaties), data.treaties.map((t) => t.id)); eq(r.state.treaties[JR].phase, 'open'); eq(r.state.treaties[JR].panel, []);
+      eq(r.state.ap, 3); eq(r.state.entities.clients.cli_jurong_crest.relationship, 61); eq(r.state.entities.reinsurers.re_nur.patience, {});
+      eq(store.validateState(r.state), []);
+      // 실제 슬롯 불러오기도 같은 길을 지난다
+      const st = fresh(); st.map.set('rbs:save:v1:1', JSON.stringify(old));
+      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 3);
+    });
+
+    test('세이브 v3: 트리티 상태가 틀린 세이브는 거부(상태 값·재보험사 id·중복 행·인내심)', () => {
+      startBoard(); PL.ask(JR, 're_alpenglow', { share: 0.3, rc: -3 }); const base = clone(store.getState());
+      eq(store.validateState(base), []);
+      const bad = (mut) => { const c = clone(base); mut(c); return store.validateState(c); };
+      check(bad((c) => { c.treaties[JR].phase = 'done'; }).length === 1);
+      check(bad((c) => { c.treaties[JR].panel[0].status = 'signed'; }).length === 1);
+      check(bad((c) => { c.treaties[JR].panel[0].re = 're_ghost'; }).length === 1);
+      check(bad((c) => { c.treaties[JR].panel.push(clone(c.treaties[JR].panel[0])); }).length === 1);
+      check(bad((c) => { c.treaties[JR].panel[0].share_signed = 1.4; }).length === 1);
+      check(bad((c) => { c.treaties[JR].verdict = 'great'; }).length === 1);
+      check(bad((c) => { c.entities.reinsurers.re_alpenglow.patience[JR] = -1; }).length === 1);
+      check(bad((c) => { c.treaties.trt_ghost = clone(c.treaties[JR]); }).length === 1);
+    });
+
+    test('보드: 의견 묻기는 AP 1점만 쓰고 관계도·인내심은 그대로, 가격 감과 실제 상한이 세이브에 남는다', () => {
+      startBoard();
+      const relBefore = reState('re_alpenglow').relationship;
+      const r = PL.ask(JR, 're_alpenglow', { share: 0.35, rc: -3 });
+      check(r.ok, JSON.stringify(r)); eq(store.getState().ap, 5);
+      eq(reState('re_alpenglow').relationship, relBefore); eq(reState('re_alpenglow').patience, {});
+      const row = PL.rowOf(store.getState(), JR, 're_alpenglow');
+      eq([row.status, row.share_signed, row.last.mode, row.last.kind], ['draft', 0, 'ask', 'counter']);
+      check(['good', 'near', 'far'].includes(row.last.hint) && Math.abs(row.cap_known - 0.4) < 1e-9, JSON.stringify(row));
+      eq(row.history.length, 1); eq(store.getState().treaties[JR].moves, 1);
+      check(r.last.max_share === row.cap_known);
+    });
+
+    test('보드: 같은 값으로 다시 묻는 건 막히고(AP 그대로), 값을 바꾸면 다시 물을 수 있다', () => {
+      startBoard();
+      PL.ask(JR, 're_alpenglow', { share: 0.35, rc: -3 });
+      const again = PL.ask(JR, 're_alpenglow', { share: 0.35, rc: -3 });
+      check(!again.ok && again.error.includes('이미 물어봤어요'), JSON.stringify(again)); eq(store.getState().ap, 5);
+      eq(PL.editRow(JR, 're_alpenglow'), true); eq(PL.rowOf(store.getState(), JR, 're_alpenglow').last, null);
+      check(PL.ask(JR, 're_alpenglow', { share: 0.3, rc: -3 }).ok); eq(store.getState().ap, 4);
+    });
+
+    test('보드: 행동 점수가 모자라면 의견 묻기·제안 모두 막히고 상태는 그대로다', () => {
+      startBoard(1, 0);
+      const before = JSON.stringify(store.getState());
+      for (const fn of [PL.ask, PL.propose]) {
+        const r = fn(JR, 're_alpenglow', { share: 0.35, rc: 5 });
+        check(!r.ok && r.error.includes('행동 점수가 모자라요'), JSON.stringify(r));
+      }
+      eq(JSON.stringify(store.getState()), before);
+      check(!PL.ask(JR, 're_alpenglow', { share: 0, rc: 5 }).ok, '지분 0은 막힌다');
+    });
+
+    test('보드: 수락 — AP 1점, 지분 확정, 관계도·인내심 그대로, 자동 저장됨, 용량이 모자라면 1% 눈금으로 내림', () => {
+      const st = startBoard();
+      const a = PL.propose(JR, 're_alpenglow', { share: 0.35, rc: 5 });
+      check(a.ok && a.status === 'accepted' && a.penalty === null, JSON.stringify(a));
+      eq(store.getState().ap, 5); eq(reState('re_alpenglow').relationship, 45);
+      const row = PL.rowOf(store.getState(), JR, 're_alpenglow');
+      eq([row.status, row.share_signed, row.rc_req, row.last.kind], ['accepted', 0.35, 5, 'accept']);
+      check(st.map.has('rbs:save:v1:auto'), '자동 저장');
+      const k = PL.propose(JR, 're_kallang', { share: 0.30, rc: 5 }); // 칼랑 상한은 24.6%대
+      eq(PL.rowOf(store.getState(), JR, 're_kallang').share_signed, 0.24); check(k.last.limited === true);
+      eq(PL.signedShares(store.getState(), JR), { re_alpenglow: 0.35, re_kallang: 0.24 });
+    });
+
+    test('보드: 반제 — 상대가 부른 RC는 0.1%p 단위로 올림, 반제 수락은 AP 없이 그 값으로 확정', () => {
+      startBoard();
+      const c = PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 });
+      check(c.ok && c.status === 'countered', JSON.stringify(c)); eq(store.getState().ap, 5);
+      check(Math.abs(c.last.rc * 10 - Math.round(c.last.rc * 10)) < 1e-9, `${c.last.rc}`);
+      check(PL.rowOf(store.getState(), JR, 're_alpenglow').share_signed === 0, '반제는 아직 확정 아님');
+      check(!PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }).ok, '같은 제안 반복은 막힘');
+      eq(store.getState().ap, 5);
+      const acc = PL.acceptCounter(JR, 're_alpenglow');
+      check(acc.ok, JSON.stringify(acc)); eq(store.getState().ap, 5);
+      const row = PL.rowOf(store.getState(), JR, 're_alpenglow');
+      eq([row.status, row.share_signed, row.rc_req], ['accepted', 0.35, c.last.rc]);
+      eq(PL.acceptCounter(JR, 're_alpenglow').ok, false);
+    });
+
+    test('보드: 가격이 너무 낮아 거절당하면 그 재보험사의 인내심 −1·관계도 −2, 세 번이면 인내심 0으로 협상 중단(음수 없음)', () => {
+      startBoard(1, 20);
+      const relBefore = reState('re_alpenglow').relationship;
+      const r = PL.propose(JR, 're_alpenglow', { share: 0.3, rc: -30 });
+      check(r.ok && r.status === 'rejected', JSON.stringify(r)); eq(r.penalty, { patience: -1, relationship: -2 });
+      eq(reState('re_alpenglow').patience[JR], 2); eq(reState('re_alpenglow').relationship, relBefore - 2);
+      eq(reState('re_kallang').relationship, 40); eq(reState('re_kallang').patience, {}); // 다른 재보험사는 그대로
+      PL.propose(JR, 're_alpenglow', { share: 0.3, rc: -29 }); PL.propose(JR, 're_alpenglow', { share: 0.3, rc: -28 });
+      eq(reState('re_alpenglow').patience[JR], 0); eq(reState('re_alpenglow').relationship, relBefore - 6);
+      const apNow = store.getState().ap;
+      for (const fn of [PL.ask, PL.propose]) { const x = fn(JR, 're_alpenglow', { share: 0.3, rc: 10 }); check(!x.ok && x.error.includes('인내심'), JSON.stringify(x)); }
+      eq(store.getState().ap, apNow); eq(reState('re_alpenglow').patience[JR], 0);
+      check(PL.propose('trt_straits_marine_xl', 're_alpenglow', { share: 0.3, rc: 10 }).ok, '인내심은 트리티마다 따로다');
+    });
+
+    test('보드: 사유 있는 거절(식욕 0)과 용량이 사실상 없는 곳은 AP만 쓰고 인내심·관계도는 그대로', () => {
+      startBoard();
+      const d = PL.propose(JR, 're_dunes_crescent', { share: 0.2, rc: 5 });
+      check(d.ok && d.status === 'rejected' && d.last.reason === 'no_appetite' && d.penalty === null, JSON.stringify(d));
+      eq(store.getState().ap, 5); eq(reState('re_dunes_crescent').relationship, 25); eq(reState('re_dunes_crescent').patience, {});
+      const n = PL.propose(JR, 're_nur', { share: 0.35, rc: 5 }); // 주롱에서 누르의 상한은 1% 미만
+      check(n.ok && n.last.reason === 'no_capacity' && n.penalty === null && PL.rowOf(store.getState(), JR, 're_nur').share_signed === 0, JSON.stringify(n));
+      eq(reState('re_nur').relationship, 35);
+    });
+
+    test('보드: 수락·반제를 받은 행의 지분이나 RC를 고치면 미제안으로 돌아가고 확정 지분이 사라진다(쓴 AP는 그대로)', () => {
+      startBoard();
+      PL.propose(JR, 're_alpenglow', { share: 0.35, rc: 5 }); PL.propose(JR, 're_thames_quay', { share: 0.3, rc: -3 });
+      eq(PL.rowOf(store.getState(), JR, 're_thames_quay').status, 'rejected');
+      eq(PL.editRow(JR, 're_alpenglow'), true);
+      const row = PL.rowOf(store.getState(), JR, 're_alpenglow');
+      eq([row.status, row.share_signed, row.last], ['draft', 0, null]); eq(row.history.length, 1); eq(store.getState().ap, 4);
+      eq(PL.editRow(JR, 're_alpenglow'), false, '이미 미제안이면 바뀌는 게 없다');
+      eq(PL.editRow(JR, 're_kallang'), false, '제안한 적 없는 행');
+      eq(PL.rowOf(store.getState(), JR, 're_thames_quay').status, 'rejected', '다른 행은 그대로');
+      // 반제 행도 고치면 미제안
+      PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }); eq(PL.rowOf(store.getState(), JR, 're_alpenglow').status, 'countered');
+      eq(PL.editRow(JR, 're_alpenglow'), true); eq(PL.rowOf(store.getState(), JR, 're_alpenglow').status, 'draft');
+    });
+
+    test('보드: 약관 조건·구조 옵션을 바꾸면 모든 행이 미제안으로 돌아가고, 같은 값이면 아무 일도 없다', () => {
+      startBoard();
+      PL.propose(JR, 're_alpenglow', { share: 0.35, rc: 5 }); PL.propose(JR, 're_kallang', { share: 0.2, rc: 5 });
+      eq(PL.setOptions(JR, { terms: 'standard' }), false);
+      eq(PL.setOptions(JR, { terms: 'broad', structureOption: 'higher_attach' }), true);
+      const t = store.getState().treaties[JR];
+      eq([t.terms, t.structure_option], ['broad', 'higher_attach']);
+      eq(t.panel.map((r) => [r.status, r.share_signed, r.terms]), [['draft', 0, 'broad'], ['draft', 0, 'broad']]);
+      const q = PL.propose(JR, 're_alpenglow', { share: 0.35, rc: 5 }); // 조건(넓음 +4)·구조 옵션(−4)이 반영된 하한으로 계산
+      check(q.ok && q.status === 'accepted', JSON.stringify(q)); eq(PL.rowOf(store.getState(), JR, 're_alpenglow').terms, 'broad');
+    });
+
+    test('보드: 제출은 확정 지분의 합이 정확히 100%일 때만 — 일부만 확정·수락 안 된 행은 막고 이유를 알려 준다', () => {
+      startBoard(1, 20);
+      const d = () => PL.submitBlockReason(data, store.getState(), JR);
+      eq(d(), 'blockers'); eq(PL.submit(JR).ok, false);
+      PL.propose(JR, 're_alpenglow', { share: 0.4, rc: 0 }); PL.propose(JR, 're_kallang', { share: 0.24, rc: 0 });
+      PL.ask(JR, 're_thames_quay', { share: 0.36, rc: 0 }); // 물어보기만 했으면 확정이 아니다
+      eq(PL.signedCheck(data, store.getState(), JR).blockers, ['share_total']); eq(d(), 'blockers');
+      PL.propose(JR, 're_thames_quay', { share: 0.36, rc: 0 });
+      eq(d(), null); eq(Math.round(PL.signedCheck(data, store.getState(), JR).total * 100), 100);
+    });
+
+    test('보드: 제출 — 매우 만족이면 확정(placed)·최종 RC·고객 관계도 +4·평판 +2·저장, 그 뒤로는 모든 행동이 막힌다', () => {
+      const st = startBoard(1, 20);
+      fillJurong(0);
+      const relBefore = store.getState().entities.clients.cli_jurong_crest.relationship;
+      const r = PL.submit(JR);
+      check(r.ok && r.verdict === 'delighted' && r.placed === true, JSON.stringify(r));
+      const s = store.getState(); const t = s.treaties[JR];
+      eq([t.phase, t.verdict, t.final_rc, t.retry_turn], ['placed', 'delighted', 0, 0]);
+      eq(s.entities.clients.cli_jurong_crest.relationship, relBefore + 4); eq(s.player.reputation, 52);
+      check(JSON.parse(st.map.get('rbs:save:v1:auto')).treaties[JR].phase === 'placed', '저장됨');
+      for (const fn of [PL.ask, PL.propose]) check(!fn(JR, 're_alpenglow', { share: 0.3, rc: 0 }).ok);
+      eq(PL.editRow(JR, 're_alpenglow'), false); eq(PL.setOptions(JR, { terms: 'broad' }), false);
+      check(!PL.submit(JR).ok && PL.submit(JR).error.includes('확정'));
+    });
+
+    test('보드: 제출 — 수락은 관계도 +2(평판 그대로), 최종 RC는 확정 RC의 지분 가중 평균', () => {
+      startBoard(1, 20);
+      PL.propose(JR, 're_alpenglow', { share: 0.4, rc: 2 }); PL.propose(JR, 're_kallang', { share: 0.24, rc: 6 }); PL.propose(JR, 're_thames_quay', { share: 0.36, rc: 4 });
+      const r = PL.submit(JR);
+      eq([r.ok, r.verdict, r.placed], [true, 'accept', true]);
+      const t = store.getState().treaties[JR];
+      near(t.final_rc, 0.4 * 2 + 0.24 * 6 + 0.36 * 4, 0.01);
+      eq(store.getState().entities.clients.cli_jurong_crest.relationship, 57); eq(store.getState().player.reputation, 50);
+    });
+
+    test('보드: 제출 — 재협상 요구는 확정 없이 열려 있고 다음 주부터 다시 낼 수 있다(횟수 기록)', () => {
+      startBoard(1, 20); fillJurong(6);
+      const r = PL.submit(JR);
+      eq([r.ok, r.verdict, r.placed], [true, 'renegotiate', false]);
+      const t = store.getState().treaties[JR];
+      eq([t.phase, t.retry_turn, t.renegotiations, t.rejections, t.final_rc], ['open', 2, 1, 0, null]);
+      eq(store.getState().entities.clients.cli_jurong_crest.relationship, 55);
+      const again = PL.submit(JR); check(!again.ok && again.error.includes('다음 주'), JSON.stringify(again));
+      store.getState().turn = 2; // 한 주가 지났다
+      const second = PL.submit(JR); eq([second.ok, second.verdict], [true, 'renegotiate']); eq(store.getState().treaties[JR].renegotiations, 2);
+    });
+
+    test('보드: 제출 — 거부는 거부 횟수를 세고(M6 BOR 사건이 읽는다) 다음 주에 다시 낼 수 있으며, 가격을 낮추면 뒤집을 수 있다', () => {
+      startBoard(1, 30); fillJurong(9);
+      const r = PL.submit(JR);
+      eq([r.ok, r.verdict, r.placed], [true, 'reject', false]);
+      eq(store.getState().treaties[JR].rejections, 1); eq(store.getState().treaties[JR].phase, 'open');
+      store.getState().turn = 2;
+      for (const [re] of PANEL) { PL.editRow(JR, re); }
+      fillJurong(0);
+      const ok = PL.submit(JR); eq([ok.ok, ok.verdict, ok.placed], [true, 'delighted', true]);
+    });
+
+    test('보드: 제출 결과는 같은 시드·같은 입력이면 같다(재현성), 시드가 달라도 규칙 범위 안이다', () => {
+      const run = (seed) => { startBoard(seed, 30); fillJurong(4); const r = PL.submit(JR); return [r.verdict, store.getState().treaties[JR].final_rc, JSON.stringify(PL.rowOf(store.getState(), JR, 're_thames_quay').last)]; };
+      eq(run(11), run(11)); check(['delighted', 'accept', 'renegotiate', 'reject'].includes(run(12)[0]));
+    });
+
+    test('보드: 저장 후 불러오면 확정 지분·인내심·반제·로그 순서가 그대로 이어진다', () => {
+      const st = startBoard(3, 20);
+      PL.propose(JR, 're_alpenglow', { share: 0.4, rc: 5 }); PL.propose(JR, 're_thames_quay', { share: 0.3, rc: -30 }); PL.propose(JR, 're_kallang', { share: 0.3, rc: -3 });
+      store.save('1'); const snap = clone(store.getState());
+      store.newGame({ seed: 99 }); check(store.load('1').ok);
+      eq(store.getState(), snap); eq(reState('re_thames_quay').patience[JR], 2);
+      eq(PL.rowOf(store.getState(), JR, 're_kallang').status === 'accepted' || PL.rowOf(store.getState(), JR, 're_kallang').status === 'countered', true);
+      const ns = store.getState().treaties[JR].panel.flatMap((r) => r.history.map((h) => h.n)).sort((a, b) => a - b);
+      eq(ns, [1, 2, 3]);
+    });
+
+    test('보드: 한 재보험사 행의 기록은 최근 10개만 남는다', () => {
+      startBoard(1, 40);
+      for (let i = 0; i < 14; i++) { PL.editRow(JR, 're_alpenglow'); PL.ask(JR, 're_alpenglow', { share: 0.05 + i / 100, rc: -3 }); }
+      const row = PL.rowOf(store.getState(), JR, 're_alpenglow');
+      eq(row.history.length, 10); eq(row.history[9].n, 14);
+    });
+
+    test('보드: 설정 검증 — negotiation.board 값이 틀리면 로더가 거절', () => {
+      const bad = (mut) => { const c = clone(data.config); mut(c.negotiation.board); return validateConfig(c); };
+      check(has(bad((b) => { b.patience_start = 0; }), 'patience_start'));
+      check(has(bad((b) => { b.ask_ap = -1; }), 'ask_ap'));
+      check(has(bad((b) => { delete b.verdict_effects.accept; }), 'verdict_effects.accept'));
+      eq(validateConfig(data.config), []);
+    });
+
+    test('보드: 고객 반응 화면 문구에 숨은 속성 원값·U 점수가 들어가지 않는다(세이브·결과에도 U/가중치 없음)', () => {
+      startBoard(1, 20); fillJurong(4); const r = PL.submit(JR);
+      for (const k of Object.keys(r)) check(!['U', 'scores', 'weights', 'theta'].includes(k), `결과에 ${k}`);
+      const t = JSON.stringify(store.getState().treaties[JR]);
+      check(!/"(U|scores|weights|theta|floor|conservatism|price_sensitivity)"/.test(t), '세이브의 트리티 상태에 계산 내부값이 있다');
     });
 
     // ---------- 실행 ----------

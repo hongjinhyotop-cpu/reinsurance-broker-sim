@@ -8,7 +8,6 @@ import { renderSettings } from './ui/settings.js';
 import { renderInbox } from './ui/inbox.js';
 import { renderCalendar } from './ui/calendar_view.js';
 import { renderDatabase } from './ui/database.js';
-import { renderBench } from './ui/bench.js';
 import { renderPlacement } from './ui/placement_view.js';
 import { toast } from './ui/components.js';
 
@@ -21,7 +20,24 @@ function currentRoute() {
   return match && screenIds.includes(match[1]) ? match[1] : 'inbox';
 }
 
-function render({ focusMain = false } = {}) {
+// 그리는 도중(포커스가 사라지며 change가 터지는 등)에 다시 그리기를 요청하면 끝난 뒤에 한 번 더 그린다.
+let rendering = false;
+let pending = null;
+
+function render(opts = {}) {
+  if (rendering) { pending = opts; return; }
+  rendering = true;
+  try {
+    renderNow(opts);
+  } finally {
+    rendering = false;
+  }
+  if (pending) { const next = pending; pending = null; render(next); }
+}
+
+function renderNow({ focusMain = false } = {}) {
+  // 같은 화면에서 값만 바뀌어 다시 그릴 때(제안·제출 등) 보던 위치를 잃지 않게 한다.
+  const keepScroll = !focusMain && store.hasGame() ? window.scrollY : 0;
   app.replaceChildren();
   if (!store.hasGame()) {
     app.append(renderStart());
@@ -29,11 +45,12 @@ function render({ focusMain = false } = {}) {
     return;
   }
   const route = currentRoute();
-  const screens = { settings: renderSettings, inbox: renderInbox, calendar: renderCalendar, database: renderDatabase, bench: renderBench, placement: renderPlacement };
+  const screens = { settings: renderSettings, inbox: renderInbox, calendar: renderCalendar, database: renderDatabase, placement: renderPlacement };
   const content = screens[route] ? screens[route]() : renderPlaceholder(route);
   app.append(renderShell(route, content));
   document.title = `${screenTitle(route)} · ${GAME_TITLE}`;
   if (focusMain) document.getElementById('main')?.focus();
+  else if (keepScroll > 0) window.scrollTo(0, keepScroll);
 }
 
 async function boot() {
