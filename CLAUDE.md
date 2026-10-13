@@ -19,7 +19,7 @@ docs/design.md        설계 문서
 css/                  base.css(토큰·셸), screens.css
 js/                   main, loader, store, rng, calendar, market, negotiation, placement, reveal,
                       scouting, glossary, anki, effects, events, mail, turn, finance, rivals, season, guide, prefs, difficulty
-js/ui/                components, shell, start, settings, inbox, database,
+js/ui/                components, shell, focus, start, settings, inbox, database,
                       placement_view, glossary_view, calendar_view, standings, review
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
                       glossary, brokers, report  (.json)
@@ -33,6 +33,7 @@ tests/balance/        밸런싱 도구(Node: `node tests/balance/sim.mjs 300 nor
 - 난수는 `rng.js`의 시드 RNG만 쓴다. `Math.random()` 금지(세이브 재현성).
 - 계수·임계값은 코드에 박지 말고 `data/config.json`에 둔다.
 - `ui/*` → 로직 모듈 방향으로만 의존한다.
+- 누를 수 있는 것은 기본 컨트롤(`button`·`a`·`input`·`select`)만 쓰고 이름(글자·`aria-label`)을 단다. 화면을 다시 그려도 키보드 초점이 유지된다(`ui/focus.js`, design.md §6.0.2).
 - DOM은 `ui/components.js`의 `h()`로 만든다. `innerHTML`·`style` 속성·인라인 스크립트 금지(`index.html`의 CSP가 외부 접속과 함께 막는다). 모양은 CSS 클래스로.
 
 ## 데이터 규칙
