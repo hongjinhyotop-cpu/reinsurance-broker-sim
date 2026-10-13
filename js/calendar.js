@@ -39,3 +39,8 @@ export function seasonLabel(desc) {
   if (s.phase === 'inception') return `${s.label} 인셉션 주`;
   return `${s.label} 시즌 협상 ${s.windowWeek}/${s.windowWeeks}주차 · 인셉션까지 ${s.weeksToInception}주`;
 }
+
+// 새 분기가 시작되는 턴인가(프리시즌 시작인 턴 1 제외). 시장 드리프트가 이 턴에 한 번 적용된다(design.md §3).
+export function isQuarterStart(calendar, turn) {
+  return turn > 1 && calendar.quarters.some((q) => q.from === turn);
+}

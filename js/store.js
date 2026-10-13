@@ -2,8 +2,9 @@
 // 상태를 바꾸는 코드는 이 파일(과 이후의 effects)만 가진다. 저장소 접근은 전부 try/catch.
 
 import { nextFloat, normalizeSeed } from './rng.js';
+import { marketBand } from './market.js';
 
-export const SAVE_VERSION = 5; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
+export const SAVE_VERSION = 6; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
 export const SLOTS = ['auto', '1', '2', '3'];
 export const MANUAL_SLOTS = ['1', '2', '3'];
 const KEY_PREFIX = 'rbs:save:v1:'; // 키 형식 버전(구조 버전과 별개)
@@ -14,6 +15,7 @@ const MAX_SAVE_CHARS = 2_000_000; // 가져오기 파일 크기 방어선
 // v2→v3(M5b): 비어 있던 treaties에 트리티별 협상 상태를 채우고, 재보험사에 patience 자리를 보장한다.
 // v3→v4: 트리티에 고객 반응의 이유 종류(verdict_reason)를 더한다.
 // v4→v5: 패널 행에 반제 유효 기간(counter_until)을 더한다. 옛 반제는 저장된 그 주까지 유효하다.
+// v5→v6(M6a): 시장에 마지막으로 알린 분위기 묶음(band)을 더한다. 그 시점의 분위기는 이미 알린 것으로 본다.
 export const MIGRATIONS = {
   1: (s) => fillEntities({ ...s, entities: { clients: { ...s.entities?.clients }, reinsurers: { ...s.entities?.reinsurers } } }),
   2: (s) => fillTreaties({
@@ -32,6 +34,7 @@ export const MIGRATIONS = {
       panel: (t.panel ?? []).map((r) => ({ counter_until: r.status === 'countered' ? s.turn : null, ...r })),
     }])),
   }),
+  5: (s) => ({ ...s, market: { ...s.market, band: marketBand(s.market?.index ?? 0, ctx.config.market.family) } }),
 };
 
 let ctx = null; // { config, calendar } — loader가 검증한 정적 데이터
@@ -152,7 +155,7 @@ export function newGame({ seed } = {}) {
       market_intel: g.start_market_intel,
       flags: [],
     },
-    market: { index: g.start_market_index },
+    market: { index: g.start_market_index, band: marketBand(g.start_market_index, ctx.config.market.family) },
     entities: { clients: {}, reinsurers: {} },
     treaties: {},
     mails: [],
@@ -205,6 +208,8 @@ const isNum = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v 
 const TREATY_PHASES = ['open', 'placed'];
 const ROW_STATUSES = ['draft', 'accepted', 'countered', 'rejected'];
 const VERDICTS = ['delighted', 'accept', 'renegotiate', 'reject'];
+const MARKET_BANDS = ['soft', 'neutral', 'hard'];
+const SCHEDULED_KINDS = ['mail', 'event'];
 const VERDICT_REASONS = ['price', 'security', 'continuity', 'terms', 'service', 'structure'];
 
 // 트리티 협상 상태(M5b)와 재보험사 인내심의 모양을 확인한다.
@@ -273,6 +278,7 @@ export function validateState(s) {
   }
 
   if (!isObj(s.market) || !isNum(s.market.index, 0, 100)) bad('market.index', '0~100 사이 숫자여야 해요');
+  else if (!MARKET_BANDS.includes(s.market.band)) bad('market.band', `${MARKET_BANDS.join(' / ')} 중 하나여야 해요`);
 
   if (!isObj(s.entities) || !isObj(s.entities.clients) || !isObj(s.entities.reinsurers)) {
     bad('entities', 'clients·reinsurers 객체가 필요해요');
@@ -311,9 +317,14 @@ export function validateState(s) {
     s.scheduled.forEach((q, i) => {
       if (!isObj(q) || !isInt(q.turn, 1, 999) || typeof q.kind !== 'string' || typeof q.ref !== 'string') {
         bad(`scheduled[${i}]`, '{ turn, kind, ref } 모양이어야 해요');
+      } else if (!SCHEDULED_KINDS.includes(q.kind)) {
+        bad(`scheduled[${i}].kind`, `${SCHEDULED_KINDS.join(' / ')} 중 하나여야 해요`);
+      } else if (q.prob !== undefined && (q.kind !== 'event' || !isNum(q.prob, 0, 1))) {
+        bad(`scheduled[${i}].prob`, '이벤트 예약에만 쓰는 0~1 사이 숫자예요');
       }
     });
   }
+  if (Array.isArray(s.fired_events) && !s.fired_events.every((id) => typeof id === 'string')) bad('fired_events', '글자 목록이어야 해요');
   if (s.saved_at !== undefined && typeof s.saved_at !== 'string') bad('saved_at', '글자여야 해요');
   return errors;
 }

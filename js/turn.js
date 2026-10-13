@@ -1,10 +1,11 @@
-// 턴 파이프라인(design.md §2.5)의 M1 부분: 주 전환 → 예약 메일 도착 → 마감 처리 → 자동 저장.
-// 재무·이벤트·시장 갱신은 이후 마일스톤에서 단계를 끼워 넣는다. 상태 변경은 store.commit 안에서만 한다.
+// 턴 파이프라인(design.md §2.5): 주 전환 → 마감 처리 → 이벤트 판정(M6a) → 시장 갱신(M6a) → 예약 메일 도착 → 자동 저장.
+// 재무·관계 감쇠 같은 단계는 이후 마일스톤에서 끼워 넣는다. 상태 변경은 store.commit 안에서만 한다.
 
 import * as store from './store.js';
 import { applyEffects } from './effects.js';
-import { describeTurn, turnLabel } from './calendar.js';
-import { describeMarket } from './market.js';
+import { describeTurn, turnLabel, isQuarterStart } from './calendar.js';
+import { describeMarket, driftIndex, gaussian, marketBand } from './market.js';
+import { windowStarters, pickFireTurn, canFire } from './events.js';
 import { expireCounters } from './placement.js';
 import { TOPICS, applyMeeting, relationshipAfterMeeting, newlyUnlocked } from './scouting.js';
 import {
@@ -50,6 +51,75 @@ function deliverDue(data, state) {
     if (!already) arrived.push(pushMail(state, t));
   }
   return arrived;
+}
+
+// ---------- 이벤트 판정 (design.md §8.1) ----------
+
+function eventView(data, state) {
+  const relationshipOf = (target) => {
+    const m = /^(client|reinsurer):(.+)$/.exec(target);
+    if (!m) return null;
+    return (m[1] === 'client' ? state.entities.clients : state.entities.reinsurers)[m[2]]?.relationship ?? null;
+  };
+  return {
+    turn: state.turn, quarterId: describeTurn(data.calendar, state.turn).quarter.id, marketIndex: state.market.index,
+    flags: state.player.flags, relationshipOf,
+  };
+}
+
+// 발생 처리: 기록 → 즉시 효과 → 메일 도착 예약(같은 턴) → 후속 예약.
+function fireEvent(state, event) {
+  if (!state.fired_events.includes(event.id)) state.fired_events.push(event.id);
+  applyEffects(state, event.effects_on_fire);
+  state.scheduled.push({ turn: state.turn, kind: 'mail', ref: event.mail });
+  for (const f of event.followups ?? []) {
+    const item = { turn: state.turn + f.delay_weeks, kind: 'event', ref: f.event };
+    if (f.prob !== undefined) item.prob = f.prob;
+    state.scheduled.push(item);
+  }
+}
+
+// 이번 턴에 터진 이벤트 id 목록. 창구가 열리는 이벤트는 난수 둘(발생 여부·발생 턴)을 항상 쓴다.
+function runEvents(data, state) {
+  const events = data.events ?? [];
+  const byId = new Map(events.map((e) => [e.id, e]));
+  for (const ev of windowStarters(events, state.turn)) {
+    const hit = store.random() < ev.trigger.prob;
+    const pick = store.random();
+    if (hit) state.scheduled.push({ turn: pickFireTurn(ev.trigger.window, pick), kind: 'event', ref: ev.id });
+  }
+  const fired = [];
+  // 발생 효과가 지연 0주 이벤트를 또 예약할 수 있어, 꺼낼 게 없을 때까지 반복한다(데이터 실수로 끝없이 돌지 않게 상한을 둔다).
+  for (let guard = 0; guard < 50; guard += 1) {
+    const due = state.scheduled.filter((q) => q.kind === 'event' && q.turn <= state.turn);
+    if (due.length === 0) break;
+    state.scheduled = state.scheduled.filter((q) => !(q.kind === 'event' && q.turn <= state.turn));
+    for (const q of due) {
+      const ev = byId.get(q.ref);
+      if (!ev) continue;
+      if (q.prob !== undefined && !(store.random() < q.prob)) continue;
+      if (!canFire(ev, state.fired_events, eventView(data, state))) continue;
+      fireEvent(state, ev);
+      fired.push(ev.id);
+    }
+  }
+  return fired;
+}
+
+// ---------- 시장 갱신 (design.md §3) ----------
+
+// 분기가 시작되는 턴에 드리프트를 한 번 적용하고, 분위기 묶음이 바뀌었으면 시장 리포트 메일을 예약한다.
+function stepMarket(data, state) {
+  const cfg = data.config.market;
+  if (isQuarterStart(data.calendar, state.turn)) {
+    const z = gaussian(store.random(), store.random());
+    state.market.index = driftIndex(state.market.index, z, cfg.cycle);
+  }
+  const band = marketBand(state.market.index, cfg.family);
+  if (band !== state.market.band) {
+    state.market.band = band;
+    state.scheduled.push({ turn: state.turn, kind: 'mail', ref: cfg.family.mails[band] });
+  }
 }
 
 // ---------- 답하기 ----------
@@ -164,12 +234,15 @@ function stepWeek(data, state) {
   }
 
   const expiredCounters = expireCounters(state); // 반제는 그 주만 유효하다(§6.3 마감 압박)
+  const fired = runEvents(data, state);
+  stepMarket(data, state);
   const arrived = deliverDue(data, state);
-  return { arrived, autoResolved, expiredCounters };
+  return { arrived, autoResolved, expiredCounters, fired };
 }
 
 // 멈춰야 하는 이유(없으면 null). 설계 §2.1: 새 메일, 마감 임박, 시즌 단계 전환.
-export function stopReason(data, state, arrived) {
+export function stopReason(data, state, arrived, fired = []) {
+  if (fired.length > 0) return 'event';
   if (arrived.length > 0) return 'mail';
   const warn = data.config.turn.deadline_warning_weeks;
   const near = unansweredMails(data, state).some(({ mail }) => mail.deadline_turn !== null && mail.deadline_turn - state.turn <= warn);
@@ -185,7 +258,7 @@ export function advance() {
   const reason = continueBlockReason(data, store.getState());
   if (reason) return { ok: false, error: reason };
 
-  const summary = { ok: true, fromTurn: store.getState().turn, arrived: [], autoResolved: [], expiredCounters: 0, stop: null };
+  const summary = { ok: true, fromTurn: store.getState().turn, arrived: [], autoResolved: [], expiredCounters: 0, events: [], stop: null };
   store.commit((s) => {
     // 끝없는 반복 방지: 전체 턴 수를 넘길 수 없다.
     for (let guard = 0; guard < data.calendar.turns; guard += 1) {
@@ -193,7 +266,8 @@ export function advance() {
       summary.arrived.push(...step.arrived);
       summary.autoResolved.push(...step.autoResolved);
       summary.expiredCounters += step.expiredCounters;
-      summary.stop = stopReason(data, s, step.arrived);
+      summary.events.push(...step.fired);
+      summary.stop = stopReason(data, s, step.arrived, step.fired);
       if (summary.stop) break;
     }
   });
