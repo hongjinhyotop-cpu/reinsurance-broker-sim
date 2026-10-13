@@ -5,6 +5,8 @@ import * as store from './store.js';
 import { renderStart, renderLoadError } from './ui/start.js';
 import { renderShell, renderPlaceholder, screenTitle, NAV } from './ui/shell.js';
 import { renderSettings } from './ui/settings.js';
+import { renderInbox } from './ui/inbox.js';
+import { renderCalendar } from './ui/calendar_view.js';
 import { toast } from './ui/components.js';
 
 const GAME_TITLE = '싱가포르 재보험 브로커 시뮬레이션';
@@ -24,7 +26,8 @@ function render({ focusMain = false } = {}) {
     return;
   }
   const route = currentRoute();
-  const content = route === 'settings' ? renderSettings() : renderPlaceholder(route);
+  const screens = { settings: renderSettings, inbox: renderInbox, calendar: renderCalendar };
+  const content = screens[route] ? screens[route]() : renderPlaceholder(route);
   app.append(renderShell(route, content));
   document.title = `${screenTitle(route)} · ${GAME_TITLE}`;
   if (focusMain) document.getElementById('main')?.focus();
@@ -41,8 +44,8 @@ async function boot() {
   render();
 }
 
-// 게임이 새로 시작되거나 통째로 바뀔 때만 전체를 다시 그린다. 슬롯 목록은 각자 갱신한다.
-store.subscribe((type) => { if (type === 'game') render(); });
+// 게임이 새로 시작/교체되거나(game) 진행 중 값이 바뀔 때(state) 전체를 다시 그린다. 슬롯 목록은 각자 갱신한다.
+store.subscribe((type) => { if (type === 'game' || type === 'state') render(); });
 window.addEventListener('hashchange', () => render({ focusMain: true }));
 
 // 조용히 멈추는 것보다 알려 주는 편이 낫다(상세는 콘솔).

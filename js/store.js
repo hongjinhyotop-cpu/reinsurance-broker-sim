@@ -37,7 +37,7 @@ export function useStorage(adapter) {
   storageOverride = adapter;
 }
 
-// 'game' = 게임이 새로 시작/교체됨, 'slots' = 저장 슬롯 내용이 바뀜
+// 'game' = 게임이 새로 시작/교체됨, 'state' = 진행 중인 게임 안에서 값이 바뀜, 'slots' = 저장 슬롯 내용이 바뀜
 export function subscribe(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
@@ -127,6 +127,19 @@ export function random() {
   return r.value;
 }
 
+// 진행 중인 게임의 상태를 바꾸는 유일한 문. fn(state) 안에서 고치고, 끝나면 화면에 알린다.
+export function commit(fn) {
+  if (!state) throw new Error('진행 중인 게임이 없어요');
+  const result = fn(state);
+  emit('state');
+  return result;
+}
+
+// 화면 쪽 선택(고른 메일·필터)이 바뀌어 다시 그려야 할 때. 게임 상태는 건드리지 않는다.
+export function refresh() {
+  emit('state');
+}
+
 export function quitToStart() {
   state = null;
   generation += 1;
@@ -171,6 +184,26 @@ export function validateState(s) {
   if (!isObj(s.treaties)) bad('treaties', '객체여야 해요');
   for (const key of ['mails', 'scheduled', 'fired_events', 'modifiers', 'log']) {
     if (!Array.isArray(s[key])) bad(key, '목록이어야 해요');
+  }
+  if (Array.isArray(s.mails)) {
+    s.mails.forEach((m, i) => {
+      const p = `mails[${i}]`;
+      if (!isObj(m)) return bad(p, '객체여야 해요');
+      if (typeof m.id !== 'string' || m.id === '') bad(`${p}.id`, '글자여야 해요');
+      if (typeof m.template !== 'string' || m.template === '') bad(`${p}.template`, '글자여야 해요');
+      if (!isInt(m.turn, 1, ctx.calendar.turns)) bad(`${p}.turn`, '턴 번호여야 해요');
+      if (m.deadline_turn !== null && !isInt(m.deadline_turn, 1, 999)) bad(`${p}.deadline_turn`, '정수 또는 null이어야 해요');
+      if (typeof m.read !== 'boolean') bad(`${p}.read`, 'true 또는 false여야 해요');
+      if (m.answered !== null && typeof m.answered !== 'string') bad(`${p}.answered`, '글자 또는 null이어야 해요');
+      if (typeof m.auto !== 'boolean') bad(`${p}.auto`, 'true 또는 false여야 해요');
+    });
+  }
+  if (Array.isArray(s.scheduled)) {
+    s.scheduled.forEach((q, i) => {
+      if (!isObj(q) || !isInt(q.turn, 1, 999) || typeof q.kind !== 'string' || typeof q.ref !== 'string') {
+        bad(`scheduled[${i}]`, '{ turn, kind, ref } 모양이어야 해요');
+      }
+    });
   }
   if (s.saved_at !== undefined && typeof s.saved_at !== 'string') bad('saved_at', '글자여야 해요');
   return errors;

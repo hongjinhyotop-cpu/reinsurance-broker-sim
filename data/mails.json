@@ -1,0 +1,292 @@
+[
+  {
+    "id": "mail_welcome_board",
+    "type": "board",
+    "from": {
+      "kind": "board",
+      "name_ko": "이사회 의장 (가상)"
+    },
+    "subject_ko": "{player.firm} 트리티 헤드 부임을 환영합니다",
+    "body_ko": [
+      "{player.firm}의 트리티 플레이스먼트 헤드를 맡아 주셔서 감사합니다.",
+      "앞으로 6주는 첫 갱신 시즌(1/1)을 준비하는 프리시즌입니다. 매주 상단의 Continue 버튼으로 한 주씩 넘기며 메일을 읽고 답해 주세요.",
+      "답장에는 '행동 점수'가 듭니다. 점수는 매주 6점이 새로 채워지고, 남은 점수는 다음 주로 넘어가지 않습니다.",
+      "지금 시장은 '{market.label}' 쪽입니다. 중개사에게는 가격 협상이 쉽지 않은 시기입니다."
+    ],
+    "priority": "normal",
+    "blocking": false,
+    "schedule": {
+      "turn": 1
+    },
+    "choices": []
+  },
+  {
+    "id": "mail_kickoff_jurong",
+    "type": "client_request",
+    "from": {
+      "kind": "client",
+      "name_ko": "주롱 크레스트 손해보험 CRO (가상)"
+    },
+    "subject_ko": "1/1 재산 초과손해 트리티 갱신 요청",
+    "body_ko": [
+      "안녕하세요. 주롱 크레스트 손해보험입니다. 내년 1월 1일 만기인 재산 트리티의 갱신을 {player.firm}에 맡기려 합니다.",
+      "지난해보다 보험료가 오르지 않기를 기대합니다. 먼저 어떻게 준비하실지 알려 주세요."
+    ],
+    "priority": "normal",
+    "blocking": false,
+    "deadline_weeks": 3,
+    "default_choice": "later",
+    "schedule": {
+      "turn": 1
+    },
+    "choices": [
+      {
+        "id": "prep",
+        "label_ko": "지난 3년 손해 자료부터 꼼꼼히 정리하겠다고 답한다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 2
+          }
+        ],
+        "result_ko": "고객이 준비 방식에 만족했습니다. 평판이 조금 올랐습니다."
+      },
+      {
+        "id": "later",
+        "label_ko": "곧 일정을 잡아 다시 연락하겠다고만 답한다",
+        "ap_cost": 0,
+        "effects": [],
+        "result_ko": "무난한 답장이었습니다. 고객은 다음 연락을 기다립니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_market_report_soft",
+    "type": "market_report",
+    "from": {
+      "kind": "market",
+      "name_ko": "시장 리포트 데스크"
+    },
+    "subject_ko": "주간 시장 리포트: 현재 {market.label}",
+    "body_ko": [
+      "{turn.label}: 재보험 시장에는 아직 여유 용량이 많습니다. 현재 시장 온도는 '{market.label}'입니다.",
+      "소프트한 시장에서는 고객이 가격 인하를 기대하기 쉽고, 재보험사는 가격을 쉽게 내리지 않습니다. 중간에서 기대를 맞추는 일이 중요합니다.",
+      "더 정확한 시장 감각이 필요하면 직접 시장을 둘러볼 수 있습니다."
+    ],
+    "priority": "low",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "skip",
+    "schedule": {
+      "turn": 2
+    },
+    "choices": [
+      {
+        "id": "scout",
+        "label_ko": "시장을 직접 둘러본다(시장 정찰)",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "player",
+            "field": "market_intel",
+            "value": 10
+          }
+        ],
+        "result_ko": "여러 곳과 이야기를 나눠 시장 감각이 좋아졌습니다. 상단 시장 오차 범위가 줄어듭니다."
+      },
+      {
+        "id": "skip",
+        "label_ko": "이번에는 리포트만 읽고 넘어간다",
+        "ap_cost": 0,
+        "effects": [],
+        "result_ko": "리포트만 확인하고 넘어갔습니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_compliance_notice",
+    "type": "regulatory",
+    "from": {
+      "kind": "regulator",
+      "name_ko": "금융감독당국 감독부 (가상)"
+    },
+    "subject_ko": "[필수] 연말 컴플라이언스 자체점검 제출 안내",
+    "body_ko": [
+      "{player.firm} 귀중. 연말까지 접대·기밀 관리 내역에 대한 자체점검서를 제출해 주시기 바랍니다.",
+      "이 메일은 답장을 해야 다음 주로 넘어갈 수 있는 필수 메일입니다. 마감 주에는 반드시 답해 주세요."
+    ],
+    "priority": "urgent",
+    "blocking": true,
+    "deadline_weeks": 2,
+    "default_choice": "defer",
+    "schedule": {
+      "turn": 3
+    },
+    "choices": [
+      {
+        "id": "submit",
+        "label_ko": "자체점검서를 정리해서 제출한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "player",
+            "field": "compliance",
+            "value": 4
+          }
+        ],
+        "result_ko": "제출이 접수되었습니다. 컴플라이언스 점수가 올랐습니다."
+      },
+      {
+        "id": "defer",
+        "label_ko": "이번 주기는 연장을 요청한다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "add",
+            "target": "player",
+            "field": "compliance",
+            "value": -2
+          }
+        ],
+        "result_ko": "연장은 승인되었지만 성실하지 않다는 인상을 남겼습니다. 컴플라이언스 점수가 조금 내렸습니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_reinsurer_hello",
+    "type": "reinsurer_response",
+    "from": {
+      "kind": "reinsurer",
+      "name_ko": "알펜글로우 리 언더라이터 (가상)"
+    },
+    "subject_ko": "1/1 시즌 관련 인사드립니다",
+    "body_ko": [
+      "{player.firm} 담당자님께. 이번 1/1 시즌에 저희 쪽 용량을 쓰실 계획이 있는지 궁금해 연락드립니다.",
+      "점심을 함께 하며 인사를 나눌 수 있을까요? 이 만남은 부담 없는 자리입니다."
+    ],
+    "priority": "normal",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "decline",
+    "schedule": {
+      "turn": 4
+    },
+    "choices": [
+      {
+        "id": "lunch",
+        "label_ko": "점심 미팅에 응한다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "add",
+            "target": "player",
+            "field": "market_intel",
+            "value": 5
+          },
+          {
+            "op": "flag_set",
+            "flag": "met_alpenglow_preseason"
+          }
+        ],
+        "result_ko": "편안한 대화였습니다. 상대가 요즘 어떤 물건을 선호하는지 감을 잡았습니다."
+      },
+      {
+        "id": "decline",
+        "label_ko": "일정이 어렵다고 정중히 사양한다",
+        "ap_cost": 0,
+        "effects": [],
+        "result_ko": "정중히 사양했고 다음 기회를 기약했습니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_client_expectation",
+    "type": "client_request",
+    "from": {
+      "kind": "client",
+      "name_ko": "주롱 크레스트 손해보험 CRO (가상)"
+    },
+    "subject_ko": "다시 한 번 가격 기대 말씀드립니다",
+    "body_ko": [
+      "{player.firm} 담당자님, 주롱 크레스트 손해보험입니다. 이사회에서 올해 재보험 비용을 줄이라는 압박이 있습니다.",
+      "시장이 '{market.label}'이라 들었는데, 가격이 내려갈 것으로 보시는지 솔직한 의견을 부탁드립니다."
+    ],
+    "priority": "normal",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "vague",
+    "schedule": {
+      "turn": 5
+    },
+    "choices": [
+      {
+        "id": "honest",
+        "label_ko": "시장 상황을 근거로 현실적인 기대치를 설명한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 2
+          },
+          {
+            "op": "flag_set",
+            "flag": "managed_client_expectation"
+          }
+        ],
+        "result_ko": "고객이 솔직한 설명에 고개를 끄덕였습니다. 평판이 조금 올랐습니다."
+      },
+      {
+        "id": "vague",
+        "label_ko": "열심히 해보겠다고만 답한다",
+        "ap_cost": 0,
+        "effects": [],
+        "result_ko": "고객은 기대를 그대로 유지했습니다. 나중에 부담이 될 수 있습니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_inception_eve",
+    "type": "market_report",
+    "from": {
+      "kind": "market",
+      "name_ko": "시장 리포트 데스크"
+    },
+    "subject_ko": "인셉션 직전 점검 ({turn.label})",
+    "body_ko": [
+      "{turn.label}입니다. 프리시즌의 마지막 주이고, 다음 주가 1/1 인셉션입니다.",
+      "지금 시장은 '{market.label}'입니다. 이번 주는 새로 처리할 일이 없습니다. Continue로 마지막 주를 넘기세요."
+    ],
+    "priority": "low",
+    "blocking": false,
+    "schedule": {
+      "turn": 6
+    },
+    "choices": []
+  },
+  {
+    "id": "mail_preseason_wrapup",
+    "type": "system",
+    "from": {
+      "kind": "system",
+      "name_ko": "게임 안내"
+    },
+    "subject_ko": "프리시즌 6주를 마쳤습니다 ({turn.label})",
+    "body_ko": [
+      "6주간의 프리시즌이 끝나고 1분기가 시작되었습니다. 이번 주가 1/1 인셉션 주입니다. 수고하셨습니다.",
+      "지금 단계에서는 메일을 읽고 답하며 한 주씩 넘기는 것까지 체험할 수 있습니다. 협상 보드, 용어집, 상대 스카우팅은 다음 단계에서 이어집니다."
+    ],
+    "priority": "low",
+    "blocking": false,
+    "schedule": {
+      "turn": 7
+    },
+    "choices": []
+  }
+]
