@@ -89,6 +89,7 @@ export function validateConfig(cfg, file = 'config.json') {
     c.num(cfg.guide.counter_close_pp, 'guide.counter_close_pp', 0, 20);
     c.int(cfg.guide.careful_patience, 'guide.careful_patience', 0, 9);
     c.int(cfg.guide.year_end_weeks, 'guide.year_end_weeks', 0, 58);
+    c.int(cfg.guide.season_end_weeks, 'guide.season_end_weeks', 0, 58);
   }
 
   if (c.object(cfg.scouting, 'scouting')) {
@@ -170,16 +171,29 @@ export function validateConfig(cfg, file = 'config.json') {
 export const PART_IDS = ['revenue', 'retention', 'rank', 'compliance', 'reputation'];
 export const GRADE_LETTERS = ['S', 'A', 'B', 'C', 'D'];
 export const RANK_MAIL_KEYS = ['top_up', 'top_down', 'mid_up', 'mid_down', 'low_up', 'low_down'];
+export const SEASON_MAIL_KEYS = ['up', 'flat', 'down', 'pending', 'lost'];
 
 // 재무·라이벌·이사회 계수(design.md §9, §10.7, M7a)
 function validateFinanceConfig(c, cfg) {
   if (c.object(cfg.finance, 'finance')) {
     c.int(cfg.finance.cash_delay_weeks, 'finance.cash_delay_weeks', 0, 20);
     c.num(cfg.finance.negative_cash_penalty, 'finance.negative_cash_penalty', -100, 0);
+    if (c.object(cfg.finance.gap_cut, 'finance.gap_cut')) {
+      c.num(cfg.finance.gap_cut.per_week, 'finance.gap_cut.per_week', 0, 1);
+      c.num(cfg.finance.gap_cut.max, 'finance.gap_cut.max', 0, 1);
+    }
   }
   if (c.object(cfg.rivals, 'rivals')) {
     c.num(cfg.rivals.market_k, 'rivals.market_k', 0, 1);
     if (c.array(cfg.rivals.quarters, 'rivals.quarters', 1)) cfg.rivals.quarters.forEach((q, i) => c.str(q, `rivals.quarters[${i}]`, 20)); // 존재 여부는 validateCross가 본다
+    const rf = cfg.rivals.reputation_flow;
+    if (c.object(rf, 'rivals.reputation_flow')) {
+      c.num(rf.threshold, 'rivals.reputation_flow.threshold', 0, 100);
+      c.num(rf.per_point, 'rivals.reputation_flow.per_point', 0, 1);
+      c.num(rf.max_rate, 'rivals.reputation_flow.max_rate', 0, 1);
+      c.num(rf.notice_min_usd_m, 'rivals.reputation_flow.notice_min_usd_m', 0, 100);
+      c.str(rf.mail, 'rivals.reputation_flow.mail', 80);
+    }
   }
   if (!c.object(cfg.board, 'board')) return;
   const b = cfg.board;
@@ -223,6 +237,25 @@ function validateFinanceConfig(c, cfg) {
     c.num(b.report.tip_below, 'board.report.tip_below', 0, 1);
     c.int(b.report.tip_max, 'board.report.tip_max', 0, 5);
     if (Number.isFinite(b.report.tier_good) && Number.isFinite(b.report.tier_weak) && b.report.tier_weak > b.report.tier_good) c.fail('board.report.tier_weak', 'tier_good보다 클 수 없어요', b.report.tier_weak);
+  }
+  if (c.object(b.season_eval, 'board.season_eval')) {
+    const se = b.season_eval;
+    c.int(se.end_offset_weeks, 'board.season_eval.end_offset_weeks', 0, 10);
+    c.num(se.open, 'board.season_eval.open', -100, 100);
+    c.num(se.lost, 'board.season_eval.lost', -100, 100);
+    if (c.array(se.tiers, 'board.season_eval.tiers', 1)) {
+      se.tiers.forEach((t, i) => {
+        if (!c.object(t, `board.season_eval.tiers[${i}]`)) return;
+        c.num(t.min_ratio, `board.season_eval.tiers[${i}].min_ratio`, 0, 10);
+        c.num(t.delta, `board.season_eval.tiers[${i}].delta`, -100, 100);
+      });
+      const last = se.tiers.at(-1);
+      if (isObj(last) && last.min_ratio !== 0) c.fail(`board.season_eval.tiers[${se.tiers.length - 1}].min_ratio`, '마지막 단계는 0부터여야 모든 비율이 단계를 받아요', last.min_ratio);
+      for (let i = 1; i < se.tiers.length; i += 1) {
+        if (isObj(se.tiers[i]) && isObj(se.tiers[i - 1]) && se.tiers[i].min_ratio >= se.tiers[i - 1].min_ratio) c.fail(`board.season_eval.tiers[${i}].min_ratio`, '위에서 아래로 갈수록 작아져야 해요', se.tiers[i].min_ratio);
+      }
+    }
+    if (c.object(se.mails, 'board.season_eval.mails')) for (const k of SEASON_MAIL_KEYS) c.str(se.mails[k], `board.season_eval.mails.${k}`, 80);
   }
   if (c.object(b.rank_buckets, 'board.rank_buckets')) c.int(b.rank_buckets.top_max, 'board.rank_buckets.top_max', 1, 20);
   if (c.object(b.mails, 'board.mails')) {
@@ -1077,6 +1110,12 @@ export function validateReport(rep, file = 'report.json', terms = true) {
     text(rep.fired.title_ko, 'fired.title_ko', 60);
     if (c.array(rep.fired.summary_ko, 'fired.summary_ko', 1)) rep.fired.summary_ko.forEach((line, i) => text(line, `fired.summary_ko[${i}]`, 400));
   }
+  if (c.object(rep.season, 'season')) {
+    const se = rep.season;
+    for (const k of ['title_ko', 'compare_title_ko', 'trend_title_ko']) c.str(se[k], `season.${k}`, 60);
+    for (const k of ['intro_ko', 'compare_note_ko', 'flow_note_ko']) text(se[k], `season.${k}`, 400);
+    if (c.object(se.eval_ko, 'season.eval_ko')) for (const k of SEASON_MAIL_KEYS) text(se.eval_ko[k], `season.eval_ko.${k}`, 400);
+  }
   text(rep.keep_going_ko, 'keep_going_ko', 300);
   text(rep.preview_note_ko, 'preview_note_ko', 300);
   return errors;
@@ -1114,6 +1153,8 @@ function validateBoardLinks({ config, calendar, mails }) {
     for (const [k, id] of Object.entries(b.mails.rank ?? {})) check(id, `rank.${k}`);
     for (const [k, id] of Object.entries(b.mails.grade ?? {})) check(id, `grade.${k}`);
     for (const k of ['fired', 'cash_warning', 'cash_penalty']) check(b.mails[k], k);
+    for (const [k, id] of Object.entries(b.season_eval?.mails ?? {})) check(id, `season_eval.${k}`);
+    check(config.rivals?.reputation_flow?.mail, 'rivals.reputation_flow.mail');
   }
   if (isObj(config.rivals) && Array.isArray(config.rivals.quarters) && Array.isArray(calendar?.quarters)) {
     const ids = new Set(calendar.quarters.map((q) => q.id));

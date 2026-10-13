@@ -66,7 +66,8 @@
     "scout_min_meetings": 1,
     "counter_close_pp": 1.0,
     "careful_patience": 1,
-    "year_end_weeks": 6
+    "year_end_weeks": 6,
+    "season_end_weeks": 4
   },
   "scouting": {
     "meeting_ap": 2,
@@ -199,7 +200,11 @@
   },
   "finance": {
     "cash_delay_weeks": 4,
-    "negative_cash_penalty": -15
+    "negative_cash_penalty": -15,
+    "gap_cut": {
+      "per_week": 0.05,
+      "max": 0.3
+    }
   },
   "rivals": {
     "market_k": 0.004,
@@ -208,7 +213,14 @@
       "q2",
       "q3",
       "q4"
-    ]
+    ],
+    "reputation_flow": {
+      "threshold": 55,
+      "per_point": 0.0008,
+      "max_rate": 0.02,
+      "notice_min_usd_m": 0.01,
+      "mail": "mail_board_reputation_flow"
+    }
   },
   "board": {
     "targets": {
@@ -276,6 +288,24 @@
     },
     "rank_buckets": {
       "top_max": 2
+    },
+    "season_eval": {
+      "end_offset_weeks": 1,
+      "tiers": [
+        { "min_ratio": 1.0, "delta": 4 },
+        { "min_ratio": 0.97, "delta": 2 },
+        { "min_ratio": 0.94, "delta": 0 },
+        { "min_ratio": 0, "delta": -2 }
+      ],
+      "open": 0,
+      "lost": -3,
+      "mails": {
+        "up": "mail_board_season_up",
+        "flat": "mail_board_season_flat",
+        "down": "mail_board_season_down",
+        "pending": "mail_board_season_pending",
+        "lost": "mail_board_season_lost"
+      }
     },
     "mails": {
       "rank": {

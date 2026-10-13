@@ -4,8 +4,9 @@
 import { nextFloat, normalizeSeed } from './rng.js';
 import { marketBand } from './market.js';
 import { emptyFinance, emptyStandings } from './finance.js';
+import { emptySeasons } from './season.js';
 
-export const SAVE_VERSION = 8; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
+export const SAVE_VERSION = 9; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
 export const SLOTS = ['auto', '1', '2', '3'];
 export const MANUAL_SLOTS = ['1', '2', '3'];
 const KEY_PREFIX = 'rbs:save:v1:'; // 키 형식 버전(구조 버전과 별개)
@@ -19,6 +20,7 @@ const MAX_SAVE_CHARS = 2_000_000; // 가져오기 파일 크기 방어선
 // v5→v6(M6a): 시장에 마지막으로 알린 분위기 묶음(band)을 더한다. 그 시점의 분위기는 이미 알린 것으로 본다.
 // v6→v7(M6b): 사건이 덮어쓴 값(overrides)과 트리티의 사건 상태(lr_extra·big_loss·gap_applied)를 더한다.
 // v7→v8(M7a): 재무 장부(finance)·순위표 스냅샷(standings)·끝남(ending)을 더한다. 확정된 트리티는 다음 정산에서 장부에 오른다.
+// v8→v9(M7b): 시즌 출발 기록·중간 리뷰(seasons)를 더한다. 이미 지난 시즌의 리뷰는 만들 수 없어 비워 둔다.
 export const MIGRATIONS = {
   1: (s) => fillEntities({ ...s, entities: { clients: { ...s.entities?.clients }, reinsurers: { ...s.entities?.reinsurers } } }),
   2: (s) => fillTreaties({
@@ -44,6 +46,7 @@ export const MIGRATIONS = {
     treaties: Object.fromEntries(Object.entries(s.treaties ?? {}).map(([id, t]) => [id, { lr_extra: 0, big_loss: false, gap_applied: false, ...t }])),
   }),
   7: (s) => ({ ...s, finance: emptyFinance(), standings: emptyStandings(), ending: null }),
+  8: (s) => ({ ...s, seasons: emptySeasons() }),
 };
 
 let ctx = null; // { config, calendar } — loader가 검증한 정적 데이터
@@ -175,6 +178,7 @@ export function newGame({ seed } = {}) {
     modifiers: [],
     finance: emptyFinance(),
     standings: emptyStandings(),
+    seasons: emptySeasons(),
     ending: null,
     log: [],
   };
@@ -270,6 +274,34 @@ function validateTreatyStates(s, bad) {
   }
 }
 
+// 시즌 출발 기록·중간 리뷰(M7b)의 모양을 확인한다. 변화량은 출발 기록이 없던 옛 시즌이면 null일 수 있다.
+const REVIEW_STATUSES = ['open', 'placed', 'lost'];
+const EVAL_KINDS = ['tier', 'open', 'lost'];
+function validateSeasons(s, bad) {
+  if (!isObj(s.seasons)) return bad('seasons', '객체여야 해요');
+  const known = new Set((ctx.calendar?.seasons ?? []).map((x) => x.id));
+  const nullableNum = (v, min, max) => v === null || isNum(v, min, max);
+  for (const [id, r] of Object.entries(s.seasons)) {
+    const p = `seasons.${id}`;
+    if (!isObj(r)) { bad(p, '객체여야 해요'); continue; }
+    if (ctx.calendar && !known.has(id)) bad(p, '없는 시즌 id예요');
+    if (typeof r.seen !== 'boolean') bad(`${p}.seen`, 'true 또는 false여야 해요');
+    const o = r.open;
+    if (o !== null && !(isObj(o) && isInt(o.turn, 1, 999) && isNum(o.rel_client, 0, 100) && isNum(o.rel_re_avg, 0, 100) && isInt(o.scout_stages, 0, 999) && isInt(o.codex_count, 0, 9999))) {
+      bad(`${p}.open`, 'null이거나 { turn, rel_client, rel_re_avg, scout_stages, codex_count } 모양이어야 해요');
+    }
+    const v = r.review;
+    if (v !== null) {
+      const ok = isObj(v) && isInt(v.turn, 1, 999) && REVIEW_STATUSES.includes(v.status)
+        && nullableNum(v.rel_client_delta, -100, 100) && nullableNum(v.rel_re_delta, -100, 100)
+        && (v.scout_gain === null || isInt(v.scout_gain, 0, 999)) && (v.codex_gain === null || isInt(v.codex_gain, 0, 9999))
+        && isObj(v.eval) && EVAL_KINDS.includes(v.eval.kind) && isNum(v.eval.delta, -100, 100) && nullableNum(v.eval.ratio, 0, 100)
+        && isNum(v.board_before, 0, 100) && isNum(v.board_after, 0, 100);
+      if (!ok) bad(`${p}.review`, 'null이거나 시즌 리뷰 기록 모양이어야 해요');
+    }
+  }
+}
+
 // 재무 장부·순위표·끝남(M7a)의 모양을 확인한다.
 function validateFinance(s, bad) {
   const f = s.finance;
@@ -278,7 +310,8 @@ function validateFinance(s, bad) {
     if (!isObj(f.booked)) bad('finance.booked', '객체여야 해요');
     else {
       for (const [id, b] of Object.entries(f.booked)) {
-        const ok = isObj(b) && isInt(b.turn, 1, 999) && isNum(b.premium_usd_m, 0, 1e6) && isNum(b.brokerage_usd_m, 0, 1e6) && isInt(b.due_turn, 1, 999) && typeof b.paid === 'boolean';
+        const ok = isObj(b) && isInt(b.turn, 1, 999) && isNum(b.premium_usd_m, 0, 1e6) && isNum(b.brokerage_usd_m, 0, 1e6) && isInt(b.due_turn, 1, 999) && typeof b.paid === 'boolean'
+          && (b.gap_weeks === undefined || isInt(b.gap_weeks, 0, 999)) && (b.cut_usd_m === undefined || isNum(b.cut_usd_m, 0, 1e6));
         if (!ok) bad(`finance.booked.${id}`, '{ turn, premium_usd_m, brokerage_usd_m, due_turn, paid } 모양이어야 해요');
       }
     }
@@ -287,13 +320,15 @@ function validateFinance(s, bad) {
     if (!Array.isArray(f.fines) || !f.fines.every((x) => isObj(x) && isInt(x.turn, 1, 999) && ['fine', 'gap'].includes(x.kind) && isNum(x.usd_m, 0, 1e6))) bad('finance.fines', '{ turn, kind(fine|gap), usd_m } 목록이어야 해요');
     if (!Array.isArray(f.quarters) || !f.quarters.every((x) => isObj(x) && typeof x.id === 'string' && isNum(x.brokerage_usd_m, 0, 1e6) && isNum(x.overhead_usd_m, 0, 1e6) && isNum(x.fines_usd_m, 0, 1e6) && isNum(x.cash_usd_m, -1e6, 1e6))) bad('finance.quarters', '분기 결산 목록이어야 해요');
   }
+  validateSeasons(s, bad);
   const st = s.standings;
   if (!isObj(st) || !Array.isArray(st.quarters)) bad('standings', '{ quarters: [] } 모양이어야 해요');
   else {
     st.quarters.forEach((q, i) => {
       const ok = isObj(q) && typeof q.id === 'string' && isInt(q.turn, 1, 999) && isInt(q.rank, 1, 99) && (q.prev_rank === null || isInt(q.prev_rank, 1, 99))
         && isObj(q.player) && isNum(q.player.q, 0, 1e6) && isNum(q.player.ytd, 0, 1e6) && isNum(q.player.placed_premium_usd_m, 0, 1e6) && isInt(q.player.clients, 0, 99)
-        && isObj(q.rivals) && Object.values(q.rivals).every((r) => isObj(r) && isNum(r.q, 0, 1e6) && isNum(r.ytd, 0, 1e6));
+        && (q.player.flow_q === undefined || isNum(q.player.flow_q, 0, 1e6)) && (q.player.flow_ytd === undefined || isNum(q.player.flow_ytd, 0, 1e6))
+        && isObj(q.rivals) && Object.values(q.rivals).every((r) => isObj(r) && isNum(r.q, 0, 1e6) && isNum(r.ytd, 0, 1e6) && (r.moved === undefined || isNum(r.moved, 0, 1e6)));
       if (!ok) bad(`standings.quarters[${i}]`, '순위표 스냅샷 모양이 아니에요');
     });
   }

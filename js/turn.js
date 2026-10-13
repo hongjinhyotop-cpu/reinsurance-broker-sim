@@ -8,6 +8,8 @@ import { describeMarket, driftIndex, gaussian, marketBand } from './market.js';
 import { windowStarters, pickFireTurn, canFire, pickOutcome, pickClientProb, pickClientStillValid } from './events.js';
 import { expireCounters, voidInvalidRows, applyGap } from './placement.js';
 import { settleWeek, closeQuarterIfEnd, checkEnding } from './finance.js';
+import { openSeasons, closeSeasons, markSeen } from './season.js';
+import { getCodex } from './glossary.js';
 import { TOPICS, applyMeeting, relationshipAfterMeeting, newlyUnlocked } from './scouting.js';
 import {
   fillText, findTemplate, deadlineTurn, scheduledFor, nextMailId, needsReply, choiceBlockReason,
@@ -34,6 +36,11 @@ function reportVars(data, state) {
     'report.strong': r ? short(r.strong) : '',
     'report.weak': r ? short(r.weak) : '',
   };
+}
+
+// 도감에 모은 용어 수(시즌 리뷰의 "새로 모은 용어"가 시즌 전후 차이로 센다). 도감은 세이브와 따로라 여기서만 읽는다.
+function codexCount() {
+  return Object.keys(getCodex().entries).length;
 }
 
 // ---------- 메일 도착 ----------
@@ -237,7 +244,16 @@ export function meet(kind, id, topic) {
 // 새 게임 직후, 시작 턴에 도착해야 할 메일을 넣는다.
 export function startGame() {
   const data = store.getData();
-  store.commit((s) => { deliverDue(data, s); });
+  store.commit((s) => {
+    openSeasons(data, s, codexCount()); // 프리시즌(1/1 창구)의 출발 기록
+    deliverDue(data, s);
+  });
+}
+
+// 시즌 리뷰 화면을 그렸을 때 부른다: 안 본 리뷰를 "봄"으로 바꾼다. 화면을 다시 그리게 하지 않는다.
+export function markSeasonReviewsSeen() {
+  if (!store.hasGame()) return;
+  store.commit((s) => { markSeen(s); }, { quiet: true });
 }
 
 function unansweredMails(data, state) {
@@ -282,10 +298,12 @@ function stepWeek(data, state) {
   const gaps = applyGap(data, state); // 인셉션이 지났는데 열린 트리티(§8.3 ⑤)
   stepMarket(data, state);
   const booked = settleWeek(data, state); // 재무 정산(§2.5 7단계, §9.1)
+  openSeasons(data, state, codexCount()); // 창구가 열리면 출발 기록(§2.5 7a)
+  const seasonsClosed = closeSeasons(data, state, codexCount()); // 시즌 중간 리뷰·이사회 평가(§2.5 7a, §9.2)
   const closedQuarter = closeQuarterIfEnd(data, state); // 분기 결산·라이벌 갱신·순위 메일(§2.5 9단계)
   const ending = checkEnding(data, state); // 연말 성적표 또는 해고(§9.2)
   const arrived = deliverDue(data, state);
-  return { arrived, autoResolved, expiredCounters, fired, voided, gaps, booked, closedQuarter, ending };
+  return { arrived, autoResolved, expiredCounters, fired, voided, gaps, booked, seasonsClosed, closedQuarter, ending };
 }
 
 // 멈춰야 하는 이유(없으면 null). 설계 §2.1: 새 메일, 마감 임박, 시즌 단계 전환.
@@ -308,7 +326,7 @@ export function advance() {
   const reason = continueBlockReason(data, store.getState());
   if (reason) return { ok: false, error: reason };
 
-  const summary = { ok: true, fromTurn: store.getState().turn, arrived: [], autoResolved: [], expiredCounters: 0, events: [], voided: [], gaps: [], booked: [], closedQuarters: [], ending: null, stop: null };
+  const summary = { ok: true, fromTurn: store.getState().turn, arrived: [], autoResolved: [], expiredCounters: 0, events: [], voided: [], gaps: [], booked: [], seasonsClosed: [], closedQuarters: [], ending: null, stop: null };
   store.commit((s) => {
     // 끝없는 반복 방지: 전체 턴 수를 넘길 수 없다.
     for (let guard = 0; guard < data.calendar.turns; guard += 1) {
@@ -320,6 +338,7 @@ export function advance() {
       summary.voided.push(...step.voided);
       summary.gaps.push(...step.gaps);
       summary.booked.push(...step.booked);
+      summary.seasonsClosed.push(...step.seasonsClosed);
       if (step.closedQuarter) summary.closedQuarters.push(step.closedQuarter);
       if (step.ending) summary.ending = step.ending.kind;
       summary.stop = stopReason(data, s, step.arrived, step.fired, step.gaps);
