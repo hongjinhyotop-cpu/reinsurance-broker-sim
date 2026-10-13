@@ -179,3 +179,25 @@
 @media (max-width: 900px) {
   .db { grid-template-columns: minmax(0, 1fr); }
 }
+
+.reaction { margin-bottom: 10px; }
+
+/* 협상 시험대(임시, design.md §6.8) */
+.bench { display: grid; grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.bench .card { margin-bottom: var(--gap); }
+.bench-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.bench-form .field { margin-bottom: 10px; }
+.bench-form .field input[type="number"] { width: 100%; }
+.bench-form .field input[type="checkbox"] { width: 22px; min-height: 22px; margin-top: 8px; }
+.bench-select { min-height: 38px; padding: 6px 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); }
+.bench-math-toggle { display: block; margin-top: 8px; font-size: 0.85rem; color: var(--text-dim); }
+.bench-headline { font-size: 1.05rem; font-weight: 700; margin: 0 0 8px; padding-left: 10px; border-left: 4px solid var(--border); }
+.bench-accept, .bench-v-delighted, .bench-v-accept { border-left-color: var(--ok); }
+.bench-counter, .bench-v-renegotiate { border-left-color: var(--warn); }
+.bench-reject, .bench-decline, .bench-v-reject, .bench-v-invalid { border-left-color: var(--danger); }
+.bench-math th { color: var(--text-dim); }
+.bench-math td { text-align: right; }
+
+@media (max-width: 900px) {
+  .bench { grid-template-columns: minmax(0, 1fr); }
+}
