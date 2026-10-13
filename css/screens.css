@@ -231,6 +231,7 @@
 .btn-step { min-width: 44px; padding: 6px 8px; }
 .pl-unit { color: var(--text-dim); }
 .pl-line { margin: 6px 0 0; }
+.pl-voice { font-style: italic; color: var(--text-dim, inherit); }
 .pl-resp { font-weight: 700; padding-left: 10px; border-left: 4px solid var(--border); }
 .pl-resp-accept { border-left-color: var(--ok); }
 .pl-resp-counter { border-left-color: var(--warn); }

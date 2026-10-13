@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
+  <h1>테스트 (구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -223,14 +223,14 @@
 
     test('store: 새 게임의 모양이 설계(§10.9)와 시작값(config)을 따른다', () => {
       fresh(); const s = store.newGame({ seed: 777 });
-      eq(s.version, 3); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
+      eq(s.version, 4); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
       eq(s.player, { firm: 'Marina Bay Re Brokers', cash_usd_m: 1, reputation: 50, compliance: 70, board_confidence: 60, market_intel: 0, flags: [] });
       eq(s.market, { index: 42 });
       eq(Object.keys(s.entities.clients), data.clients.map((c) => c.id)); eq(Object.keys(s.entities.reinsurers), data.reinsurers.map((r) => r.id));
       eq([s.mails, s.scheduled, s.fired_events, s.modifiers, s.log], [[], [], [], [], []]);
       eq(Object.keys(s.treaties), data.treaties.map((t) => t.id));
       eq(s.treaties.trt_jurong_property_xl, { phase: 'open', prep_quality: 0, target_rc: -3, terms: 'standard', structure_option: '', panel: [],
-        retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, final_rc: null, obligations: [] });
+        retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, verdict_reason: null, final_rc: null, obligations: [] });
       eq(store.validateState(s), []);
     });
     test('store: 시드는 uint32로 정규화', () => { fresh(); eq(store.newGame({ seed: -1 }).seed, 4294967295); });
@@ -297,7 +297,7 @@
       fresh(); store.newGame({ seed: 9 }); const base = clone(store.getState());
       const parse = (v) => { const s = clone(base); if (v === undefined) delete s.version; else s.version = v; return store.parseSave(JSON.stringify(s)); };
       for (const v of [undefined, 0, 1.5, '1', null]) check(!parse(v).ok, `version ${String(v)}`);
-      const future = parse(4); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
+      const future = parse(5); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
     });
     test('store: 마이그레이션 체인 (v1→v2→v3), 규칙 누락·실패 처리', () => {
       const raw = { version: 1, x: 1 };
@@ -305,7 +305,7 @@
       check(ok.ok); eq([ok.state.version, ok.state.a, ok.state.b], [3, 1, 2]);
       check(!store.migrate(raw, { current: 3, migrations: { 1: (s) => s } }).ok, '규칙 누락');
       check(!store.migrate(raw, { current: 2, migrations: { 1: () => null } }).ok, '변환 실패');
-      eq(store.SAVE_VERSION, 3); eq(store.migrate({ version: 1 }).ok, true);
+      eq(store.SAVE_VERSION, 4); eq(store.migrate({ version: 1 }).ok, true);
     });
     test('store: __proto__ 키가 든 세이브를 가져와도 오염되지 않는다', () => {
       fresh(); store.newGame({ seed: 4 });
@@ -639,7 +639,7 @@
       fresh(); store.newGame({ seed: 3 });
       const old = clone(store.getState()); old.version = 1; old.entities = { clients: {}, reinsurers: {} };
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 3); eq(Object.keys(r.state.treaties).length, 3);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 4); eq(Object.keys(r.state.treaties).length, 3);
       eq(Object.keys(r.state.entities.clients).length, 3); eq(Object.keys(r.state.entities.reinsurers).length, 5);
       eq(r.state.entities.reinsurers.re_alpenglow.scout, data.reinsurers[0].initial.scout);
     });
@@ -798,6 +798,66 @@
     test('negotiation: 손해율 가산(A_loss)은 −5~+20으로 잘린다', () => {
       eq(neg.priceFloor(alpenInput({ lossHist: [10, 10, 10] }), ng).parts.loss, -5);
       eq(neg.priceFloor(alpenInput({ lrExtra: 200 }), ng).parts.loss, 20);
+    });
+    // ---------- 구조 옵션 감점 · 이유 고르기 (§7.5) ----------
+    const OPT = 'higher_attach';
+    test('negotiation §7.5: 구조 옵션 감점 — 옵션이 없으면 0, 있으면 structure_k × 보수성/100 × penalty만큼 U에서 빠진다', () => {
+      const base = evalPanel(42, -3), withOpt = evalPanel(42, -3, { structureOption: OPT });
+      eq(base.structureCut, 0);
+      near(withOpt.structureCut, ng.client.structure_k * 0.72 * 10, 1e-9, '감점');
+      near(base.U - withOpt.U, withOpt.structureCut, 1e-9, 'U 차이');
+      eq(evalPanel(42, -3, { structureOption: 'ghost' }).structureCut, 0);
+    });
+    test('negotiation §7.5: 보수적인 고객에게 구조 옵션은 공짜가 아니다 — 가격 하한이 f_adj만큼 내려가 그 값만큼 싸게 내도 옵션 없이 낸 것보다 U가 낮다', () => {
+      const optF = jurong.structure_options.find((o) => o.id === OPT).f_adj; // −4
+      const plain = evalPanel(42, -1), cheaper = evalPanel(42, -1 + optF, { structureOption: OPT });
+      check(cheaper.U < plain.U, `옵션 U ${cheaper.U} / 일반 U ${plain.U}`);
+    });
+    test('negotiation §7.5: 감점은 고객 보수성에 비례 — 보수성이 낮을수록 작고 0이면 없다', () => {
+      const cut = (cons, penalty) => neg.evaluatePackage({
+        panel: [{ id: 'a', share: 1, rc: 0, rating: 'A', onshore: false, shariahOk: false, terms: 'standard', maxShare: 1 }], expiringIds: ['a'],
+        client: { conservatism: cons, priceSensitivity: 50, loyalty: 50, relationship: 50, targetRc: 0, minRating: 'A-', maxSingleShare: 1, preferredTerms: 'standard', shariahRequired: false, shariahConventionalCap: 1 },
+        benchmark: 0, structurePenalty: penalty,
+      }, ng).structureCut;
+      check(cut(20, 10) < cut(50, 10) && cut(50, 10) < cut(90, 10)); eq(cut(0, 10), 0); eq(cut(70, 0), 0);
+    });
+    test('negotiation §7.5 이유 고르기: 값이 비싸면 price, 구조 옵션 감점이 가장 크면 structure, 좋은 결과는 가장 많이 기여한 항목', () => {
+      const dear = evalPanel(42, 12); eq(dear.verdict, 'reject'); eq(dear.reason, 'price');
+      eq(evalPanel(42, 1).verdict, 'delighted'); // 같은 가격이라도 옵션을 켜면 반응이 한참 나빠진다
+      const opt = evalPanel(42, 1, { structureOption: OPT });
+      eq(opt.verdict, 'renegotiate'); eq(opt.reason, 'structure');
+      eq(evalPanel(42, -5, { structureOption: OPT }).verdict, 'accept'); // 가격이 아무리 좋아도 매우 만족까지는 못 간다
+      const good = evalPanel(42, -1); eq(good.verdict, 'delighted'); eq(good.reason, 'price');
+      near(evalPanel(42, -1, { terms: 'broad' }).scores.terms, 75, 1e-9); eq(evalPanel(42, -1, { terms: 'broad' }).reason, 'price'); // 조건이 달라도 가격이 가장 큰 기여
+      const bad = evalPanel(42, 12, { terms: 'broad' }); eq(bad.reason, 'price');
+    });
+    test('negotiation §7.5 이유 고르기: 항목별 몫 계산 그대로 — 동점이면 앞선 항목, 결과가 좋으면 좋은 목록만(structure 제외)', () => {
+      const scores = { price: 50, security: 50, continuity: 50, terms: 50, service: 50 };
+      const weights = { price: 0.2, security: 0.2, continuity: 0.2, terms: 0.2, service: 0.2 };
+      eq(neg.clientReason({ scores, weights, structureCut: 0, positive: false }), 'price');
+      eq(neg.clientReason({ scores, weights, structureCut: 0, positive: true }), 'price');
+      eq(neg.clientReason({ scores: { ...scores, continuity: 0 }, weights, structureCut: 0, positive: false }), 'continuity');
+      eq(neg.clientReason({ scores, weights, structureCut: 99, positive: true }), 'price'); // 좋은 결과에는 structure가 없다
+      eq(neg.clientReason({ scores, weights, structureCut: 99, positive: false }), 'structure');
+    });
+    test('negotiation §7.5: 가중치가 다른 고객은 같은 패키지에도 다른 이유를 말한다(보수적인 쪽은 새 얼굴, 가격 민감한 쪽은 가격)', () => {
+      const mk = (cons, ps) => neg.evaluatePackage({
+        panel: [{ id: 'new', share: 0.5, rc: 0, rating: 'A-', onshore: false, shariahOk: false, terms: 'standard', maxShare: 0.6 }, { id: 'old', share: 0.5, rc: 0, rating: 'A-', onshore: false, shariahOk: false, terms: 'standard', maxShare: 0.6 }],
+        expiringIds: ['old'],
+        client: { conservatism: cons, priceSensitivity: ps, loyalty: 50, relationship: 50, targetRc: -6, minRating: 'A-', maxSingleShare: 0.6, preferredTerms: 'standard', shariahRequired: false, shariahConventionalCap: 1 },
+        benchmark: -4,
+      }, ng);
+      const calm = mk(95, 10), pricey = mk(10, 95);
+      check(['renegotiate', 'reject'].includes(calm.verdict) && ['renegotiate', 'reject'].includes(pricey.verdict), `${calm.verdict}/${pricey.verdict}`);
+      eq(calm.reason, 'continuity'); eq(pricey.reason, 'price');
+    });
+    test('negotiation: 하드 실패(invalid)에는 이유를 말하지 않는다', () => {
+      const e = neg.evaluatePackage({
+        panel: [{ id: 'a', share: 0.5, rc: 0, rating: 'A', onshore: false, shariahOk: false, terms: 'standard', maxShare: 0.5 }], expiringIds: ['a'],
+        client: { conservatism: 50, priceSensitivity: 50, loyalty: 50, relationship: 50, targetRc: 0, minRating: 'A-', maxSingleShare: 0.5, preferredTerms: 'standard', shariahRequired: false, shariahConventionalCap: 1 },
+        benchmark: 0,
+      }, ng);
+      eq(e.verdict, 'invalid'); eq(e.reason, null);
     });
     test('negotiation: 허세 탐지 확률 = 0.3 + 0.4 × 보수성', () => {
       near(neg.bluffChance(78, ng), 0.612, 1e-9); near(neg.bluffChance(25, ng), 0.4, 1e-9);
@@ -1024,6 +1084,37 @@
     });
 
 
+    // ---------- 목소리·이유 문구 (데이터) ----------
+    test('목소리 데이터: 재보험사 5곳 × 수락·반제·거절, 고객 3곳 × 좋은 이유 5 + 나쁜 이유 6이 모두 있고 로더를 통과한다', () => {
+      for (const r of data.reinsurers) for (const k of ['accept', 'counter', 'reject']) check(r.response_lines?.[k]?.length > 0, `${r.id}.${k}`);
+      for (const c of data.clients) {
+        for (const k of ['price', 'security', 'continuity', 'terms', 'service']) check(c.verdict_reasons?.good?.[k]?.length > 0, `${c.id}.good.${k}`);
+        for (const k of ['price', 'security', 'continuity', 'terms', 'service', 'structure']) check(c.verdict_reasons?.bad?.[k]?.length > 0, `${c.id}.bad.${k}`);
+      }
+    });
+    test('목소리 데이터: 숨은 성격 이름·숫자·용어 마크업이 없고, 재보험사마다 말투가 다르다', () => {
+      const lines = [
+        ...data.reinsurers.flatMap((r) => Object.values(r.response_lines)),
+        ...data.clients.flatMap((c) => [...Object.values(c.verdict_reasons.good), ...Object.values(c.verdict_reasons.bad)]),
+      ];
+      for (const t of lines) {
+        check(!/[0-9]/.test(t), `숫자: ${t}`);
+        check(!/보수|민감|충성|성향|성격|conservatism|loyalty/.test(t), `성격 이름: ${t}`);
+      }
+      check(new Set(lines).size === lines.length, '같은 문구가 겹쳐요');
+    });
+    test('목소리 데이터: 로더가 빠졌거나 빈 문구, [[ 마크업이 든 목소리·이유를 거절', () => {
+      const bad = (mut) => { const c = clone(data.clients); mut(c); return validateClients(c); };
+      check(has(bad((c) => { delete c[0].verdict_reasons; }), 'verdict_reasons'));
+      check(has(bad((c) => { delete c[0].verdict_reasons.bad.structure; }), 'verdict_reasons.bad.structure'));
+      check(has(bad((c) => { c[1].verdict_reasons.good.price = ''; }), 'verdict_reasons.good.price'));
+      check(has(bad((c) => { c[2].verdict_reasons.good.service = '[[gl_x|용어]]'; }), 'M2'));
+      const badR = (mut) => { const r = clone(data.reinsurers); mut(r); return validateReinsurers(r); };
+      check(has(badR((r) => { delete r[0].response_lines; }), 'response_lines'));
+      check(has(badR((r) => { delete r[3].response_lines.counter; }), 'response_lines.counter'));
+      check(has(badR((r) => { r[4].response_lines.reject = 'x'.repeat(201); }), 'response_lines.reject'));
+    });
+
     // ---------- M5b: 라인 구성 보드의 상태 변경 (placement.js) ----------
     const PL = await import('../js/placement.js');
     const JR = 'trt_jurong_property_xl';
@@ -1051,13 +1142,13 @@
       old.version = 2; old.treaties = {}; old.ap = 3; old.entities.clients.cli_jurong_crest.relationship = 61;
       for (const r of Object.values(old.entities.reinsurers)) delete r.patience;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 3);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 4);
       eq(Object.keys(r.state.treaties), data.treaties.map((t) => t.id)); eq(r.state.treaties[JR].phase, 'open'); eq(r.state.treaties[JR].panel, []);
       eq(r.state.ap, 3); eq(r.state.entities.clients.cli_jurong_crest.relationship, 61); eq(r.state.entities.reinsurers.re_nur.patience, {});
       eq(store.validateState(r.state), []);
       // 실제 슬롯 불러오기도 같은 길을 지난다
       const st = fresh(); st.map.set('rbs:save:v1:1', JSON.stringify(old));
-      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 3);
+      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 4);
     });
 
     test('세이브 v3: 트리티 상태가 틀린 세이브는 거부(상태 값·재보험사 id·중복 행·인내심)', () => {
@@ -1070,6 +1161,7 @@
       check(bad((c) => { c.treaties[JR].panel.push(clone(c.treaties[JR].panel[0])); }).length === 1);
       check(bad((c) => { c.treaties[JR].panel[0].share_signed = 1.4; }).length === 1);
       check(bad((c) => { c.treaties[JR].verdict = 'great'; }).length === 1);
+      check(bad((c) => { c.treaties[JR].verdict_reason = 'mood'; }).length === 1);
       check(bad((c) => { c.entities.reinsurers.re_alpenglow.patience[JR] = -1; }).length === 1);
       check(bad((c) => { c.treaties.trt_ghost = clone(c.treaties[JR]); }).length === 1);
     });
@@ -1267,6 +1359,31 @@
       for (let i = 0; i < 14; i++) { PL.editRow(JR, 're_alpenglow'); PL.ask(JR, 're_alpenglow', { share: 0.05 + i / 100, rc: -3 }); }
       const row = PL.rowOf(store.getState(), JR, 're_alpenglow');
       eq(row.history.length, 10); eq(row.history[9].n, 14);
+    });
+
+    test('보드: 제출하면 고객의 이유 종류가 세이브에 남고, 매우 만족·수락은 좋은 이유 / 재협상·거부는 나쁜 이유 문구로 이어진다', () => {
+      const st = startBoard(1, 20); fillJurong(9);
+      const r = PL.submit(JR); eq(r.verdict, 'reject'); eq(r.reason, 'price');
+      eq(store.getState().treaties[JR].verdict_reason, 'price');
+      check(JSON.parse(st.map.get('rbs:save:v1:auto')).treaties[JR].verdict_reason === 'price', '저장됨');
+      const jc = data.clients.find((c) => c.id === 'cli_jurong_crest'); check(jc.verdict_reasons.bad.price.length > 0);
+      store.getState().turn = 2; for (const [re] of PANEL) PL.editRow(JR, re);
+      fillJurong(0); const ok = PL.submit(JR); eq([ok.verdict, ok.reason], ['delighted', 'price']);
+    });
+    test('보드: 보수적인 주롱에 구조 옵션을 켜고 가격을 더 낮춰도 반응이 나아지지 않고, 이유는 구조다', () => {
+      startBoard(1, 30);
+      PL.setOptions(JR, { structureOption: OPT });
+      fillJurong(1); // 옵션이 하한을 4%p 낮춰 주므로 재보험사는 모두 수락한다
+      const r = PL.submit(JR);
+      eq(r.verdict, 'renegotiate'); eq(r.reason, 'structure'); eq(store.getState().treaties[JR].verdict_reason, 'structure');
+      // 같은 가격이라도 옵션이 없으면 매우 만족이다
+      startBoard(1, 30); fillJurong(1); eq(PL.submit(JR).verdict, 'delighted');
+    });
+    test('세이브 v4: v3 세이브(verdict_reason 없음)를 불러오면 null로 채워진다', () => {
+      startBoard(5); const old = clone(store.getState());
+      old.version = 3; for (const t of Object.values(old.treaties)) delete t.verdict_reason;
+      const r = store.parseSave(JSON.stringify(old));
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 4); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
     });
 
     test('보드: 설정 검증 — negotiation.board 값이 틀리면 로더가 거절', () => {

@@ -247,6 +247,11 @@ function resultLines(data, row) {
   if (!l) return null;
   const lines = [];
   lines.push(h('p', { class: `pl-line${l.mode === 'ask' ? '' : ` pl-resp pl-resp-${ROW_STATUS[row.status]}`}`, role: 'status' }, describeLast(data.config.negotiation, l)));
+  // 사유 있는 거절(decline)·의견 묻기에는 목소리를 붙이지 않는다. 사유 문구가 이미 있다.
+  if (l.mode === 'propose' && ['accept', 'counter', 'reject'].includes(l.kind)) {
+    const re = data.reinsurers.find((r) => r.id === row.re);
+    lines.push(h('p', { class: 'pl-line pl-voice' }, `“${re.response_lines[l.kind]}” — ${re.contact.name}`));
+  }
   if (l.mode === 'ask' && l.hint) {
     lines.push(h('p', { class: 'pl-line dim' }, `가격 민감도를 아는 만큼만 정확해요 — 오차 약 ±${l.err_pp.toFixed(1)}%p`));
   }
@@ -394,13 +399,22 @@ function timingText(ctx) {
   return `인셉션까지 ${ctx.toInception}주`;
 }
 
+// 고객이 자기 말투로 하는 이유 한 줄. 이유 종류만 세이브에 있고 문구는 데이터에서 찾는다.
+function reasonText(ctx) {
+  const key = ctx.t.verdict_reason;
+  if (!key || !ctx.t.verdict) return '';
+  const side = ctx.t.verdict === 'delighted' || ctx.t.verdict === 'accept' ? 'good' : 'bad';
+  const line = ctx.client.verdict_reasons?.[side]?.[key];
+  return line ? ` “${line}” — ${ctx.client.profile.contact.name}` : '';
+}
+
 function verdictText(data, ctx) {
   const v = ctx.t.verdict;
   const eff = data.config.negotiation.board.verdict_effects;
-  if (v === 'delighted') return `고객이 매우 만족해요! 트리티가 확정됐어요 (고객 관계도 +${eff.delighted.client_relationship}, 평판 +${eff.delighted.reputation}).`;
-  if (v === 'accept') return `고객이 수락했어요. 트리티가 확정됐어요 (고객 관계도 +${eff.accept.client_relationship}).`;
-  if (v === 'renegotiate') return `고객이 재협상을 요구해요. 패널이나 가격, 조건을 손봐서 턴 ${ctx.t.retry_turn}부터 다시 낼 수 있어요. (지금까지 재협상 ${ctx.t.renegotiations}번)`;
-  if (v === 'reject') return `고객이 거부했어요. 다른 브로커를 알아볼지도 몰라요. 패널을 크게 다시 짜서 턴 ${ctx.t.retry_turn}부터 다시 낼 수 있어요. (지금까지 거부 ${ctx.t.rejections}번)`;
+  if (v === 'delighted') return `고객이 매우 만족해요! 트리티가 확정됐어요 (고객 관계도 +${eff.delighted.client_relationship}, 평판 +${eff.delighted.reputation}).${reasonText(ctx)}`;
+  if (v === 'accept') return `고객이 수락했어요. 트리티가 확정됐어요 (고객 관계도 +${eff.accept.client_relationship}).${reasonText(ctx)}`;
+  if (v === 'renegotiate') return `고객이 재협상을 요구해요. 패널이나 가격, 조건을 손봐서 턴 ${ctx.t.retry_turn}부터 다시 낼 수 있어요. (지금까지 재협상 ${ctx.t.renegotiations}번)${reasonText(ctx)}`;
+  if (v === 'reject') return `고객이 거부했어요. 다른 브로커를 알아볼지도 몰라요. 패널을 크게 다시 짜서 턴 ${ctx.t.retry_turn}부터 다시 낼 수 있어요. (지금까지 거부 ${ctx.t.rejections}번)${reasonText(ctx)}`;
   return null;
 }
 
@@ -449,6 +463,8 @@ export function renderPlacement() {
     if (check.shariah) globalChips.push(h('span', { class: 'tag tag-bad' }, `샤리아 상한 초과 — 일반 재보험사 합 ${share(check.shariah.conventional)} (상한 ${share(check.shariah.cap)})`));
     const turnoverPct = Math.round(check.turnover * 100);
     if (turnoverPct > 0) globalChips.push(h('span', { class: 'tag tag-warn' }, `만기에 없던 재보험사가 ${turnoverPct}%를 가져가요 — 보수적인 고객에게는 부담일 수 있어요`));
+
+    if (ctx.t.structure_option) globalChips.push(h('span', { class: 'tag tag-warn' }, '구조 옵션은 가격을 낮추지만, 보수적인 고객에게는 부담일 수 있어요'));
 
     const rerender = () => { draw(); };
 

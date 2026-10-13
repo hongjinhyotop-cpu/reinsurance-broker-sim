@@ -142,6 +142,10 @@ export function ratingScore(rating, cfg) {
   return cfg.rating_score[rating] ?? cfg.rating_score._default;
 }
 
+// 고객이 말하는 이유 종류. 순서가 곧 동점일 때의 우선순위다(design.md §7.5 "이유 고르기").
+export const REASONS_GOOD = ['price', 'security', 'continuity', 'terms', 'service'];
+export const REASONS_BAD = [...REASONS_GOOD, 'structure'];
+
 // 약관 등급 차이 1단계마다 terms_step 감점.
 function termsScore(actual, preferred, cfg) {
   const order = cfg.terms_order;
@@ -154,10 +158,11 @@ function termsScore(actual, preferred, cfg) {
 //   expiringIds: [만기 패널 재보험사 id],
 //   client: { conservatism, priceSensitivity, loyalty, relationship, targetRc, minRating, maxSingleShare,
 //             preferredTerms, shariahRequired, shariahConventionalCap },
-//   benchmark }
-// 돌려주는 값: { verdict, hardFails[], avgRc, scores, weights, U, theta, goodwill, turnover }
+//   benchmark,
+//   structurePenalty: 고른 구조 옵션의 client_cons_penalty(없으면 0) }
+// 돌려주는 값: { verdict, hardFails[], avgRc, scores, weights, U, theta, goodwill, turnover, structureCut, reason }
 //   verdict: 'delighted' | 'accept' | 'renegotiate' | 'reject' | 'invalid'(하드 실패)
-export function evaluatePackage({ panel, expiringIds, client, benchmark }, cfg) {
+export function evaluatePackage({ panel, expiringIds, client, benchmark, structurePenalty = 0 }, cfg) {
   const cc = cfg.client;
   const total = panel.reduce((s, m) => s + m.share, 0);
   const hardFails = [];
@@ -197,7 +202,9 @@ export function evaluatePackage({ panel, expiringIds, client, benchmark }, cfg) 
   };
   const sum = Object.values(raw).reduce((a, b) => a + b, 0);
   const weights = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, v / sum]));
-  const U = Object.keys(scores).reduce((s, k) => s + weights[k] * scores[k], 0);
+  // 구조 옵션은 가격 하한을 낮추는 대신 보수적인 고객에게 부담이 된다(공짜 수단 방지).
+  const structureCut = cc.structure_k * (client.conservatism / 100) * structurePenalty;
+  const U = Object.keys(scores).reduce((s, k) => s + weights[k] * scores[k], 0) - structureCut;
   const th = cc.accept_threshold_base - cc.accept_threshold_goodwill_k * gw;
 
   let verdict;
@@ -207,7 +214,20 @@ export function evaluatePackage({ panel, expiringIds, client, benchmark }, cfg) 
   else if (U >= th - cc.renegotiate_margin) verdict = 'renegotiate';
   else verdict = 'reject';
 
-  return { verdict, hardFails, avgRc, reference, scores, weights, U, theta: th, goodwill: gw, turnover };
+  const reason = hardFails.length > 0 ? null : clientReason({ scores, weights, structureCut, positive: verdict === 'delighted' || verdict === 'accept' });
+  return { verdict, hardFails, avgRc, reference, scores, weights, U, theta: th, goodwill: gw, turnover, structureCut, reason };
+}
+
+// 결과의 이유 종류 하나. 좋은 결과면 가장 많이 기여한 항목, 나쁜 결과면 가장 많이 깎은 항목(동점이면 목록 순서가 앞선 쪽).
+export function clientReason({ scores, weights, structureCut, positive }) {
+  const keys = positive ? REASONS_GOOD : REASONS_BAD;
+  let best = null;
+  let bestV = -Infinity;
+  for (const k of keys) {
+    const v = k === 'structure' ? structureCut : positive ? weights[k] * scores[k] : weights[k] * (100 - scores[k]);
+    if (v > bestV + 1e-9) { best = k; bestV = v; }
+  }
+  return best;
 }
 
 // ---------- 정적 정의 + 동적 상태 → 계산 입력 (M5 보드가 쓴다) ----------
@@ -246,7 +266,7 @@ export function quoteProposal({ treaty, client, reinsurer, relationship, scoutPr
 // 확정된 패널(재보험사별 { re, share, rc, terms })을 고객에게 제출했을 때의 평가. M5b의 "고객에게 제출".
 // ctx: { treaty, client, clientRelationship, reinsurers(전체 정의 목록) }
 // opts: { market, targetRc(세이브에 있는 현재 고객 목표) }
-export function evaluateSigned({ treaty, client, clientRelationship, reinsurers }, { market, targetRc, panel }, cfg) {
+export function evaluateSigned({ treaty, client, clientRelationship, reinsurers }, { market, targetRc, panel, structureOption = null }, cfg) {
   const byId = new Map(reinsurers.map((r) => [r.id, r]));
   const members = panel.map((m) => {
     const re = byId.get(m.re);
@@ -262,13 +282,14 @@ export function evaluateSigned({ treaty, client, clientRelationship, reinsurers 
       preferredTerms: treaty.terms.preferred, shariahRequired: req.shariah_required, shariahConventionalCap: req.shariah_conventional_cap ?? 1,
     },
     benchmark: marketBenchmark(market, treaty.line, cfg),
+    structurePenalty: treaty.structure_options.find((o) => o.id === structureOption)?.client_cons_penalty ?? 0,
   }, cfg);
 }
 
 // 만기 패널을 그대로, 모두 같은 RC·조건으로 제출했을 때의 고객 평가(기준선 비교·테스트용).
-export function evaluateExpiringPanel({ treaty, client, clientRelationship, reinsurers }, { market, rc, terms, targetRc }, cfg) {
+export function evaluateExpiringPanel({ treaty, client, clientRelationship, reinsurers }, { market, rc, terms, targetRc, structureOption }, cfg) {
   return evaluateSigned({ treaty, client, clientRelationship, reinsurers }, {
-    market, targetRc, panel: treaty.expiring.panel.map((m) => ({ re: m.re, share: m.share, rc, terms })),
+    market, targetRc, structureOption, panel: treaty.expiring.panel.map((m) => ({ re: m.re, share: m.share, rc, terms })),
   }, cfg);
 }
 

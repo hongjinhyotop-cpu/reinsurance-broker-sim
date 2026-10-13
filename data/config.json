@@ -137,6 +137,7 @@
       },
       "continuity_k": 120,
       "terms_step": 25,
+      "structure_k": 2.5,
       "accept_threshold_base": 70,
       "accept_threshold_goodwill_k": 0.1,
       "delighted_margin": 10,
