@@ -34,7 +34,8 @@ function meetingsFor(data, state, treaty) {
 // ---------- 안내띠: 지금 할 일 한 줄 (§6.0.1) ----------
 
 // 위에서부터 처음 맞는 것 하나. 띄울 것이 없으면(마지막 턴) null.
-export function nextAction(data, state) {
+// opts.detail(쉬움, design.md §9.5)이면 같은 순서·같은 조건에서 구체적인 한 문장을 덧붙인다. 읽는 값은 늘리지 않는다.
+export function nextAction(data, state, { detail = false } = {}) {
   // 끝난 게임은 다른 어떤 할 일보다 먼저 성적표를 가리킨다(§6.0.1 0a·0b).
   if (state.ending?.kind === 'fired') return action('fired', '이사회에서 해고가 결정됐어요 — 시즌 리뷰에서 결과를 확인하세요. 새 게임은 그 화면 아래에서 시작할 수 있어요', 'review');
   if (state.ending) return action('year_end', '한 해가 끝났어요 — 시즌 리뷰에서 성적표를 확인하세요. 이사회 의장의 편지도 인박스에 있어요', 'review');
@@ -50,7 +51,8 @@ export function nextAction(data, state) {
   const required = open.find(({ template }) => template.blocking);
   if (required) {
     const due = required.mail.deadline_turn !== null && required.mail.deadline_turn <= state.turn;
-    return action('required_mail', `인박스의 필수 메일에 답하기${due ? ' — 이번 주가 마감이에요' : ''}`, 'inbox');
+    const more = detail ? ' (필수 메일은 마감 주까지 답해야 다음 주로 넘어갈 수 있어요)' : '';
+    return action('required_mail', `인박스의 필수 메일에 답하기${due ? ' — 이번 주가 마감이에요' : ''}${more}`, 'inbox');
   }
 
   const unread = state.mails.filter((m) => !m.read).length;
@@ -74,8 +76,10 @@ export function nextAction(data, state) {
     const counterDue = ts.panel.some((row) => counterWeeksLeft(row, state.turn) === 1
       && actionBlockReason(data, state, 'accept_counter', treaty.id, row.re) === null);
     if (counterDue) return action('counter_due', '플레이스먼트에서 이번 주까지인 반제를 받을지 정하기', 'placement');
-    if (submitBlockReason(data, state, treaty.id) === null) return action('submit', '플레이스먼트에서 패키지를 고객에게 제출하기', 'placement');
-    if (ap < Math.min(board.ask_ap, board.propose_ap)) return action('out_of_ap', '행동 점수를 다 썼어요 — Continue로 다음 주로 넘어가기');
+    if (submitBlockReason(data, state, treaty.id) === null) {
+      return action('submit', `플레이스먼트에서 패키지를 고객에게 제출하기${detail ? ' — 고객은 수락·재협상·거부 중 하나로 답해요. 재협상이면 이유를 보고 다시 낼 수 있어요' : ''}`, 'placement');
+    }
+    if (ap < Math.min(board.ask_ap, board.propose_ap)) return action('out_of_ap', `행동 점수를 다 썼어요 — Continue로 다음 주로 넘어가기${detail ? ' (행동 점수는 매주 다시 채워져요)' : ''}`);
     // M6b: 사건이 규칙을 바꿨다면 그 사실을 알린다(공개 정보만 읽는다 — 등급·상한·패널).
     const short = ratingShort(data, state, treaty);
     if (short.length > 0) {
@@ -85,13 +89,16 @@ export function nextAction(data, state) {
       return action('over_shariah_cap', '플레이스먼트에서 일반 재보험사 지분을 줄이거나 샤리아 재보험사로 옮기기 — 샤리아 상한을 넘었어요', 'placement');
     }
     if (ts.panel.length === 0 && ap >= meetingAp && meetingsFor(data, state, treaty) < data.config.guide.scout_min_meetings) {
-      return action('scout', '고객·재보험사 DB에서 상대와 미팅하기', 'database');
+      const more = detail ? ` — 미팅 한 번에 행동 점수 ${meetingAp}점이 들어요. 할수록 '???' 칸이 범위로, 범위가 확정으로 바뀌어요` : '';
+      return action('scout', `고객·재보험사 DB에서 상대와 미팅하기${more}`, 'database');
     }
     const client = liveClient(state, data.clients.find((c) => c.id === treaty.client));
     const cap = client.requirements.shariah_required ? client.requirements.shariah_conventional_cap : null;
     const staticCap = data.clients.find((c) => c.id === treaty.client).requirements.shariah_conventional_cap;
     const capNote = cap !== null && cap < staticCap ? ` — 샤리아 상한이 줄어서 일반 재보험사 합은 ${Math.round(cap * 100)}% 이하여야 해요` : '';
-    return action('fill', `플레이스먼트에서 지분을 채워 제출하기${capNote}`, 'placement');
+    const have = Math.round(signedCheck(data, state, treaty.id).total * 100);
+    const more = detail ? ` — 지금 확정 지분 ${have}%, 남은 지분 ${Math.max(0, 100 - have)}%. 위쪽 흐린 '만기' 띠가 지난해 패널이니 출발점으로 삼아 보세요` : '';
+    return action('fill', `플레이스먼트에서 지분을 채워 제출하기${capNote}${more}`, 'placement');
   }
 
   const overdue = data.treaties.some((t) => {
@@ -113,7 +120,7 @@ export function nextAction(data, state) {
       : action('season_end_all', '올해 갱신 시즌을 모두 마쳤어요 — 순위표에서 이사회 목표를 점검하며 연말을 준비하세요', 'standings');
   }
 
-  if (ap >= meetingAp) return action('between', '다음 시즌까지 시간이 있어요 — DB에서 미팅으로 상대를 알아 두거나, Continue로 다음 주로 넘어가기', 'database');
+  if (ap >= meetingAp) return action('between', `다음 시즌까지 시간이 있어요 — DB에서 미팅으로 상대를 알아 두거나, Continue로 다음 주로 넘어가기${detail ? ' (미팅할수록 상대의 \'???\'가 선명해져 협상이 쉬워져요)' : ''}`, 'database');
   return action('between_idle', 'Continue로 다음 주로 넘어가기');
 }
 
@@ -123,7 +130,20 @@ const RAISE_RC = 'RC 칸을 올려 다시 제안하거나, 지분을 다른 재�
 
 // 재보험사 응답 밑 한 줄. 문구가 필요 없으면 null.
 // view: { signedTotal(확정 지분 합, 0~1), patience(남은 인내심) }
-export function responseHint(row, { signedTotal, patience }, cfg) {
+// view.detail(쉬움)이면 남은 인내심(view.start 중 몇)과 반제·수락의 성격을 덧붙인다.
+export function responseHint(row, { signedTotal, patience, start = null, detail = false }, cfg) {
+  const base = baseResponseHint(row, { signedTotal, patience }, cfg);
+  if (!detail || !base || !row?.last) return base;
+  const l = row.last;
+  if (patience > 0 && l.mode !== 'ask') {
+    if (l.kind === 'reject') return `${base}. 거절당할 때마다 인내심이 줄고(지금 ${patience}${start ? `/${start}` : ''}) 0이 되면 이 트리티에서는 더 협상하지 않아요`;
+    if (l.kind === 'counter' && row.status === 'countered') return `${base}. 반제 수락은 행동 점수가 들지 않고, 상대가 부른 RC·지분 그대로 확정돼요`;
+    if (row.status === 'accepted' && signedTotal < 1) return `${base} — 아직 '미제안'인 행에서 지분을 늘려 제안하면 돼요`;
+  }
+  return base;
+}
+
+function baseResponseHint(row, { signedTotal, patience }, cfg) {
   if (!row || !row.last) return null;
   const l = row.last;
   if (patience <= 0) return '이 트리티에서는 이 재보험사와 더 협상하지 않아요 — 이 행의 지분을 다른 곳으로 옮기세요';
@@ -161,13 +181,24 @@ export const REASON_NEXT = {
   structure: '\'구조 옵션\' 칸을 \'없음\'으로 되돌려 보세요',
 };
 
+// 쉬움에서만 덧붙이는 보충 설명(화면에 보이는 정보의 뜻풀이일 뿐, 새 단서는 아니다)
+const REASON_MORE = {
+  price: '고객은 RC가 낮을수록, 재보험사는 RC가 높을수록 좋아해서 둘 사이의 균형을 찾는 일이에요',
+  security: '재보험사 이름 옆의 등급 칩을 보면 어느 곳이 낮은지 알 수 있어요',
+  continuity: '고객은 지난해와 같은 재보험사들이 계속 맡는 것을 안심해요',
+  terms: '약관 조건을 바꾸면 모든 행이 \'미제안\'으로 돌아가니, 바꾼 뒤에는 다시 제안해야 해요',
+  service: '관계는 미팅을 할수록 쌓여요',
+  structure: '구조 옵션은 고객에게 낯선 방식일수록 걱정을 사요',
+};
+
 // 지금 턴 이후 처음 열리는 시즌 창구(없으면 null)
 export function nextSeason(data, turn) {
   return data.calendar.seasons.find((s) => s.open_turn > turn) ?? null;
 }
 
 // 고객 반응 밑 한 줄. verdict가 없으면 null.
-export function verdictHint(data, state, treatyState) {
+// opts.detail(쉬움)이면 재협상·거부의 이유 종류마다 보충 한 문장을 덧붙인다.
+export function verdictHint(data, state, treatyState, { detail = false } = {}) {
   const { verdict, verdict_reason: reason } = treatyState;
   if (verdict === 'delighted' || verdict === 'accept') {
     const next = nextSeason(data, state.turn);
@@ -175,6 +206,9 @@ export function verdictHint(data, state, treatyState) {
       ? `다음 갱신 시즌(${next.label})의 협상 창구는 턴 ${next.open_turn}에 열려요 — 그 사이에 고객·재보험사 DB에서 미팅으로 상대를 알아 둘 수 있어요`
       : '이번 해 갱신은 모두 마쳤어요';
   }
-  if (verdict === 'renegotiate' || verdict === 'reject') return REASON_NEXT[reason] ?? null;
+  if (verdict === 'renegotiate' || verdict === 'reject') {
+    const next = REASON_NEXT[reason] ?? null;
+    return detail && next && REASON_MORE[reason] ? `${next}. ${REASON_MORE[reason]}` : next;
+  }
   return null;
 }

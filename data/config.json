@@ -62,6 +62,34 @@
   "turn": {
     "deadline_warning_weeks": 1
   },
+  "difficulty": {
+    "default": "normal",
+    "order": ["normal", "easy"],
+    "profiles": {
+      "normal": {
+        "label_ko": "보통",
+        "summary_ko": "기본 규칙 그대로예요. 공백이 나면 벌칙이 크고, 해고선도 높아요.",
+        "gap_penalty_scale": 1,
+        "gap_cut_scale": 1,
+        "fired_below_shift": 0,
+        "scout_gain_scale": 1,
+        "reject_relationship_scale": 1,
+        "patience_bonus": 0,
+        "guide_detail": false
+      },
+      "easy": {
+        "label_ko": "쉬움",
+        "summary_ko": "재보험을 기본만 알아도 끝까지 해 볼 수 있어요. 실수의 대가가 작고, 미팅이 더 잘 통하고, 안내가 더 자세해요.",
+        "gap_penalty_scale": 0.5,
+        "gap_cut_scale": 0.5,
+        "fired_below_shift": -10,
+        "scout_gain_scale": 1.5,
+        "reject_relationship_scale": 0.5,
+        "patience_bonus": 2,
+        "guide_detail": true
+      }
+    }
+  },
   "guide": {
     "scout_min_meetings": 1,
     "counter_close_pp": 1.0,

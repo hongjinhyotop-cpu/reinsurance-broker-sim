@@ -6,6 +6,7 @@ import { getCodex, progressOf, resetCodex } from '../glossary.js';
 import { describeTurn, turnLabel } from '../calendar.js';
 import { getPrefs, setPref } from '../prefs.js';
 import { forceEvent } from '../turn.js';
+import { difficultyLabel } from '../difficulty.js';
 import { h, toast, confirmDialog, navigate, formatUsdM, formatDateTime } from './components.js';
 import { glossaryLink } from './glossary_view.js';
 
@@ -16,7 +17,8 @@ function summaryText(info) {
   const { calendar } = store.getData();
   const desc = describeTurn(calendar, info.turn);
   const when = desc ? `${turnLabel(desc)} (턴 ${info.turn}/${calendar.turns})` : `턴 ${info.turn}`;
-  return `${when} · 현금 ${formatUsdM(info.cash_usd_m)} · ${formatDateTime(info.saved_at)}`;
+  const level = store.getData().config.difficulty.profiles[info.difficulty]?.label_ko ?? '보통';
+  return `${when} · 난이도 ${level} · 현금 ${formatUsdM(info.cash_usd_m)} · ${formatDateTime(info.saved_at)}`;
 }
 
 // 진행 중인 게임이 있을 때만 "사라진다"는 경고를 띄운다.
@@ -270,6 +272,7 @@ export function renderSettings() {
       h('dl', { class: 'info-list' },
         h('dt', {}, '시드'), h('dd', {}, String(state.seed)),
         h('dt', {}, '진행'), h('dd', {}, desc ? `${turnLabel(desc)} (턴 ${state.turn}/${calendar.turns})` : `턴 ${state.turn}`),
+        h('dt', {}, '난이도'), h('dd', {}, difficultyLabel(store.getData(), state)),
         h('dt', {}, '세이브 구조 버전'), h('dd', {}, `v${state.version}`),
       ),
       h('p', { class: 'dim' }, '같은 시드로 새 게임을 시작하면 같은 난수 흐름으로 시작해요.'),

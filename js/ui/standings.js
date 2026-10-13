@@ -3,6 +3,7 @@
 import * as store from '../store.js';
 import { latestSnapshot, computeReport } from '../finance.js';
 import { tableRows } from '../rivals.js';
+import { firedBelow } from '../difficulty.js';
 import { h, formatUsdM } from './components.js';
 import { glossaryLink, richText } from './glossary_view.js';
 
@@ -75,7 +76,7 @@ function renderGoals(data, state) {
         goalRow(`순위 ${f.rank_max}위 이내`, f.rank === null ? '아직 결산 전' : `${f.rank}위 (${f.rank_of}곳 중)`, f.rank === null ? null : f.rank <= f.rank_max),
         goalRow(`고객 ${t.targets.clients_kept}곳 유지`, `${f.clients_kept}곳`, f.clients_kept >= t.targets.clients_kept),
         goalRow([glossaryLink('gl_compliance', { label: '컴플라이언스' }), ` ${f.compliance_min}점 이상`], `${f.compliance}점 (${complianceStatus(state.player.compliance)})`, state.player.compliance >= f.compliance_min))),
-    h('p', { class: 'dim goal-note' }, glossaryLink('gl_board_trust'), `는 지금 ${Math.round(state.player.board_confidence)}점이에요. ${t.fired_below}점 아래로 내려가면 해고돼요.`));
+    h('p', { class: 'dim goal-note' }, glossaryLink('gl_board_trust'), `는 지금 ${Math.round(state.player.board_confidence)}점이에요. ${firedBelow(data, state)}점 아래로 내려가면 해고돼요.`));
 }
 
 export function renderStandings() {
