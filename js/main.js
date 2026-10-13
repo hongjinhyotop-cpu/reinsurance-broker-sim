@@ -13,6 +13,7 @@ import { renderCodex, resetTermScope } from './ui/glossary_view.js';
 import { renderStandings } from './ui/standings.js';
 import { renderReview } from './ui/review.js';
 import { toast } from './ui/components.js';
+import { captureFocus, restoreFocus } from './ui/focus.js';
 
 const GAME_TITLE = '싱가포르 재보험 브로커 시뮬레이션';
 const app = document.getElementById('app');
@@ -26,6 +27,7 @@ function currentRoute() {
 // 그리는 도중(포커스가 사라지며 change가 터지는 등)에 다시 그리기를 요청하면 끝난 뒤에 한 번 더 그린다.
 let rendering = false;
 let pending = null;
+let lastView = null; // 마지막으로 그린 화면('start' 또는 화면 id)
 
 function render(opts = {}) {
   if (rendering) { pending = opts; return; }
@@ -41,10 +43,15 @@ function render(opts = {}) {
 function renderNow({ focusMain = false } = {}) {
   // 같은 화면에서 값만 바뀌어 다시 그릴 때(제안·제출 등) 보던 위치를 잃지 않게 한다.
   const keepScroll = !focusMain && store.hasGame() ? window.scrollY : 0;
+  // 같은 화면을 다시 그릴 때만 키보드 초점을 되돌린다(화면이 바뀌면 hashchange가 본문으로 초점을 옮긴다).
+  const view = store.hasGame() ? currentRoute() : 'start';
+  const keepFocus = focusMain || view !== lastView ? null : captureFocus(app);
+  lastView = view;
   app.replaceChildren();
   if (!store.hasGame()) {
     app.append(renderStart());
     document.title = GAME_TITLE;
+    restoreFocus(app, keepFocus);
     return;
   }
   const route = currentRoute();
@@ -54,7 +61,10 @@ function renderNow({ focusMain = false } = {}) {
   app.append(renderShell(route, content));
   document.title = `${screenTitle(route)} · ${GAME_TITLE}`;
   if (focusMain) document.getElementById('main')?.focus();
-  else if (keepScroll > 0) window.scrollTo(0, keepScroll);
+  else {
+    restoreFocus(app, keepFocus);
+    if (keepScroll > 0) window.scrollTo(0, keepScroll);
+  }
 }
 
 async function boot() {

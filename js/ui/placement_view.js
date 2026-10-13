@@ -255,6 +255,13 @@ function describeLast(pen, l) {
   return `제안: 거절 — 가격이 너무 낮아요 (인내심 ${pen.patience}, 관계도 ${pen.relationship})`;
 }
 
+// 힌트 오차의 정확한 %p는 스카우트 값을 거꾸로 알려 주므로 말로만 전한다(숨은 값 보호). 경계는 기존 hint_near_pp를 쓴다.
+export function hintErrWords(errPp, cfg) {
+  if (errPp >= cfg.hint_near_pp * 2) return '꽤 어긋날 수 있어요';
+  if (errPp >= cfg.hint_near_pp) return '조금 어긋날 수 있어요';
+  return '거의 맞아요';
+}
+
 function resultLines(data, row, hint) {
   const l = row?.last;
   if (!l) return null;
@@ -266,7 +273,7 @@ function resultLines(data, row, hint) {
     lines.push(h('p', { class: 'pl-line pl-voice' }, `“${re.response_lines[l.kind]}” — ${re.contact.name}`));
   }
   if (l.mode === 'ask' && l.hint) {
-    lines.push(h('p', { class: 'pl-line dim' }, `가격 민감도를 아는 만큼만 정확해요 — 오차 약 ±${l.err_pp.toFixed(1)}%p`));
+    lines.push(h('p', { class: 'pl-line dim' }, `가격 민감도를 아는 만큼만 정확해요 — 이 감은 ${hintErrWords(l.err_pp, data.config.negotiation)}`));
   }
   if (l.mode === 'propose' && l.limited) lines.push(h('p', { class: 'pl-line' }, `라인이 제한돼요. 요청한 ${share(l.share_req)}보다 적게 맡을 수 있어요.`));
   if (l.mode === 'propose' && l.hint && l.kind !== 'accept') lines.push(h('p', { class: 'pl-line dim' }, `가격 감: ${HINT_KO[l.hint]}`));

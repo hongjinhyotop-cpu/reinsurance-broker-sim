@@ -1,4 +1,4 @@
-// 설정 화면: 세이브 슬롯, 파일 백업, 도감 초기화, 게임 정보, M0 점검용 난수 도구.
+// 설정 화면: 세이브 슬롯, 파일 백업, 도감 초기화, 게임 정보, 사건 시험대.
 // 슬롯 목록과 가져오기 버튼은 시작 화면도 같이 쓴다.
 
 import * as store from '../store.js';
@@ -122,45 +122,6 @@ function downloadText(filename, text) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ---------- M0 점검용 난수 도구 (게임 규칙이 아니라 "저장이 난수 흐름까지 기억하는지" 보는 임시 도구) ----------
-
-let devGeneration = -1;
-let devDraws = [];
-
-function renderDevPanel() {
-  if (devGeneration !== store.getGeneration()) {
-    devGeneration = store.getGeneration();
-    devDraws = [];
-  }
-  const state = store.getState();
-  const stateOut = h('code', {}, String(state.rng_state));
-  const drawsOut = h('p', { class: 'draws', 'aria-live': 'polite' }, devDraws.length ? devDraws.join('  ') : '아직 뽑지 않았어요');
-
-  return h('section', { class: 'card dev-card' },
-    h('h2', {}, '난수 점검 (M0 임시 도구)'),
-    h('p', { class: 'dim' }, '저장이 "난수의 흐름"까지 기억하는지 확인하는 임시 도구예요. 게임이 만들어지면 지워요.'),
-    h('ol', { class: 'plain-list' },
-      h('li', {}, '[저장]으로 슬롯에 저장한다.'),
-      h('li', {}, '[난수 3개 뽑기]를 누르고 숫자를 기억해 둔다.'),
-      h('li', {}, '방금 슬롯을 [불러오기]한 뒤 다시 [난수 3개 뽑기]를 누른다.'),
-      h('li', {}, '같은 숫자 3개가 다시 나오면 성공이에요.'),
-    ),
-    h('div', { class: 'row' },
-      h('button', {
-        class: 'btn btn-primary', type: 'button',
-        onclick: () => {
-          for (let i = 0; i < 3; i++) devDraws.push(store.random().toFixed(6));
-          if (devDraws.length > 9) devDraws = devDraws.slice(-9);
-          drawsOut.textContent = devDraws.join('  ');
-          stateOut.textContent = String(store.getState().rng_state);
-        },
-      }, '난수 3개 뽑기'),
-      h('span', { class: 'dim' }, '현재 난수 상태: ', stateOut),
-    ),
-    drawsOut,
-  );
-}
-
 function renderCodexReset() {
   const ids = store.getData().glossary.map((t) => t.id);
   const prog = progressOf(getCodex(), ids);
@@ -280,7 +241,6 @@ export function renderSettings() {
     renderGuideSetting(),
     renderCodexReset(),
     renderEventLab(),
-    renderDevPanel(),
     h('section', { class: 'card' },
       h('h2', {}, '시작 화면으로'),
       h('p', { class: 'dim' }, '저장하지 않은 진행은 사라져요.'),

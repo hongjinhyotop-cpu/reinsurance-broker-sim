@@ -118,7 +118,7 @@
   },
   "negotiation": {
     "market_k": 0.3,
-    "capacity_k": 0.4,
+    "capacity_k": 0.3,
     "line_adj": {
       "property_energy": 1.0,
       "marine_cargo": 0.0,
@@ -133,7 +133,7 @@
     "loss_min": -5,
     "loss_max": 20,
     "cons_k": 8,
-    "cons_capacity_k": 0.35,
+    "cons_capacity_k": 0.2,
     "uncertainty": {
       "base": 0.2,
       "new_reinsurer": 0.4,
@@ -182,7 +182,7 @@
     "onshore_bonus": 3,
     "share_tolerance": 0.0005,
     "client": {
-      "price_slope": 8,
+      "price_slope": 7,
       "weights": {
         "price_base": 0.2,
         "price_ps": 0.4,
@@ -195,10 +195,10 @@
       "continuity_k": 120,
       "terms_step": 25,
       "structure_k": 2.5,
-      "accept_threshold_base": 70,
+      "accept_threshold_base": 64,
       "accept_threshold_goodwill_k": 0.1,
       "delighted_margin": 10,
-      "renegotiate_margin": 8
+      "renegotiate_margin": 6
     },
     "expectation": {
       "base": 0.25,
@@ -243,9 +243,9 @@
       "q4"
     ],
     "reputation_flow": {
-      "threshold": 55,
-      "per_point": 0.0008,
-      "max_rate": 0.02,
+      "threshold": 50,
+      "per_point": 0.0035,
+      "max_rate": 0.04,
       "notice_min_usd_m": 0.01,
       "mail": "mail_board_reputation_flow"
     }
@@ -269,12 +269,12 @@
       "revenue_cap": 1.0,
       "rank_fraction": [
         1.0,
-        0.9,
-        0.8,
-        0.7,
-        0.6,
-        0.35,
-        0.15,
+        0.94,
+        0.88,
+        0.82,
+        0.74,
+        0.47,
+        0.21,
         0.0
       ],
       "rank_unknown_fraction": 0.5
@@ -320,10 +320,11 @@
     "season_eval": {
       "end_offset_weeks": 1,
       "tiers": [
-        { "min_ratio": 1.0, "delta": 4 },
-        { "min_ratio": 0.97, "delta": 2 },
-        { "min_ratio": 0.94, "delta": 0 },
-        { "min_ratio": 0, "delta": -2 }
+        { "min_ratio": 1.01, "delta": 4 },
+        { "min_ratio": 1.0, "delta": 2 },
+        { "min_ratio": 0.99, "delta": 0 },
+        { "min_ratio": 0.97, "delta": -2 },
+        { "min_ratio": 0, "delta": -4 }
       ],
       "open": 0,
       "lost": -3,

@@ -43,7 +43,7 @@ export function choiceBlockReason(choice, ap) {
 // 인박스 필터. 'todo'는 답이 필요한 메일.
 export const MAIL_FILTERS = [
   { id: 'all', label: '전체' },
-  { id: 'todo', label: '요청 필요' },
+  { id: 'todo', label: '답장 필요' },
   { id: 'client', label: '고객' },
   { id: 'reinsurer', label: '재보험사' },
   { id: 'regulator', label: '규제' },

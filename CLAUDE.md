@@ -19,11 +19,12 @@ docs/design.md        설계 문서
 css/                  base.css(토큰·셸), screens.css
 js/                   main, loader, store, rng, calendar, market, negotiation, placement, reveal,
                       scouting, glossary, anki, effects, events, mail, turn, finance, rivals, season, guide, prefs, difficulty
-js/ui/                components, shell, start, settings, inbox, database,
+js/ui/                components, shell, focus, start, settings, inbox, database,
                       placement_view, glossary_view, calendar_view, standings, review
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
                       glossary, brokers, report  (.json)
 tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연 뒤 /tests/ 접속)
+tests/balance/        밸런싱 도구(Node: `node tests/balance/sim.mjs 300 normal,easy`). 게임 실행에는 쓰이지 않는다 — design.md §9.6
 ```
 
 ## 코드 규칙
@@ -32,6 +33,7 @@ tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연
 - 난수는 `rng.js`의 시드 RNG만 쓴다. `Math.random()` 금지(세이브 재현성).
 - 계수·임계값은 코드에 박지 말고 `data/config.json`에 둔다.
 - `ui/*` → 로직 모듈 방향으로만 의존한다.
+- 누를 수 있는 것은 기본 컨트롤(`button`·`a`·`input`·`select`)만 쓰고 이름(글자·`aria-label`)을 단다. 화면을 다시 그려도 키보드 초점이 유지된다(`ui/focus.js`, design.md §6.0.2).
 - DOM은 `ui/components.js`의 `h()`로 만든다. `innerHTML`·`style` 속성·인라인 스크립트 금지(`index.html`의 CSP가 외부 접속과 함께 막는다). 모양은 CSS 클래스로.
 
 ## 데이터 규칙
@@ -49,5 +51,5 @@ tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연
 
 ## 작업 방식
 - 변경은 작게, 문서와 코드가 어긋나면 문서를 먼저 맞춘다.
-- 수치 튜닝은 `data/config.json`만 고친다. 계산식 구조를 바꾸면 design.md §7을 갱신한다.
+- 수치 튜닝은 `data/config.json`만 고친다. 계산식 구조를 바꾸면 design.md §7을 갱신한다. 숫자를 바꾸면 `tests/balance`로 등급·해고 분포가 어떻게 달라지는지 먼저 본다.
 - 용어집·단서 문구 같은 콘텐츠 작업은 코드 작업과 별도 커밋으로 나눈다.

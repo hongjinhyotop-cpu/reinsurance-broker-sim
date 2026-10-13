@@ -136,8 +136,17 @@ function renderGuideStrip(activeId) {
   );
 }
 
+// 키보드 사용자가 상단 바와 메뉴를 지나치지 않고 본문으로 건너뛴다. 주소(#main)는 바꾸지 않는다(화면 주소와 겹친다).
+function renderSkipLink() {
+  return h('a', {
+    class: 'skip-link', href: '#main',
+    onclick: (ev) => { ev.preventDefault(); document.getElementById('main')?.focus(); },
+  }, '본문으로 건너뛰기');
+}
+
 export function renderShell(activeId, content) {
   return h('div', { class: 'shell' },
+    renderSkipLink(),
     renderTopbar(),
     renderNav(activeId),
     h('main', { id: 'main', class: 'content', tabindex: '-1' }, renderGuideStrip(activeId), content),

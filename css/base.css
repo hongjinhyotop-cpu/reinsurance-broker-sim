@@ -108,6 +108,14 @@ a { color: var(--accent); }
 .content { grid-area: main; padding: 20px 24px 48px; min-width: 0; }
 .content:focus { outline: none; }
 
+/* 키보드로 처음 Tab을 누르면 나타나는 건너뛰기 링크. 격자 밖에 띄운다. */
+.skip-link {
+  position: absolute; left: 8px; top: -64px; z-index: 60;
+  padding: 8px 14px; border-radius: var(--radius);
+  background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none;
+}
+.skip-link:focus { top: 8px; }
+
 .tag {
   display: inline-block; padding: 1px 8px; border-radius: 999px;
   font-size: 0.72rem; font-weight: 500; white-space: nowrap;
