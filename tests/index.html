@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
+  <h1>테스트 (라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -935,6 +935,59 @@
       check(has(bad((n) => { delete n.client; }), 'negotiation.client'));
       check(has(bad((n) => { n.terms_adj = { strict: 0 }; }), 'terms_adj'));
       eq(validateConfig(data.config), []);
+    });
+
+    // ---------- 라인 구성 보드 제약 검사 (design.md §6.3, §7.4) ----------
+    const boardMembers = () => data.reinsurers.map((r) => ({ id: r.id, rating: r.rating, shariahOk: r.shariah_ok, maxSingleShare: r.behavior.max_single_share }));
+    const jurongReq = () => ({ minRating: 'A-', maxSingleShare: 0.4, shariahRequired: false, shariahConventionalCap: null });
+    const boardArgs = (shares, extra = {}) => ({ shares, members: boardMembers(), caps: {}, expiringIds: jurong.expiring.panel.map((m) => m.re), client: jurongReq(), ...extra });
+
+    test('보드: 만기 패널 35/30/35를 그대로 넣으면 100%, 턴오버 0, 단일·등급 위반 없음', () => {
+      const c = neg.boardCheck(boardArgs({ re_alpenglow: 0.35, re_kallang: 0.3, re_thames_quay: 0.35 }), ng);
+      near(c.total, 1, 1e-9); eq(c.filled, true); near(c.remaining, 0, 1e-9); eq(c.turnover, 0); eq(c.blockers, []); eq(c.canSubmit, true);
+    });
+    test('보드: 100% 미만이면 남은 지분이 계산되고 제출 불가, 초과하면 over', () => {
+      const c = neg.boardCheck(boardArgs({ re_alpenglow: 0.3, re_kallang: 0.4 }), ng);
+      near(c.remaining, 0.3, 1e-9); eq(c.canSubmit, false); eq(c.blockers.includes('share_total'), true);
+      const o = neg.boardCheck(boardArgs({ re_alpenglow: 0.4, re_kallang: 0.3, re_thames_quay: 0.4 }), ng);
+      eq(o.over, true); eq(o.remaining, 0); eq(o.blockers.includes('share_total'), true);
+    });
+    test('보드: 단일 한도(고객 40%) 초과는 칩 + 제출 차단, 한도 이하면 경고 없음', () => {
+      const c = neg.boardCheck(boardArgs({ re_alpenglow: 0.45, re_thames_quay: 0.55 }), ng);
+      eq(c.flags.re_alpenglow.map((f) => f.kind), ['single_share']); near(c.flags.re_alpenglow[0].limit, 0.4, 1e-9);
+      eq(c.blockers.includes('single_share'), true);
+      eq(neg.boardCheck(boardArgs({ re_alpenglow: 0.4, re_thames_quay: 0.4, re_kallang: 0.2 }), ng).flags.re_alpenglow, []);
+    });
+    test('보드: 용량 상한 초과는 칩만 띄우고 제출은 막지 않는다', () => {
+      const c = neg.boardCheck(boardArgs({ re_alpenglow: 0.4, re_kallang: 0.3, re_thames_quay: 0.3 }, { caps: { re_kallang: 0.246 } }), ng);
+      eq(c.flags.re_kallang.map((f) => f.kind), ['capacity']); near(c.flags.re_kallang[0].cap, 0.246, 1e-9);
+      eq(c.blockers, []); eq(c.canSubmit, true);
+    });
+    test('보드: 만기에 없던 재보험사 지분은 턴오버로 잡힌다', () => {
+      const c = neg.boardCheck(boardArgs({ re_alpenglow: 0.4, re_kallang: 0.4, re_nur: 0.2 }), ng);
+      near(c.turnover, 0.2, 1e-9);
+    });
+    test('보드: 최소 등급 미달(A- 요구, BBB+ 재보험사)은 칩 + 제출 차단', () => {
+      const members = boardMembers().map((m) => (m.id === 're_kallang' ? { ...m, rating: 'BBB+' } : m));
+      const c = neg.boardCheck(boardArgs({ re_alpenglow: 0.4, re_kallang: 0.3, re_thames_quay: 0.3 }, { members }), ng);
+      eq(c.flags.re_kallang.map((f) => f.kind), ['min_rating']); eq(c.blockers.includes('min_rating'), true);
+    });
+    test('보드: 샤리아 상한 — 일반 재보험사 지분 합이 상한을 넘으면 shariah 위반, 아니면 통과(누산타라)', () => {
+      const client = { minRating: 'A-', maxSingleShare: 0.5, shariahRequired: true, shariahConventionalCap: 0.2 };
+      const ok = neg.boardCheck(boardArgs({ re_nur: 0.35, re_dunes_crescent: 0.45, re_kallang: 0.2 }, { client }), ng);
+      eq(ok.shariah, null);
+      const bad = neg.boardCheck(boardArgs({ re_nur: 0.3, re_dunes_crescent: 0.3, re_kallang: 0.4 }, { client }), ng);
+      near(bad.shariah.conventional, 0.4, 1e-9); eq(bad.blockers.includes('shariah_cap'), true);
+    });
+    test('보드: 이론 상한은 공개 용량÷한도에 단일 한도를 겹친 값이고 시장·성격과 무관하다', () => {
+      const re = (id) => data.reinsurers.find((r) => r.id === id);
+      const cap = (id) => neg.publicShareCap({ capacity: re(id).capacity_usd_m.property_energy, limit: jurong.limit_usd_m, reinsurerMaxShare: re(id).behavior.max_single_share, clientMaxShare: 0.4 });
+      near(cap('re_alpenglow'), 0.4, 1e-9); near(cap('re_kallang'), 0.3, 1e-9); near(cap('re_nur'), 0.05, 1e-9);
+      eq(neg.publicShareCap({ capacity: 0, limit: 100, reinsurerMaxShare: 0.5, clientMaxShare: 0.5 }), 0);
+    });
+    test('보드: 입력 객체를 바꾸지 않는다(순수 함수)', () => {
+      const a = boardArgs({ re_alpenglow: 0.5 }, { caps: { re_alpenglow: 0.3 } }); const snap = JSON.stringify(a);
+      neg.boardCheck(a, ng); eq(JSON.stringify(a), snap);
     });
 
     // ---------- 미팅 반응 한 줄 ----------
