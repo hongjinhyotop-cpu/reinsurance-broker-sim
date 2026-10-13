@@ -8,6 +8,7 @@ import { boardCheck, publicShareCap } from '../negotiation.js';
 import * as placement from '../placement.js';
 import { liveClient, liveReinsurers } from '../live.js';
 import { responseHint, verdictHint } from '../guide.js';
+import { patienceStart, rejectPenalty, guideDetail } from '../difficulty.js';
 import { h, toast, confirmDialog } from './components.js';
 import { glossaryLink, resetTermScope } from './glossary_view.js';
 
@@ -243,7 +244,7 @@ function barTrack(ctx, state, data, check) {
 }
 
 // 마지막 응답 한 줄들. 세이브에 남은 row.last로 그린다.
-function describeLast(cfg, l) {
+function describeLast(pen, l) {
   if (l.mode === 'ask') {
     return l.kind === 'decline' ? `의견: 받을 수 없는 곳이에요 — ${REASON_KO[l.reason]}` : `의견: 가격 감 "${HINT_KO[l.hint]}"`;
   }
@@ -251,14 +252,14 @@ function describeLast(cfg, l) {
   if (l.kind === 'decline') return `제안: 거절 — ${REASON_KO[l.reason]}`;
   if (l.kind === 'accept') return `제안: 수락 — RC ${pct(l.rc)}에 ${share(l.share)} 확정${l.support > 0 ? ' (여유가 있어요 — 지분을 늘려 다시 제안해 볼 수 있어요)' : ''}`;
   if (l.kind === 'counter') return `제안: 반제 — RC ${pct(l.rc)}라면 ${share(l.share)}`;
-  return `제안: 거절 — 가격이 너무 낮아요 (인내심 ${cfg.reject_patience}, 관계도 ${cfg.reject_relationship})`;
+  return `제안: 거절 — 가격이 너무 낮아요 (인내심 ${pen.patience}, 관계도 ${pen.relationship})`;
 }
 
 function resultLines(data, row, hint) {
   const l = row?.last;
   if (!l) return null;
   const lines = [];
-  lines.push(h('p', { class: `pl-line${l.mode === 'ask' ? '' : ` pl-resp pl-resp-${ROW_STATUS[row.status]}`}`, role: 'status' }, describeLast(data.config.negotiation, l)));
+  lines.push(h('p', { class: `pl-line${l.mode === 'ask' ? '' : ` pl-resp pl-resp-${ROW_STATUS[row.status]}`}`, role: 'status' }, describeLast(rejectPenalty(data, store.getState()), l)));
   // 사유 있는 거절(decline)·의견 묻기에는 목소리를 붙이지 않는다. 사유 문구가 이미 있다.
   if (l.mode === 'propose' && ['accept', 'counter', 'reject'].includes(l.kind)) {
     const re = data.reinsurers.find((r) => r.id === row.re);
@@ -357,8 +358,8 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
       h('span', { class: 'dim pl-cap' }, `${cap.exact ? '확인된 상한' : '이론 상한'} ${cap.exact ? '' : '~'}${share(cap.value)}`),
       expiringShare > 0 ? h('span', { class: 'dim pl-cap' }, `만기 ${share(expiringShare)}`) : null,
       h('span', { class: 'dim pl-cap', title: '거절당할 때마다 줄어들어요. 0이 되면 이 트리티에서는 더 협상하지 않아요.' },
-        h('span', { 'aria-hidden': 'true' }, `인내심 ${patienceDots(patience, cfg.patience_start)}`),
-        h('span', { class: 'visually-hidden' }, `인내심 ${patience}/${cfg.patience_start}`)),
+        h('span', { 'aria-hidden': 'true' }, `인내심 ${patienceDots(patience, patienceStart(data, state))}`),
+        h('span', { class: 'visually-hidden' }, `인내심 ${patience}/${patienceStart(data, state)}`)),
       h('span', { class: `pl-status pl-status-${status}` }, STATUS_KO[status]),
       deadline ? h('span', { class: 'pl-deadline', title: '주를 넘기면 이 반제는 사라져요. 인내심은 깎이지 않지만 처음부터 다시 제안해야 해요.' },
         h('span', { 'aria-hidden': 'true' }, '⏳ '), `반제 ${deadline}`) : null,
@@ -388,7 +389,7 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
     ),
     shownWhy ? h('p', { class: 'pl-line dim pl-small' }, shownWhy) : null,
     chips.length > 0 ? h('div', { class: 'pl-chips' }, chips) : null,
-    resultLines(data, row, locked ? null : responseHint(row, { signedTotal: ctx.signedTotal, patience }, data.config.guide)),
+    resultLines(data, row, locked ? null : responseHint(row, { signedTotal: ctx.signedTotal, patience, start: patienceStart(data, state), detail: guideDetail(data, state) }, data.config.guide)),
   );
 }
 
@@ -593,7 +594,7 @@ export function renderPlacement() {
     const submitWhy = placement.submitBlockReason(data, state, trt.id);
     const blockText = signed.blockers.map((b) => BLOCK_KO[b]);
     const verdict = verdictText(data, ctx);
-    const nextText = verdict ? verdictHint(data, state, ctx.t) : null;
+    const nextText = verdict ? verdictHint(data, state, ctx.t, { detail: guideDetail(data, state) }) : null;
     const submitChildren = [h('h2', {}, '고객에게 제출')];
     if (ctx.lost) {
       submitChildren.push(h('p', { class: 'pl-resp pl-resp-reject', role: 'status' }, '고객이 다른 브로커로 옮겨 가서 제출할 수 없어요.'));

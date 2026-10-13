@@ -6,7 +6,7 @@ import { marketBand } from './market.js';
 import { emptyFinance, emptyStandings } from './finance.js';
 import { emptySeasons } from './season.js';
 
-export const SAVE_VERSION = 9; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
+export const SAVE_VERSION = 10; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
 export const SLOTS = ['auto', '1', '2', '3'];
 export const MANUAL_SLOTS = ['1', '2', '3'];
 const KEY_PREFIX = 'rbs:save:v1:'; // 키 형식 버전(구조 버전과 별개)
@@ -21,6 +21,7 @@ const MAX_SAVE_CHARS = 2_000_000; // 가져오기 파일 크기 방어선
 // v6→v7(M6b): 사건이 덮어쓴 값(overrides)과 트리티의 사건 상태(lr_extra·big_loss·gap_applied)를 더한다.
 // v7→v8(M7a): 재무 장부(finance)·순위표 스냅샷(standings)·끝남(ending)을 더한다. 확정된 트리티는 다음 정산에서 장부에 오른다.
 // v8→v9(M7b): 시즌 출발 기록·중간 리뷰(seasons)를 더한다. 이미 지난 시즌의 리뷰는 만들 수 없어 비워 둔다.
+// v9→v10(MD): 난이도(difficulty)를 더한다. 옛 세이브는 규칙이 그대로인 보통으로 읽는다.
 export const MIGRATIONS = {
   1: (s) => fillEntities({ ...s, entities: { clients: { ...s.entities?.clients }, reinsurers: { ...s.entities?.reinsurers } } }),
   2: (s) => fillTreaties({
@@ -47,6 +48,7 @@ export const MIGRATIONS = {
   }),
   7: (s) => ({ ...s, finance: emptyFinance(), standings: emptyStandings(), ending: null }),
   8: (s) => ({ ...s, seasons: emptySeasons() }),
+  9: (s) => ({ ...s, difficulty: 'normal' }),
 };
 
 let ctx = null; // { config, calendar } — loader가 검증한 정적 데이터
@@ -150,13 +152,16 @@ function fillTreaties(s) {
   return s;
 }
 
-export function newGame({ seed } = {}) {
+export function newGame({ seed, difficulty } = {}) {
   const g = ctx.config.game;
+  const profiles = ctx.config.difficulty.profiles;
+  const level = profiles[difficulty] ? difficulty : ctx.config.difficulty.default;
   const s = normalizeSeed(seed);
   state = {
     version: SAVE_VERSION,
     seed: s,
     rng_state: s,
+    difficulty: level,
     turn: g.start_turn,
     ap: g.ap_per_week,
     player: {
@@ -352,6 +357,7 @@ export function validateState(s) {
   if (!isInt(s.rng_state, 0, 4294967295)) bad('rng_state', '0 이상 정수여야 해요');
   if (!isInt(s.turn, 1, ctx.calendar.turns)) bad('turn', `1~${ctx.calendar.turns} 사이 정수여야 해요`);
   if (!isInt(s.ap, 0, 99)) bad('ap', '0~99 사이 정수여야 해요');
+  if (typeof s.difficulty !== 'string' || !ctx.config.difficulty?.profiles?.[s.difficulty]) bad('difficulty', `${Object.keys(ctx.config.difficulty?.profiles ?? {}).join(' / ')} 중 하나여야 해요`);
 
   if (!isObj(s.player)) {
     bad('player', '객체여야 해요');
@@ -538,7 +544,7 @@ export function listSlots() {
     const parsed = parseSave(read.text);
     if (!parsed.ok) return { slot, status: 'broken', error: parsed.error };
     const s = parsed.state;
-    return { slot, status: 'ok', turn: s.turn, cash_usd_m: s.player.cash_usd_m, firm: s.player.firm, saved_at: s.saved_at ?? null };
+    return { slot, status: 'ok', turn: s.turn, cash_usd_m: s.player.cash_usd_m, firm: s.player.firm, saved_at: s.saved_at ?? null, difficulty: s.difficulty };
   });
 }
 

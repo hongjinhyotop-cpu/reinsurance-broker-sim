@@ -3,6 +3,7 @@
 // 상태는 store.commit 안에서만 바꾸고, 인내심·관계도·평판은 effects를 거친다.
 
 import * as store from './store.js';
+import { patienceStart, rejectPenalty, gapPenalty } from './difficulty.js';
 import { applyEffects } from './effects.js';
 import { quoteProposal, evaluateSigned, boardCheck, ratingScore } from './negotiation.js';
 import { liveReinsurers, liveReinsurer, liveClient } from './live.js';
@@ -35,7 +36,7 @@ export function treatyTiming(data, state, treaty) {
 
 export function patienceOf(data, state, reId, treatyId) {
   const p = state.entities.reinsurers[reId]?.patience?.[treatyId];
-  return p === undefined ? data.config.negotiation.board.patience_start : p;
+  return p === undefined ? patienceStart(data, state) : p;
 }
 
 // 서두름 띠를 띄울지. 반제 폭 규칙(weeks_left/6)이 이미 쓰는 같은 weeksLeft를 보여 줄 뿐이다.
@@ -211,10 +212,10 @@ export function propose(treatyId, reId, rawForm) {
     if (cs > 0) { status = 'countered'; last.rc = ceilRc(r.rc); last.share = cs; } else { status = 'rejected'; last.kind = 'decline'; last.reason = 'no_capacity'; last.share = 0; }
   } else {
     status = 'rejected';
-    if (r.kind === 'reject') penalty = { patience: r.patienceDelta, relationship: r.relationshipDelta };
+    if (r.kind === 'reject') penalty = rejectPenalty(data, state, r); // 보통이면 협상 계산이 돌려준 값과 같다(design.md §9.5)
   }
 
-  const startPatience = data.config.negotiation.board.patience_start;
+  const startPatience = patienceStart(data, state);
   const curPatience = patienceOf(data, state, reId, treatyId);
   const counterValidWeeks = data.config.negotiation.board.counter_valid_weeks;
   store.commit((s) => {
@@ -394,7 +395,7 @@ export function voidInvalidRows(data, state) {
 
 // 인셉션 턴이 지난 첫 주에 열린 트리티가 있으면 한 번만 공백 벌칙을 준다. 벌칙을 준 트리티 id 목록을 돌려준다.
 export function applyGap(data, state) {
-  const gap = data.config.season.gap;
+  const gap = gapPenalty(data, state);
   const hit = [];
   for (const treaty of data.treaties) {
     const t = state.treaties[treaty.id];

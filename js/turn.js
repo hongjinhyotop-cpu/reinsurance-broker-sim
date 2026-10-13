@@ -10,6 +10,7 @@ import { expireCounters, voidInvalidRows, applyGap } from './placement.js';
 import { settleWeek, closeQuarterIfEnd, checkEnding } from './finance.js';
 import { openSeasons, closeSeasons, markSeen } from './season.js';
 import { getCodex } from './glossary.js';
+import { scoutingCfg } from './difficulty.js';
 import { TOPICS, applyMeeting, relationshipAfterMeeting, newlyUnlocked } from './scouting.js';
 import {
   fillText, findTemplate, deadlineTurn, scheduledFor, nextMailId, needsReply, choiceBlockReason,
@@ -222,7 +223,7 @@ export function meet(kind, id, topic) {
   const state = store.getState();
   const reason = meetBlockReason(data, state, kind, id, topic);
   if (reason) return { ok: false, error: reason };
-  const cfg = data.config.scouting;
+  const cfg = scoutingCfg(data, state);
   const def = findEntity(data, kind, id);
   const entity = (kind === 'client' ? state.entities.clients : state.entities.reinsurers)[id];
   const before = { ...entity.scout };

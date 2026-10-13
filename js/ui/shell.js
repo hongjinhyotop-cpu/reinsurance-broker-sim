@@ -6,6 +6,7 @@ import { describeTurn, turnLabel, seasonLabel } from '../calendar.js';
 import { describeMarket } from '../market.js';
 import { continueBlockReason, advance } from '../turn.js';
 import { nextAction } from '../guide.js';
+import { guideDetail } from '../difficulty.js';
 import { getPrefs, setPref } from '../prefs.js';
 import { h, formatUsdM, toast, navigate } from './components.js';
 import { glossaryLink } from './glossary_view.js';
@@ -116,7 +117,9 @@ function renderNav(activeId) {
 // "지금 할 일" 안내띠(design.md §6.0.1). 정답이 아니라 돌아올 자리: 어느 화면에서 무엇을 하는지만 한 줄로 알린다.
 function renderGuideStrip(activeId) {
   if (!getPrefs().guide_strip) return null;
-  const act = nextAction(store.getData(), store.getState());
+  const data = store.getData();
+  const state = store.getState();
+  const act = nextAction(data, state, { detail: guideDetail(data, state) });
   if (!act) return null;
   return h('aside', { class: 'guide-strip', 'aria-label': '지금 할 일' },
     h('span', { class: 'guide-label' }, '다음으로 할 일'),

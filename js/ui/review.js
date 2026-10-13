@@ -5,6 +5,7 @@ import * as store from '../store.js';
 import { computeReport, tierOf } from '../finance.js';
 import { seasonRows, rankTrend } from '../season.js';
 import { markSeasonReviewsSeen } from '../turn.js';
+import { difficultyLabel } from '../difficulty.js';
 import { h, formatUsdM, confirmDialog } from './components.js';
 import { glossaryLink, richText } from './glossary_view.js';
 
@@ -249,6 +250,9 @@ function confidenceLine(report, data) {
   return h('p', { class: 'dim' }, [glossaryLink('gl_board_trust'), `: ${Math.round(report.confidence_before)}점 → ${Math.round(report.confidence_after)}점 (${report.grade} 등급 평가 ${sign})`]);
 }
 
+// 성적표·중간 점검 머리에 붙는 난이도 표시(design.md §9.5)
+const levelTag = (data, state) => h('span', { class: 'tag' }, `난이도: ${difficultyLabel(data, state)}`);
+
 export function renderReview() {
   markSeasonReviewsSeen(); // 화면을 그리는 것으로 "봤다"고 친다(안내띠 3a). 그린 다음에 셸의 안내띠가 계산된다
   const data = store.getData();
@@ -260,7 +264,7 @@ export function renderReview() {
     return h('div', { class: 'screen screen-wide' },
       h('h1', {}, '시즌 리뷰'),
       h('section', { class: 'card' },
-        h('p', { class: 'badge-line' }, h('span', { class: 'tag tag-warn' }, '아직 성적표가 아니에요')),
+        h('p', { class: 'badge-line' }, h('span', { class: 'tag tag-warn' }, '아직 성적표가 아니에요'), levelTag(data, state)),
         h('h2', {}, '중간 점검 — 지금 이대로 끝난다면'),
         h('p', {}, richText(data.report.preview_note_ko)),
         gradeBadge(report, false)),
@@ -277,7 +281,7 @@ export function renderReview() {
   return h('div', { class: 'screen screen-wide' },
     h('h1', {}, '시즌 리뷰'),
     h('section', { class: `card report-head${fired ? ' report-fired' : ''}` },
-      h('p', { class: 'badge-line' }, h('span', { class: `tag ${fired ? 'tag-bad' : 'tag-ok'}` }, fired ? '게임 오버 — 해고' : glossaryLink('gl_report_card'))),
+      h('p', { class: 'badge-line' }, h('span', { class: `tag ${fired ? 'tag-bad' : 'tag-ok'}` }, fired ? '게임 오버 — 해고' : glossaryLink('gl_report_card')), levelTag(data, state)),
       h('h2', {}, text.title_ko),
       gradeBadge(report, fired),
       text.summary_ko.map((line) => h('p', { class: 'chair-note' }, richText(line))),

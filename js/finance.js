@@ -2,6 +2,7 @@
 // 현금 증감은 effects의 cash 연산자를 거치고, 난수는 쓰지 않는다(라이벌 난수는 rivals.js가 따로 만든다).
 
 import { applyEffects } from './effects.js';
+import { gapCutCfg, firedBelow as firedBelowOf } from './difficulty.js';
 import { buildSnapshot } from './rivals.js';
 
 const round6 = (x) => Math.round(x * 1e6) / 1e6;
@@ -139,7 +140,7 @@ export function settleWeek(data, state) {
     if (!t || t.phase !== 'placed' || f.booked[treaty.id] || state.turn < season.inception_turn) continue;
     const rc = t.final_rc ?? 0;
     const gapWeeks = t.gap_applied ? Math.max(0, state.turn - 1 - season.inception_turn) : 0; // 공백 뒤 늦게 확정한 주 수(§9.1)
-    const cut = gapCut(gapWeeks, cfg.gap_cut);
+    const cut = gapCut(gapWeeks, gapCutCfg(data, state));
     const full = brokerageOf(treaty, rc);
     const brokerage = round6(full * (1 - cut));
     f.booked[treaty.id] = {
@@ -219,7 +220,8 @@ export function checkEnding(data, state) {
   if (state.ending) return null;
   const board = data.config.board;
   const yearEnd = state.turn >= data.calendar.turns;
-  if (!yearEnd && state.player.board_confidence >= board.fired_below) return null;
+  const firedBelow = firedBelowOf(data, state);
+  if (!yearEnd && state.player.board_confidence >= firedBelow) return null;
 
   const report = computeReport(data, state);
   if (yearEnd) {
@@ -227,7 +229,7 @@ export function checkEnding(data, state) {
     applyEffects(state, [{ op: 'add', target: 'player', field: 'board_confidence', value: board.grade_delta[report.grade] }]);
     report.confidence_after = state.player.board_confidence;
   }
-  const fired = state.player.board_confidence < board.fired_below;
+  const fired = state.player.board_confidence < firedBelow;
   state.ending = { kind: fired ? 'fired' : 'year_end', turn: state.turn, report };
   sendMail(state, fired ? board.mails.fired : board.mails.grade[report.grade]);
   return state.ending;

@@ -43,6 +43,7 @@
     import * as gl from '../js/glossary.js';
     import { validateGlossary, glossaryWarnings } from '../js/loader.js';
     import { richText, glossaryLink, openTermCard, renderCodex, resetTermScope, showInCodex, linkWords } from '../js/ui/glossary_view.js';
+    import * as diff from '../js/difficulty.js';
     import { renderInbox } from '../js/ui/inbox.js';
     import { renderDatabase } from '../js/ui/database.js';
 
@@ -234,7 +235,7 @@
 
     test('store: 새 게임의 모양이 설계(§10.9)와 시작값(config)을 따른다', () => {
       fresh(); const s = store.newGame({ seed: 777 });
-      eq(s.version, 9); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
+      eq(s.version, 10); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
       eq(s.player, { firm: 'Marina Bay Re Brokers', cash_usd_m: 1, reputation: 50, compliance: 70, board_confidence: 60, market_intel: 0, flags: [] });
       eq(s.market, { index: 42, band: 'neutral' });
       eq(Object.keys(s.entities.clients), data.clients.map((c) => c.id)); eq(Object.keys(s.entities.reinsurers), data.reinsurers.map((r) => r.id));
@@ -309,7 +310,7 @@
       fresh(); store.newGame({ seed: 9 }); const base = clone(store.getState());
       const parse = (v) => { const s = clone(base); if (v === undefined) delete s.version; else s.version = v; return store.parseSave(JSON.stringify(s)); };
       for (const v of [undefined, 0, 1.5, '1', null]) check(!parse(v).ok, `version ${String(v)}`);
-      const future = parse(10); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
+      const future = parse(11); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
     });
     test('store: 마이그레이션 체인 (v1→v2→v3), 규칙 누락·실패 처리', () => {
       const raw = { version: 1, x: 1 };
@@ -317,7 +318,7 @@
       check(ok.ok); eq([ok.state.version, ok.state.a, ok.state.b], [3, 1, 2]);
       check(!store.migrate(raw, { current: 3, migrations: { 1: (s) => s } }).ok, '규칙 누락');
       check(!store.migrate(raw, { current: 2, migrations: { 1: () => null } }).ok, '변환 실패');
-      eq(store.SAVE_VERSION, 9); eq(store.migrate({ version: 1 }).ok, true);
+      eq(store.SAVE_VERSION, 10); eq(store.migrate({ version: 1 }).ok, true);
     });
     test('store: __proto__ 키가 든 세이브를 가져와도 오염되지 않는다', () => {
       fresh(); store.newGame({ seed: 4 });
@@ -667,7 +668,7 @@
       fresh(); store.newGame({ seed: 3 });
       const old = clone(store.getState()); old.version = 1; old.entities = { clients: {}, reinsurers: {} };
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 9); eq(Object.keys(r.state.treaties).length, 3);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 10); eq(Object.keys(r.state.treaties).length, 3);
       eq(Object.keys(r.state.entities.clients).length, 3); eq(Object.keys(r.state.entities.reinsurers).length, 5);
       eq(r.state.entities.reinsurers.re_alpenglow.scout, data.reinsurers[0].initial.scout);
     });
@@ -1170,13 +1171,13 @@
       old.version = 2; old.treaties = {}; old.ap = 3; old.entities.clients.cli_jurong_crest.relationship = 61;
       for (const r of Object.values(old.entities.reinsurers)) delete r.patience;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 9);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 10);
       eq(Object.keys(r.state.treaties), data.treaties.map((t) => t.id)); eq(r.state.treaties[JR].phase, 'open'); eq(r.state.treaties[JR].panel, []);
       eq(r.state.ap, 3); eq(r.state.entities.clients.cli_jurong_crest.relationship, 61); eq(r.state.entities.reinsurers.re_nur.patience, {});
       eq(store.validateState(r.state), []);
       // 실제 슬롯 불러오기도 같은 길을 지난다
       const st = fresh(); st.map.set('rbs:save:v1:1', JSON.stringify(old));
-      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 9);
+      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 10);
     });
 
     test('세이브 v3: 트리티 상태가 틀린 세이브는 거부(상태 값·재보험사 id·중복 행·인내심)', () => {
@@ -1411,7 +1412,7 @@
       startBoard(5); const old = clone(store.getState());
       old.version = 3; for (const t of Object.values(old.treaties)) delete t.verdict_reason;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 9); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 10); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
     });
 
     test('반제 유효 기간: 반제를 받은 주에는 "이번 주까지"(counter_until = 그 턴), 주를 넘기면 미제안으로 돌아가고 인내심·관계도·AP는 그대로', () => {
@@ -1478,7 +1479,7 @@
       startBoard(5, 20); PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }); PL.propose(JR, 're_kallang', { share: 0.3, rc: 5 });
       const old = clone(store.getState()); old.version = 4; old.turn = 3;
       for (const t of Object.values(old.treaties)) for (const row of t.panel) delete row.counter_until;
-      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r)); eq(r.state.version, 9);
+      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r)); eq(r.state.version, 10);
       const rows = r.state.treaties[JR].panel;
       eq(rows.find((x) => x.re === 're_alpenglow').counter_until, 3);
       eq(rows.filter((x) => x.status !== 'countered').every((x) => x.counter_until === null), true);
@@ -1623,7 +1624,7 @@
     test('store(M6a): v5 세이브를 불러오면 market.band가 지수로 채워지고 나머지는 그대로다', () => {
       fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 5; delete old.market.band; old.market.index = 66.5;
       const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
-      eq([r.state.version, r.state.market], [9, { index: 66.5, band: 'hard' }]); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+      eq([r.state.version, r.state.market], [10, { index: 66.5, band: 'hard' }]); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
     });
 
     test('turn(M6a): 분기 드리프트는 분기 시작 턴에만 적용되고, 프리시즌 동안은 지수가 그대로다', async () => {
@@ -2600,7 +2601,7 @@
       fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 6; delete old.overrides;
       for (const t of Object.values(old.treaties)) { delete t.lr_extra; delete t.big_loss; delete t.gap_applied; }
       const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
-      eq([r.state.version, r.state.overrides], [9, { reinsurers: {}, clients: {} }]); eq(r.state.treaties[JR].lr_extra, 0); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+      eq([r.state.version, r.state.overrides], [10, { reinsurers: {}, clients: {} }]); eq(r.state.treaties[JR].lr_extra, 0); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
     });
     test('store(M6b): 덮어쓴 값·보정·예약 항목의 모양을 검사하고, 저장했다 불러오면 그대로다', () => {
       const s = begin(); turn.forceEvent('evt_reinsurer_downgrade'); turn.forceEvent('evt_shariah_ruling'); applyEffects(s, [{ op: 'modifier_add', target: `reinsurer:${TQ}`, field: 'capacity', mult: 0.7, duration_weeks: 12 }]);
@@ -2837,7 +2838,7 @@
     test('M7a 세이브 v8: v7 세이브를 불러오면 finance·standings·ending이 채워지고 나머지는 그대로다', () => {
       fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 7; delete old.finance; delete old.standings; delete old.ending;
       const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
-      eq([r.state.version, r.state.ending], [9, null]); eq(r.state.finance, { booked: {}, overhead_usd_m: 0, fines: [], negative_quarters: 0, quarters: [] }); eq(r.state.standings, { quarters: [] });
+      eq([r.state.version, r.state.ending], [10, null]); eq(r.state.finance, { booked: {}, overhead_usd_m: 0, fines: [], negative_quarters: 0, quarters: [] }); eq(r.state.standings, { quarters: [] });
       eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
     });
     test('M7a 세이브 v8: 잘못된 장부·순위표·끝남 모양은 검증에서 걸린다', () => {
@@ -3091,7 +3092,7 @@
       for (const b of Object.values(old.finance.booked)) { delete b.gap_weeks; delete b.cut_usd_m; }
       for (const q of old.standings.quarters) { delete q.player.flow_q; delete q.player.flow_ytd; for (const r of Object.values(q.rivals)) delete r.moved; }
       const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
-      eq([r.state.version, r.state.seasons], [9, {}]); eq(r.state.turn, old.turn); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+      eq([r.state.version, r.state.seasons], [10, {}]); eq(r.state.turn, old.turn); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
     });
     test('M7b 세이브 v9: 잘못된 시즌 기록은 검증에서 걸린다', () => {
       const s = begin(5); allPlaced(s); playTo(s, 8); eq(store.validateState(s), []);
@@ -3160,6 +3161,137 @@
     test('M7b 결정성: 같은 시드·같은 행동이면 시즌 기록과 평판 효과가 똑같다', () => {
       const run = () => { freshCodex(); const s = begin(31); allPlaced(s); s.player.reputation = 90; playTo(s, 40); return JSON.stringify([s.seasons, s.standings, s.finance.booked]); };
       eq(run(), run());
+    });
+
+    // ---------- MD: 난이도 (쉬움 / 보통) ----------
+    const beginLevel = (seed, difficulty) => { fresh(); store.newGame({ seed, difficulty }); turn.startGame(); return store.getState(); };
+    const NEUTRAL = { gap_penalty_scale: 1, gap_cut_scale: 1, fired_below_shift: 0, scout_gain_scale: 1, reject_relationship_scale: 1, patience_bonus: 0, guide_detail: false };
+    test('MD 설정: 난이도 프로필 — 보통은 중립값이고 쉬움은 모든 항목이 보통보다 쉬운 쪽이다', () => {
+      const d = data.config.difficulty; eq(d.default, 'normal'); eq(d.order, ['normal', 'easy']);
+      const { label_ko, summary_ko, ...normal } = d.profiles.normal; eq(normal, NEUTRAL); eq(label_ko, '보통'); check(summary_ko.length > 0);
+      const e = d.profiles.easy; eq(e.label_ko, '쉬움');
+      check(e.gap_penalty_scale < 1 && e.gap_cut_scale < 1 && e.fired_below_shift < 0 && e.scout_gain_scale > 1 && e.reject_relationship_scale < 1 && e.patience_bonus > 0 && e.guide_detail === true);
+    });
+    test('MD 설정 검증: 프로필이 빠졌거나 범위를 벗어나면 이유를 알려 준다', () => {
+      const cfg = (mut) => { const c = clone(data.config); mut(c); return validateConfig(c); };
+      eq(cfg(() => {}), []);
+      check(has(cfg((c) => { delete c.difficulty; }), 'difficulty'));
+      check(has(cfg((c) => { c.difficulty.default = 'hard'; }), 'difficulty.default'));
+      check(has(cfg((c) => { c.difficulty.order = ['easy']; }), 'difficulty.order'));
+      check(has(cfg((c) => { c.difficulty.profiles.easy.gap_penalty_scale = 1.5; }), 'gap_penalty_scale'));
+      check(has(cfg((c) => { c.difficulty.profiles.easy.fired_below_shift = -30; }), 'fired_below_shift'));
+      check(has(cfg((c) => { c.difficulty.profiles.easy.patience_bonus = 30; }), 'patience_bonus'));
+      check(has(cfg((c) => { c.difficulty.profiles.easy.guide_detail = 'yes'; }), 'guide_detail'));
+      check(has(cfg((c) => { delete c.difficulty.profiles.normal.label_ko; }), 'label_ko'));
+    });
+    test('MD 보통은 그대로: 보정 값이 기본 config와 똑같다(공백 벌칙·감액·해고선·미팅·거절·인내심)', () => {
+      const s = beginLevel(5, 'normal'); eq(s.difficulty, 'normal');
+      eq(diff.gapPenalty(data, s), data.config.season.gap); eq(diff.gapCutCfg(data, s), data.config.finance.gap_cut);
+      eq(diff.firedBelow(data, s), 20); check(diff.scoutingCfg(data, s) === data.config.scouting, '같은 객체');
+      eq(diff.patienceStart(data, s), 3); eq(diff.rejectPenalty(data, s), { patience: -1, relationship: -2 });
+      eq(diff.guideDetail(data, s), false); eq(diff.difficultyLabel(data, s), '보통');
+      eq(diff.difficultyId(data, { difficulty: 'nope' }), 'normal', '모르는 값은 보통으로');
+    });
+    test('MD 새 게임: 난이도를 고르면 세이브에 남고, 없거나 모르는 값이면 보통이다', () => {
+      fresh(); eq(store.newGame({ seed: 3 }).difficulty, 'normal'); eq(store.newGame({ seed: 3, difficulty: 'easy' }).difficulty, 'easy');
+      eq(store.newGame({ seed: 3, difficulty: 'hard' }).difficulty, 'normal');
+      const s = store.newGame({ seed: 3, difficulty: 'easy' }); eq(store.validateState(s), []);
+      const bad = clone(s); bad.difficulty = 'hard'; check(store.validateState(bad).some((m) => m.includes('difficulty')));
+      delete bad.difficulty; check(store.validateState(bad).some((m) => m.includes('difficulty')));
+    });
+    test('MD 세이브 v10: 저장·불러오기로 난이도가 유지되고, 슬롯 목록에도 보인다', () => {
+      fresh(); store.newGame({ seed: 4, difficulty: 'easy' }); turn.startGame(); check(store.save('1').ok);
+      store.newGame({ seed: 4 }); eq(store.getState().difficulty, 'normal');
+      check(store.load('1').ok); eq(store.getState().difficulty, 'easy');
+      eq(store.listSlots().find((x) => x.slot === '1').difficulty, 'easy');
+    });
+    test('MD 마이그레이션: v9 세이브(difficulty 없음)는 보통으로 읽혀 그대로 이어진다', () => {
+      fresh(); const old = clone(beginLevel(8, 'easy')); delete old.difficulty; old.version = 9;
+      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
+      eq([r.state.version, r.state.difficulty], [10, 'normal']); eq(r.state.seed, old.seed); eq(r.state.turn, old.turn); eq(store.validateState(r.state), []);
+      eq(store.migrate({ version: 9, x: 1 }).state.difficulty, 'normal');
+    });
+    test('MD 공백 벌칙: 보통은 −15/−8/−10, 쉬움은 절반(−7.5/−4/−5)이고 메일은 같다', () => {
+      const trt = data.treaties.find((x) => x.id === JR); const incep = data.calendar.seasons.find((x) => x.id === trt.season).inception_turn;
+      const run = (level) => {
+        const s = beginLevel(9, level); s.turn = incep + 1; const rel0 = s.entities.clients[trt.client].relationship, rep0 = s.player.reputation, bc0 = s.player.board_confidence, m0 = s.mails.length + s.scheduled.length;
+        eq(PL.applyGap(data, s), [JR]);
+        return { rel: s.entities.clients[trt.client].relationship - rel0, rep: s.player.reputation - rep0, bc: s.player.board_confidence - bc0, mails: s.mails.length + s.scheduled.length - m0 };
+      };
+      const n = run('normal'), e = run('easy');
+      eq([n.rel, n.rep, n.bc], [-15, -8, -10]); eq([e.rel, e.rep, e.bc], [-7.5, -4, -5]); eq(n.mails, e.mails); check(n.mails > 0, '공백 메일');
+    });
+    test('MD 공백 감액: 쉬움은 주당 2.5%, 상한 15%로 깎는다(보통은 5%/30% 그대로)', () => {
+      const book = (level, turnNo) => { const s = beginLevel(3, level); s.treaties[JR].phase = 'placed'; s.treaties[JR].final_rc = 0; s.treaties[JR].gap_applied = true; s.turn = turnNo; fin.settleWeek(data, s); return s.finance.booked[JR]; };
+      near(book('normal', 10).brokerage_usd_m, 1.08, 1e-9); near(book('easy', 10).brokerage_usd_m, 1.2 * 0.95, 1e-9);
+      near(book('normal', 40).brokerage_usd_m, 0.84, 1e-9); near(book('easy', 40).brokerage_usd_m, 1.02, 1e-9, '상한 15%');
+    });
+    test('MD 해고선: 쉬움은 신뢰 10 미만에서 해고되고(15는 계속), 보통은 20 미만이다. 성적표 등급 기준은 그대로', () => {
+      const run = (level, bc) => { const s = beginLevel(16, level); s.player.board_confidence = bc; answerOpen(s); turn.advance(); return s.ending?.kind ?? null; };
+      eq([run('normal', 19.9), run('normal', 20)], ['fired', null]); eq([run('easy', 15), run('easy', 10), run('easy', 9.9)], [null, null, 'fired']);
+      eq(diff.firedBelow(data, store.getState()), 10);
+    });
+    test('MD 미팅: 쉬움은 스카우트 값이 1.5배로 오르고, 관계도 증가·AP 비용은 그대로다', () => {
+      const meet = (level) => { const s = beginLevel(11, level); const b = clone(s.entities.clients.cli_jurong_crest); const r = turn.meet('client', 'cli_jurong_crest', 'price_sensitivity'); check(r.ok); return { b, a: store.getState().entities.clients.cli_jurong_crest, ap: store.getState().ap }; };
+      const n = meet('normal'), e = meet('easy');
+      check(e.a.scout.price_sensitivity > n.a.scout.price_sensitivity + 3 && e.a.scout.loyalty > n.a.scout.loyalty, '더 오른다');
+      eq(applyMeeting(e.b.scout, 'price_sensitivity', diff.scoutingCfg(data, store.getState())), e.a.scout);
+      eq(e.a.relationship, n.a.relationship); eq(e.ap, n.ap);
+      eq(n.a.scout, applyMeeting(n.b.scout, 'price_sensitivity', data.config.scouting), '보통은 옛 계산 그대로');
+    });
+    test('MD 거절: 쉬움은 관계도 −1만 깎고 인내심은 5에서 시작해 한 칸 깎는다(보통은 3에서 −1, 관계도 −2)', () => {
+      const reject = (level) => {
+        const s = beginLevel(1, level); s.ap = 6; const rel0 = s.entities.reinsurers.re_alpenglow.relationship;
+        const r = PL.propose(JR, 're_alpenglow', { share: 0.3, rc: -12 }); check(r.ok && r.penalty, JSON.stringify(r));
+        return { penalty: r.penalty, pat: PL.patienceOf(data, store.getState(), 're_alpenglow', JR), drel: store.getState().entities.reinsurers.re_alpenglow.relationship - rel0 };
+      };
+      const n = reject('normal'), e = reject('easy');
+      eq([n.penalty, n.pat, n.drel], [{ patience: -1, relationship: -2 }, 2, -2]); eq([e.penalty, e.pat, e.drel], [{ patience: -1, relationship: -1 }, 4, -1]);
+    });
+    test('MD 안내: 쉬움은 같은 순서에 구체적인 문장이 붙고, 보통의 문구는 그대로다', () => {
+      const s = beginLevel(12, 'normal'); const before = guide.nextAction(data, s); eq(guide.nextAction(data, s, { detail: false }), before);
+      const lengthen = [];
+      // 필수 메일 → (읽고 답한 뒤) 미팅 권유·보드 채우기·제출 등 단계마다 같은 id에 더 긴 문구가 붙는다
+      for (let step = 0; step < 4; step++) {
+        const a = guide.nextAction(data, s), d = guide.nextAction(data, s, { detail: true });
+        eq([d.id, d.route], [a.id, a.route]); check(d.text.startsWith(a.text.split(' — ')[0]), d.text);
+        if (d.text.length > a.text.length) lengthen.push(d.id);
+        for (const m of s.mails) m.read = true; answerOpen(s);
+      }
+      check(lengthen.length >= 2, `길어진 안내: ${lengthen}`);
+      s.mails.forEach((m) => { m.read = true; }); answerOpen(s);
+      const fill = guide.nextAction(data, s, { detail: true }); check(['scout', 'fill'].includes(fill.id) && fill.text.length > guide.nextAction(data, s).text.length, JSON.stringify(fill));
+      const row = { status: 'rejected', last: { mode: 'propose', kind: 'reject', hint: 'near' } };
+      const base = guide.responseHint(row, { signedTotal: 0, patience: 2 }, data.config.guide);
+      const more = guide.responseHint(row, { signedTotal: 0, patience: 2, start: 5, detail: true }, data.config.guide);
+      check(more.startsWith(base) && more.includes('2/5') && more.length > base.length, more);
+      const tState = { verdict: 'renegotiate', verdict_reason: 'price' };
+      check(guide.verdictHint(data, s, tState, { detail: true }).includes('균형'), '쉬움 보충'); eq(guide.verdictHint(data, s, tState), guide.verdictHint(data, s, tState, { detail: false }));
+      check(!guide.verdictHint(data, s, tState).includes('균형'), '보통에는 없다');
+    });
+    test('MD 안내는 숨은 값을 말하지 않는다: 쉬움 문구 전부에 속성 이름·스카우트 숫자가 없다', () => {
+      const texts = [];
+      for (const reason of ['price', 'security', 'continuity', 'terms', 'service', 'structure']) texts.push(guide.verdictHint(data, beginLevel(2, 'easy'), { verdict: 'reject', verdict_reason: reason }, { detail: true }));
+      for (const kind of ['reject', 'counter', 'accept']) for (const status of ['rejected', 'countered', 'accepted']) {
+        const h2 = guide.responseHint({ status, rc_req: -3, last: { mode: 'propose', kind, rc: -2, share: 0.3, hint: 'far', limited: false } }, { signedTotal: 0.3, patience: 3, start: 5, detail: true }, data.config.guide); if (h2) texts.push(h2);
+      }
+      texts.push(guide.nextAction(data, beginLevel(2, 'easy'), { detail: true }).text);
+      check(texts.length >= 7);
+      for (const text of texts) for (const word of ['보수', '민감', '충성', 'conservatism', 'loyalty', 'price_sensitivity', 'hidden']) check(!text.includes(word), `${word}: ${text}`);
+    });
+    test('MD 화면: 시작 화면은 난이도 선택(기본 보통)을 보여 주고, 성적표 머리에 난이도가 붙는다', async () => {
+      fresh(); store.quitToStart(); const { renderStart } = await import('../js/ui/start.js');
+      const start = renderStart(); document.body.append(start);
+      try {
+        const radios = [...start.querySelectorAll('input[name="difficulty"]')]; eq(radios.map((r) => r.value), ['normal', 'easy']); eq(radios.map((r) => r.checked), [true, false]);
+        check(start.textContent.includes('쉬움') && start.textContent.includes('보통') && start.textContent.includes('도중에는 바꿀 수 없어요'));
+      } finally { start.remove(); }
+      for (const [level, label] of [['easy', '쉬움'], ['normal', '보통']]) {
+        fresh(); freshCodex(); store.newGame({ seed: 12, difficulty: level }); turn.startGame(); resetTermScope();
+        let root = renderReview(); document.body.append(root); try { check(root.textContent.includes(`난이도: ${label}`), '중간 점검 머리'); } finally { root.remove(); }
+        const s = store.getState(); s.player.board_confidence = 0; answerOpen(s); turn.advance(); resetTermScope();
+        root = renderReview(); document.body.append(root); try { check(root.textContent.includes(`난이도: ${label}`), '성적표 머리'); } finally { root.remove(); }
+      }
     });
 
     // ---------- 실행 ----------

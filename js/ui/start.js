@@ -12,9 +12,16 @@ export function renderStart() {
     placeholder: '비워 두면 무작위',
   });
 
+  // 난이도(design.md §9.5): 시작할 때 한 번 고르고 도중에는 바꾸지 않는다.
+  const { profiles, order, default: dflt } = store.getData().config.difficulty;
+  const levelRadios = order.map((id) => h('input', {
+    type: 'radio', name: 'difficulty', id: `level-${id}`, value: id, checked: id === dflt,
+  }));
+  const chosenLevel = () => levelRadios.find((r) => r.checked)?.value ?? dflt;
+
   const startNewGame = () => {
     const seed = seedFromText(seedInput.value) ?? newSeed();
-    store.newGame({ seed });
+    store.newGame({ seed, difficulty: chosenLevel() });
     startGame(); // 첫 주에 도착할 메일
     const saved = store.autosave();
     if (!saved.ok) toast(`자동 저장을 하지 못했어요 — ${saved.error}`, 'warn');
@@ -30,6 +37,12 @@ export function renderStart() {
       : null,
     h('section', { class: 'card' },
       h('h2', {}, '새 게임'),
+      h('fieldset', { class: 'level-pick' },
+        h('legend', {}, '난이도'),
+        ...order.map((id, i) => h('div', { class: 'level-option' },
+          levelRadios[i],
+          h('label', { for: `level-${id}` }, h('strong', {}, profiles[id].label_ko), h('span', { class: 'dim' }, ` — ${profiles[id].summary_ko}`)))),
+        h('small', { class: 'dim' }, '시작할 때 한 번 고르면 게임 도중에는 바꿀 수 없어요. 바꾸려면 새 게임을 시작하세요.')),
       h('div', { class: 'field' },
         h('label', { for: 'seed-input' }, '시드(선택)'),
         seedInput,

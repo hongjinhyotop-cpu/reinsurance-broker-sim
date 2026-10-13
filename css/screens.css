@@ -327,3 +327,10 @@
 .season-card h3 .tag { margin-left: 8px; }
 .season-card h4 { margin: 12px 0 4px; }
 .table tfoot th, .table tfoot td { border-top: 2px solid var(--border, currentColor); font-weight: 700; }
+
+/* 시작 화면의 난이도 선택 (design.md §9.5) */
+.level-pick { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin: 0 0 14px; }
+.level-pick legend { font-weight: 600; padding: 0 6px; }
+.level-option { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.level-option input { margin-top: 4px; }
+.level-option label { font-weight: 400; }

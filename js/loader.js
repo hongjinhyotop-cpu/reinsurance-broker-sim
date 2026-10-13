@@ -195,6 +195,35 @@ function validateFinanceConfig(c, cfg) {
       c.str(rf.mail, 'rivals.reputation_flow.mail', 80);
     }
   }
+  // 난이도 프로필(design.md §9.5). 보통은 중립값, 쉬움은 그 위의 보정이다.
+  if (c.object(cfg.difficulty, 'difficulty')) {
+    const d = cfg.difficulty;
+    const profiles = c.object(d.profiles, 'difficulty.profiles') ? d.profiles : {};
+    const ids = Object.keys(profiles);
+    if (ids.length === 0) c.fail('difficulty.profiles', '프로필이 하나 이상 있어야 해요', ids);
+    c.str(d.default, 'difficulty.default', 40);
+    if (typeof d.default === 'string' && !ids.includes(d.default)) c.fail('difficulty.default', 'profiles에 없는 난이도예요', d.default);
+    if (c.array(d.order, 'difficulty.order', 1)) {
+      if (d.order.some((id) => !ids.includes(id)) || ids.some((id) => !d.order.includes(id))) c.fail('difficulty.order', 'profiles의 난이도와 정확히 같은 목록이어야 해요', d.order);
+    }
+    const firedBase = typeof cfg.board?.fired_below === 'number' ? cfg.board.fired_below : null;
+    const patienceBase = typeof cfg.negotiation?.board?.patience_start === 'number' ? cfg.negotiation.board.patience_start : null;
+    for (const id of ids) {
+      const p = `difficulty.profiles.${id}`;
+      if (!c.object(profiles[id], p)) continue;
+      const f = profiles[id];
+      c.str(f.label_ko, `${p}.label_ko`, 20);
+      c.str(f.summary_ko, `${p}.summary_ko`, 200);
+      for (const key of ['gap_penalty_scale', 'gap_cut_scale', 'reject_relationship_scale']) c.num(f[key], `${p}.${key}`, 0, 1); // 1보다 크면 보통보다 어려워진다
+      c.num(f.scout_gain_scale, `${p}.scout_gain_scale`, 0.1, 5);
+      const shiftOk = c.int(f.fired_below_shift, `${p}.fired_below_shift`, -100, 100);
+      if (shiftOk && firedBase !== null && (firedBase + f.fired_below_shift < 0 || firedBase + f.fired_below_shift > 100)) c.fail(`${p}.fired_below_shift`, '해고선(board.fired_below)에 더한 값이 0~100이어야 해요', f.fired_below_shift);
+      const bonusOk = c.int(f.patience_bonus, `${p}.patience_bonus`, -2, 15);
+      if (bonusOk && patienceBase !== null && (patienceBase + f.patience_bonus < 1 || patienceBase + f.patience_bonus > 20)) c.fail(`${p}.patience_bonus`, '인내심 시작값에 더한 값이 1~20이어야 해요', f.patience_bonus);
+      if (typeof f.guide_detail !== 'boolean') c.fail(`${p}.guide_detail`, 'true 또는 false여야 해요', f.guide_detail);
+    }
+  }
+
   if (!c.object(cfg.board, 'board')) return;
   const b = cfg.board;
   if (c.object(b.targets, 'board.targets')) {
