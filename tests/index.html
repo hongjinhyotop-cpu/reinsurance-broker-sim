@@ -39,7 +39,7 @@
     import { isQuarterStart } from '../js/calendar.js';
     import * as ev from '../js/events.js';
     import { validateEvents } from '../js/loader.js';
-    import { renderPlacement } from '../js/ui/placement_view.js';
+    import { renderPlacement, hintErrWords } from '../js/ui/placement_view.js';
     import * as gl from '../js/glossary.js';
     import { validateGlossary, glossaryWarnings } from '../js/loader.js';
     import { richText, glossaryLink, openTermCard, renderCodex, resetTermScope, showInCodex, linkWords } from '../js/ui/glossary_view.js';
@@ -2277,6 +2277,17 @@
         check(submit.querySelector('.pl-next').textContent.includes(guide.REASON_NEXT[reason]), '고객 반응 밑 한 줄');
         check(submit.querySelector('.pl-resp').compareDocumentPosition(submit.querySelector('.pl-next')) & Node.DOCUMENT_POSITION_FOLLOWING);
         check(!root.textContent.includes('null') && !root.textContent.includes('undefined'));
+      } finally { root.remove(); }
+    });
+    test('M8 화면(보드): 의견 묻기의 정확도는 숫자(%p)가 아니라 말로만 전한다 — 숫자는 스카우트 값을 거꾸로 알려 준다', () => {
+      const near = data.config.negotiation.hint_near_pp;
+      eq([hintErrWords(0, data.config.negotiation), hintErrWords(near - 0.01, data.config.negotiation), hintErrWords(near, data.config.negotiation), hintErrWords(near * 2 - 0.01, data.config.negotiation), hintErrWords(near * 2, data.config.negotiation)],
+        ['거의 맞아요', '거의 맞아요', '조금 어긋날 수 있어요', '조금 어긋날 수 있어요', '꽤 어긋날 수 있어요']);
+      startBoard(1, 20); const ask = PL.ask(JR, 're_alpenglow', { share: 0.35, rc: -3 }); check(ask.ok, JSON.stringify(ask));
+      const root = renderPlacement(); document.body.append(root);
+      try {
+        const text = root.textContent;
+        check(text.includes('가격 민감도를 아는 만큼만 정확해요'), '정확도 문구'); check(!/±\s*\d/.test(text) && !text.includes('오차 약'), '숫자 오차가 새어 나가요');
       } finally { root.remove(); }
     });
     test('화면(보드): 확정된 보드는 행에 한 줄을 붙이지 않고 고객 반응 밑에 다음 시즌만 알린다', () => {
