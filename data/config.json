@@ -15,11 +15,29 @@
   "market": {
     "intel_error_k": 12,
     "labels": [
-      { "max": 25, "label_ko": "매우 소프트" },
-      { "max": 40, "label_ko": "소프트" },
-      { "max": 60, "label_ko": "중립" },
-      { "max": 75, "label_ko": "하드" },
-      { "max": 100, "label_ko": "매우 하드" }
+      {
+        "max": 25,
+        "label_ko": "매우 소프트"
+      },
+      {
+        "max": 40,
+        "label_ko": "소프트"
+      },
+      {
+        "max": 60,
+        "label_ko": "중립"
+      },
+      {
+        "max": 75,
+        "label_ko": "하드"
+      },
+      {
+        "max": 100,
+        "label_ko": "매우 하드"
+      }
     ]
+  },
+  "turn": {
+    "deadline_warning_weeks": 1
   }
 }
