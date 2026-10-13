@@ -434,6 +434,23 @@ UI 톤: 표 중심의 고밀도 레이아웃, 다크 기본. 색·간격은 CSS 
 - **제출 버튼**: 지분 합 100%가 아니거나 하드 위반(단일 한도, 최소 등급, 샤리아 상한)이 있으면 막힌다. 용량 부족은 칩만 띄우고 막지 않는다(수락 지분만 확정하는 규칙은 M5b). M5a에서는 조건을 채워도 "제출은 다음 단계"라고만 알려 준다.
 - 숨은 속성은 칩·문구에 숫자로 나오지 않는다. 턴오버 칩은 고객 보수성을 말하지 않고 "보수적인 고객에게는 부담일 수 있다"고만 쓴다.
 
+**M5b 구현 메모** (M5a의 "시험 제안"과 "계산 근거"는 사라지고 실제 제안이 된다)
+- **행동 점수**: 의견 묻기와 제안은 한 번에 각각 1 AP(`negotiation.board.ask_ap`·`propose_ap`). AP가 모자라면 막힌다. 반제 수락과 제출은 AP가 들지 않는다.
+- **의견 묻기**: AP만 쓰고 관계도·인내심은 그대로다. 가격 감과 실제 상한(`cap_known`)을 알려 준다.
+- **제안**: 응답에 따라 행 상태가 바뀐다. **수락**이면 그 지분(`share_signed`)이 확정된다(용량이 모자라면 줄어든 지분). **반제**면 상대가 부른 RC·지분을 기억해 두고, 플레이어가 "반제 수락"을 누르면 그 값으로 확정한다. **거절**(가격이 너무 낮음)이면 그 재보험사의 인내심 −1, 관계도 −2(§7.2, `reject_patience`·`reject_relationship`). 식욕 0·샤리아 불가 같은 **사유 있는 거절**은 인내심·관계도를 건드리지 않는다.
+- **인내심**: 재보험사×트리티마다 `patience_start`(기본 3)에서 시작한다. 0이 되면 그 트리티에서는 그 재보험사에게 의견 묻기·제안·반제 수락이 모두 막히고 행이 "협상 중단"으로 보인다(되살리는 관계 호의 레버는 아직 없다). 화면에는 ●●○ 점으로 남은 횟수만 보여 준다.
+- **수정하면 되돌아간다**: 확정·반제·거절 상태인 행의 지분이나 RC를 바꾸면 그 행은 "미제안"으로 돌아가고 확정 지분도 사라진다. 약관 조건이나 구조 옵션을 바꾸면 모든 행이 그렇게 된다(조건이 가격 하한에 들어가기 때문). 이미 쓴 AP와 깎인 인내심·관계도는 돌아오지 않는다.
+- **지분 눈금**: 용량 때문에 줄어든 확정 지분은 1% 눈금으로 내림한다(상한을 넘지 않게). 반제 RC는 0.1%p 단위로 올림한다(화면에 보이는 값 그대로 수락해도 상대의 하한을 넘도록).
+- **확정 막대**: 막대의 "수락" 세그먼트만 확정 지분이다. 제출은 **확정 지분의 합이 정확히 100%**일 때만 켜진다. 아직 수락되지 않은 행의 지분은 제출 패키지에 들어가지 않는다(§7.4 "수락 상태만 확정").
+- **고객에게 제출**: 확정 패널로 `evaluatePackage`(§7.5)를 부른다. 평균 RC는 확정된 RC들의 지분 가중 평균이고, 고객 목표 RC·관계도는 세이브 값을 쓴다. 결과는 네 가지 라벨만 보여 주고 U 점수·가중치는 숨긴다.
+  - **매우 만족**: 고객 관계도 +4, 평판 +2, 트리티 `placed`(확정)
+  - **수락**: 고객 관계도 +2, 트리티 `placed`
+  - **재협상 요구**: 트리티는 열려 있고, 다음 주부터 다시 제출할 수 있다(`retry_turn`). 재협상 횟수를 센다.
+  - **거부**: 같은 방식으로 다음 주부터 다시 제출할 수 있고 거부 횟수(`rejections`)를 센다. 타 브로커 검토·BOR 사건(§8)은 M6에서 이 숫자를 읽는다.
+- `placed`가 된 트리티는 보드가 읽기 전용이 되고, 확정 패널과 최종 평균 RC(`final_rc`)만 보여 준다. 브로커리지·재무 반영은 M7이다.
+- **저장**: 의견 묻기·제안·반제 수락·제출을 할 때마다 자동 저장한다. 행 전체는 `treaty.panel[]`(§10.9)에 남고, 아직 제안하지 않은 입력 중인 숫자는 화면에만 있다(다시 열면 마지막 제안값에서 시작).
+- 구조 옵션의 `client_cons_penalty`(고객 평가 감점)는 아직 평가식에 넣지 않았다(M5b 범위 밖, §14).
+
 ### 6.4 캘린더
 - 58턴을 분기별 그리드로 표시. 시즌 창구(6주 띠), 인셉션 마크, 메일 마감일, 예정 이벤트(알려진 것만), 이번 주 강조.
 - 칸 클릭 → 해당 주 요약(할 일, 마감). 범례 포함.
@@ -450,8 +467,8 @@ UI 톤: 표 중심의 고밀도 레이아웃, 다크 기본. 색·간격은 CSS 
 ### 6.7 용어 도감
 - §5.4. 진행률 바, 카테고리 탭, 검색, 카드 그리드(★ 표시), 상세(3단계 한 번에), **Anki CSV 내보내기**, 도감 초기화(확인 모달).
 
-### 6.8 협상 시험대 (임시, M4~M5)
-- M4의 계산을 손으로 확인하는 화면. 트리티·재보험사·시장 지수·제안 RC·지분·남은 주·조건을 고르면 응답(수락/반제/거절)과 정성 힌트가 나오고, 만기 패널을 같은 RC로 냈을 때 고객 평가도 볼 수 있다. §7.7의 두 예시를 버튼 하나로 불러온다. 세이브·AP를 건드리지 않는다. 고객 평가(패키지 제출)를 보드가 맡는 M5b에서 지운다(§7.8). M5a 동안은 남겨 둔다.
+### 6.8 협상 시험대 (삭제됨)
+- M4~M5a에서 계산을 손으로 확인하던 임시 화면이다. M5b에서 라인 구성 보드가 응답과 고객 평가를 모두 맡으면서 화면과 "계산 근거 보기"(정확한 F_r·항별 값·U 점수 노출)를 지웠다. §7.7의 수치 확인은 `tests/`가 맡는다.
 
 ---
 
@@ -559,7 +576,7 @@ U   = Σ w_k × score_k
 
 ### 7.8 M4 구현 메모
 
-`js/negotiation.js`는 DOM·저장소를 모르는 순수 함수 모음이다. 계수는 모두 `data/config.json`의 `negotiation` 블록에 있다(§10.7). 상태를 바꾸는 일(인내심·관계 증감 적용, 제안 기록)은 M5가 맡고, 여기서는 "얼마를 바꿔야 하는지"를 값으로만 돌려준다.
+`js/negotiation.js`는 DOM·저장소를 모르는 순수 함수 모음이다. 계수는 모두 `data/config.json`의 `negotiation` 블록에 있다(§10.7). 상태를 바꾸는 일(인내심·관계 증감 적용, 제안 기록)은 M5b의 `placement.js`가 맡고, 여기서는 "얼마를 바꿔야 하는지"를 값으로만 돌려준다.
 
 - **함수**: `priceFloor`(7.1 F_r와 항별 내역) · `maxShare`(가용 라인 상한) · `respond`(7.2 응답) · `priceHint`(정성 힌트) · `bluffChance`(7.3 허세 탐지 확률) · `evaluatePackage`(7.5 고객 평가) · `manageExpectation`(7.6).
 - **N의 입력**: `신규재보험사`(만기 패널에 없던 곳) · `넓은 조건` · `당해 대손실`(불리언) · `prep_quality`. 사고 이벤트로 y₀에 더할 손해율(`lr_extra`)은 `당해 대손실`과 별개의 입력이다. 이벤트(M6)가 둘을 함께 켤지 정한다.
@@ -568,7 +585,8 @@ U   = Σ w_k × score_k
 - **정성 힌트**: `err_pp = 6 × (1 − s_price/100)`의 폭만큼 흔들린 격차(해시 고정)를 보고, 격차 ≥ 0이면 "받아줄 분위기", ≥ −`hint_near_pp`(2.0)이면 "근접", 그 아래면 "눈높이가 멀다"로 말한다. 스카우트 값이 낮을수록 폭이 커서 틀리기 쉽다.
 - **온쇼어 보정**: 담보 점수 SS의 "+3"은 지분 가중으로 더한다(온쇼어 재보험사가 가져가는 지분 비율 × 3). 그래서 7.7의 SS는 보정 전 약 82, 보정 후 약 83.7이고 U는 약 85.4다(결과 "매우 만족"은 같다).
 - **하드 실패**: 지분 합 ≠ 100% · 단일 한도(`min(고객, 재보험사)`) 초과 · 최소 등급 미달 · 샤리아 상한 초과는 U를 계산하되 결과를 `invalid`로 돌려주고 사유 목록을 함께 준다.
-- **협상 시험대(임시 화면)**: M5의 보드가 생기기 전에 계산을 손으로 확인하려고 만든 화면이다. 세이브를 바꾸지 않고 AP도 쓰지 않는다. "계산 근거 보기"를 켜면 정확한 F_r와 항별 값이 나오는데, 이는 숨은 속성을 간접적으로 드러내므로 **시험대 전용**이며 M5에서 화면과 함께 없앤다.
+- **협상 시험대(임시 화면)**: M5b에서 삭제했다(§6.8). 정확한 F_r와 항별 값은 숨은 속성을 간접으로 드러내므로 게임 화면 어디에도 나오지 않는다.
+- **M5b — 상태 변경은 `js/placement.js`가 한다**: 응답은 여전히 `quoteProposal`이 계산하고, `placement.js`가 AP 차감·인내심·관계도(`effects`의 `reinsurer:<id>`/`client:<id>` 대상)·패널 기록·저장을 맡는다. 고객 평가는 확정 패널로 `evaluateSigned`를 부른다(`evaluateExpiringPanel`은 같은 함수의 만기 패널 버전이다).
 
 ---
 
@@ -858,7 +876,15 @@ U   = Σ w_k × score_k
     "continuity_k": 120, "terms_step": 25,
     "accept_threshold_base": 70, "accept_threshold_goodwill_k": 0.10, "delighted_margin": 10, "renegotiate_margin": 8
   },
-  "expectation": { "base": 0.25, "relationship_k": 0.25, "high_ps": 70, "high_ps_relationship": -1, "cooldown_weeks": 2 }
+  "expectation": { "base": 0.25, "relationship_k": 0.25, "high_ps": 70, "high_ps_relationship": -1, "cooldown_weeks": 2 },
+  "board": {                                              // M5b: 라인 구성 보드가 상태를 바꿀 때 쓰는 값
+    "ask_ap": 1, "propose_ap": 1, "patience_start": 3,
+    "retry_weeks": 1,                                     // 재협상·거부 뒤 다시 제출할 수 있기까지 걸리는 주
+    "verdict_effects": {                                  // 고객 반응별 보상(§7.5)
+      "delighted": { "client_relationship": 4, "reputation": 2 },
+      "accept": { "client_relationship": 2, "reputation": 0 }
+    }
+  }
 }
 ```
 
@@ -897,7 +923,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
 | `modifier_add` | `target`, `field`, `mult?`, `add?`, `duration_weeks` | 기간 한정 보정 |
 | `cash` | `value` | 현금 증감(USD m) |
 
-`target` 문법: `player` · `market` · `client:<id>` · `reinsurer:<id>` · `treaty:<id>`. `field`는 점 표기 경로(`scout.loyalty`, `loss_ratio_hist.2`).
+`target` 문법: `player` · `market` · `client:<id>` · `reinsurer:<id>` · `treaty:<id>`. `field`는 점 표기 경로(`scout.loyalty`, `loss_ratio_hist.2`). **M5b부터** `client:<id>`·`reinsurer:<id>`가 `add`/`set`/`mul`에서 동작한다(세이브의 `entities` 값을 고치고 범위 0~100 또는 `min`/`max`로 자른다). `treaty:<id>`는 아직 없다.
 
 ### 10.9 세이브 상태 `localStorage`
 
@@ -920,9 +946,13 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
         "scout": { "conservatism": 18, "price_sensitivity": 26, "loyalty": 5 } } }
   },
   "treaties": { "trt_jurong_property_xl": {
-      "phase": "firm_order", "prep_quality": 45, "target_rc": -2.4,
+      "phase": "open", "prep_quality": 0, "target_rc": -3.0,
+      "terms": "standard", "structure_option": "",
       "panel": [ { "re": "re_alpenglow", "share_req": 0.30, "share_signed": 0.30, "rc_req": -1.0,
-                   "terms": "standard", "status": "accepted", "history": [] } ],
+                   "terms": "standard", "status": "accepted",       // draft | accepted | countered | rejected
+                   "last": { "mode": "propose", "kind": "accept", "rc": -1.0, "share": 0.30, "hint": "near", "err_pp": 3.0, "limited": false, "reason": null },
+                   "cap_known": 0.38, "history": [ { "n": 1, "turn": 3, "mode": "propose", "kind": "accept", "rc": -1.0, "share": 0.30 } ] } ],   // n = 트리티 안에서 몇 번째 행동인지(로그 순서)
+      "retry_turn": 0, "renegotiations": 0, "rejections": 0, "moves": 1, "verdict": null,
       "final_rc": null, "obligations": [] } },
   "mails": [ { "id": "m_0001", "template": "mail_renewal_kickoff_c1", "turn": 1, "read": true,
                "answered": "assist", "thread": "t_01" } ],
@@ -933,6 +963,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
 }
 ```
 - `version` 불일치 시 `store.js`의 마이그레이션 체인(`migrate_1_to_2` …)을 거친다. 마이그레이션 없이 구조를 바꾸지 않는다.
+- **M5b: 세이브 v3.** v2의 `treaties`는 비어 있었다. v3부터 새 게임이 시작될 때 트리티마다 `{ phase: "open", prep_quality: 0, target_rc, terms: 선호 조건, structure_option: "", panel: [], retry_turn: 0, renegotiations: 0, rejections: 0, moves: 0, verdict: null, final_rc: null, obligations: [] }`를 채운다. `phase`는 `open`(협상 중) → `placed`(고객이 수락해 확정). 재보험사의 `patience`는 `{ 트리티id: 남은 횟수 }`이고, 항목이 없으면 `patience_start`로 본다. `2→3` 변환은 v2 세이브에 빠진 트리티 상태만 같은 방식으로 채우고 나머지는 그대로 둔다.
 - **M3: 세이브 v2.** M1의 `entities`는 비어 있었다. v2부터 새 게임이 시작될 때 고객·재보험사마다 `{ relationship, meetings, notes, scout }`(재보험사는 `patience: {}`도)를 `initial`에서 채워 넣는다. v1 세이브는 `1→2` 변환에서 같은 방식으로 채운다.
 - JSON 파일 내보내기/가져오기(백업) 지원.
 
@@ -965,6 +996,7 @@ reinsurance-broker-sim/
 │  ├─ effects.js              # §10.8 연산자 인터프리터
 │  ├─ events.js               # 이벤트 판정·연쇄
 │  ├─ mail.js                 # 템플릿 치환·메일 생성 (순수 함수)
+│  ├─ placement.js            # 라인 구성 보드의 상태 변경(M5b): 의견 묻기·제안·반제 수락·제출·AP/인내심/관계도
 │  ├─ turn.js                 # §2.5 턴 파이프라인(M1: 주 전환·예약 메일·마감 처리·Continue 중단 판정)
 │  ├─ finance.js              # 브로커리지·비용·이사회 평가
 │  ├─ rivals.js               # 라이벌 브로커 시뮬
@@ -976,7 +1008,6 @@ reinsurance-broker-sim/
 │     ├─ inbox.js
 │     ├─ database.js          # DB + 스카우트 리포트
 │     ├─ placement_view.js    # 라인 구성 보드
-│     ├─ bench.js             # 협상 시험대(임시, M4~M5. §6.8)
 │     ├─ glossary_view.js     # 용어 카드 모달 + 도감 화면
 │     ├─ calendar_view.js
 │     ├─ standings.js
@@ -1058,3 +1089,5 @@ v1에서는 구현하지 않으며, 여기서는 항목만 정리한다.
    **M3 조정**: 위 값은 선명까지 비용이 커서, 계수를 주제 +16 / 나머지 +5로 올렸다(체감식은 그대로). 같은 방식으로 시뮬레이션하면 세 속성 모두 선명까지 약 5회(4~6회), 한 속성만 집중하면 약 3회, 세 속성 모두 확정까지 약 15회다. 7곳 전체를 선명까지 끌어올리는 비용은 약 35회(70 AP, 연간 AP의 약 20%)다. 수치는 `data/config.json`의 `scouting`만 고치면 된다.
 
    확정은 소수의 핵심 상대에게만 가능하고, 선명까지는 대부분 가능하게 하려는 의도다. 협상·마케팅에도 AP가 들어가므로 실제로는 더 빡빡하다. 이 곡선이 "어디에 AP를 쓸지"의 선택이 되는지, 아니면 너무 비싼지는 플레이 후 `data/config.json`의 `scouting` 계수로 조정한다.
+10. **(M5b에서 남김) 구조 옵션의 고객 감점**: `structure_options[].client_cons_penalty`(보수적인 고객일수록 U 감점, §7.3)는 아직 `evaluatePackage`에 반영하지 않았다. 지금은 구조 옵션이 가격 하한만 낮추는 공짜 수단이다. 반영 방식(보수성에 비례해 U에서 직접 뺄지, 담보 점수에 반영할지)을 정한 뒤 넣는다.
+11. **(M5b에서 남김) 반제·재협상의 정보량**: 고객 반응은 네 라벨뿐이라 "재협상 요구"·"거부"를 받았을 때 무엇이 문제인지 알려 주지 않는다. 고객 기분 게이지(§7.5 끝)나 가격/연속성 같은 방향 힌트를 스카우트 값에 비례해 주는 것은 별도 단계에서 정한다. 인내심을 되살리는 관계 호의 레버(§7.3)도 아직 없다.

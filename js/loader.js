@@ -160,6 +160,19 @@ function validateNegotiation(c, n) {
     c.num(n.rating_score._default, `${P}.rating_score._default`, 0, 100);
   }
 
+  if (c.object(n.board, `${P}.board`)) {
+    const b = n.board;
+    for (const k of ['ask_ap', 'propose_ap', 'retry_weeks']) c.num(b[k], `${P}.board.${k}`, 0, 20);
+    c.num(b.patience_start, `${P}.board.patience_start`, 1, 20);
+    if (c.object(b.verdict_effects, `${P}.board.verdict_effects`)) {
+      for (const v of ['delighted', 'accept']) {
+        if (!c.object(b.verdict_effects[v], `${P}.board.verdict_effects.${v}`)) continue;
+        c.num(b.verdict_effects[v].client_relationship, `${P}.board.verdict_effects.${v}.client_relationship`, -100, 100);
+        c.num(b.verdict_effects[v].reputation, `${P}.board.verdict_effects.${v}.reputation`, -100, 100);
+      }
+    }
+  }
+
   if (c.object(n.client, `${P}.client`)) {
     const cl = n.client;
     c.num(cl.price_slope, `${P}.client.price_slope`, 0, 1000);

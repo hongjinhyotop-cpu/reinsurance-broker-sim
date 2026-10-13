@@ -148,6 +148,22 @@
       "high_ps": 70,
       "high_ps_relationship": -1,
       "cooldown_weeks": 2
+    },
+    "board": {
+      "ask_ap": 1,
+      "propose_ap": 1,
+      "patience_start": 3,
+      "retry_weeks": 1,
+      "verdict_effects": {
+        "delighted": {
+          "client_relationship": 4,
+          "reputation": 2
+        },
+        "accept": {
+          "client_relationship": 2,
+          "reputation": 0
+        }
+      }
     }
   }
 }

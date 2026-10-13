@@ -210,7 +210,7 @@ export function evaluatePackage({ panel, expiringIds, client, benchmark }, cfg) 
   return { verdict, hardFails, avgRc, reference, scores, weights, U, theta: th, goodwill: gw, turnover };
 }
 
-// ---------- 정적 정의 + 동적 상태 → 계산 입력 (시험대와 M5 보드가 함께 쓴다) ----------
+// ---------- 정적 정의 + 동적 상태 → 계산 입력 (M5 보드가 쓴다) ----------
 
 // 재보험사 한 곳에 제안을 한 번 보냈을 때의 전체 결과.
 // ctx:  { treaty, client, reinsurer, relationship(재보험사), scoutPrice(가격 민감도 스카우트 값), seed }
@@ -243,17 +243,18 @@ export function quoteProposal({ treaty, client, reinsurer, relationship, scoutPr
   return { floor, maxShare: cap, noise, response, hint, option };
 }
 
-// 만기 패널을 그대로, 모두 같은 RC·조건으로 제출했을 때의 고객 평가.
+// 확정된 패널(재보험사별 { re, share, rc, terms })을 고객에게 제출했을 때의 평가. M5b의 "고객에게 제출".
 // ctx: { treaty, client, clientRelationship, reinsurers(전체 정의 목록) }
-export function evaluateExpiringPanel({ treaty, client, clientRelationship, reinsurers }, { market, rc, terms, targetRc }, cfg) {
+// opts: { market, targetRc(세이브에 있는 현재 고객 목표) }
+export function evaluateSigned({ treaty, client, clientRelationship, reinsurers }, { market, targetRc, panel }, cfg) {
   const byId = new Map(reinsurers.map((r) => [r.id, r]));
-  const panel = treaty.expiring.panel.map((m) => {
+  const members = panel.map((m) => {
     const re = byId.get(m.re);
-    return { id: re.id, share: m.share, rc, rating: re.rating, onshore: re.onshore, shariahOk: re.shariah_ok, terms, maxShare: re.behavior.max_single_share };
+    return { id: re.id, share: m.share, rc: m.rc, rating: re.rating, onshore: re.onshore, shariahOk: re.shariah_ok, terms: m.terms, maxShare: re.behavior.max_single_share };
   });
   const req = client.requirements;
   return evaluatePackage({
-    panel,
+    panel: members,
     expiringIds: treaty.expiring.panel.map((m) => m.re),
     client: {
       conservatism: client.hidden.conservatism, priceSensitivity: client.hidden.price_sensitivity, loyalty: client.hidden.loyalty,
@@ -261,6 +262,13 @@ export function evaluateExpiringPanel({ treaty, client, clientRelationship, rein
       preferredTerms: treaty.terms.preferred, shariahRequired: req.shariah_required, shariahConventionalCap: req.shariah_conventional_cap ?? 1,
     },
     benchmark: marketBenchmark(market, treaty.line, cfg),
+  }, cfg);
+}
+
+// 만기 패널을 그대로, 모두 같은 RC·조건으로 제출했을 때의 고객 평가(기준선 비교·테스트용).
+export function evaluateExpiringPanel({ treaty, client, clientRelationship, reinsurers }, { market, rc, terms, targetRc }, cfg) {
+  return evaluateSigned({ treaty, client, clientRelationship, reinsurers }, {
+    market, targetRc, panel: treaty.expiring.panel.map((m) => ({ re: m.re, share: m.share, rc, terms })),
   }, cfg);
 }
 
