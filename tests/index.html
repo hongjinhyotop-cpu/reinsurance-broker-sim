@@ -2402,10 +2402,22 @@
       s.turn = 25; s.scheduled.push({ turn: 25, kind: 'event', ref: 'evt_reinsurer_downgrade' });
       answerOpen(s); const before = s.overrides.reinsurers[TQ]; s.turn = 24; const r = turn.advance(); eq(s.overrides.reinsurers[TQ], before); check(!r.events.includes('evt_reinsurer_downgrade'), 'jurong_loss가 없으면 안 일어난다');
     });
-    test('사건 시험대(M6b): 템스 키 강등 선택지 — 고객에게 먼저 알리면 관계도가 오른다', () => {
-      const s = begin(); s.ap = 6; turn.forceEvent('evt_reinsurer_downgrade');
-      const m = mailOf(s, 'mail_evt_reinsurer_downgrade'); const j0 = s.entities.clients.cli_jurong_crest.relationship;
-      eq(turn.answer(m.id, 'brief_clients'), { ok: true }); eq([s.ap, s.entities.clients.cli_jurong_crest.relationship - j0], [4, 3]);
+    test('사건 시험대(M6b): 템스 키 강등 선택지 — 해상화물 고객의 한시적 등급 예외가 요구 조건을 덮어써 패널을 다시 채울 수 있게 한다', () => {
+      const pick = (choice) => { const s = begin(); s.ap = 6; turn.forceEvent('evt_reinsurer_downgrade'); turn.answer(mailOf(s, 'mail_evt_reinsurer_downgrade').id, choice); return s; };
+      const min = (s) => LIVE.liveClient(s, data.clients.find((c) => c.id === CS)).requirements.min_rating;
+      const a = pick('brief_clients'); eq([min(a), a.ap], ['A-', 4]); eq(a.entities.clients.cli_jurong_crest.relationship - data.clients[0].initial.relationship, 3);
+      const b = pick('ask_exception'); eq([min(b), b.ap], ['BBB+', 4]); eq(b.overrides.clients[CS], { min_rating: 'BBB+' });
+      const c = pick('hold_door'); eq([min(c), c.ap], ['BBB+', 5]);
+      const d = pick('watch'); eq([min(d), d.ap], ['A-', 6], '아무것도 안 하면 예외는 없다');
+      // 예외가 있으면 템스 키(BBB+)를 넣고도 제출 검증을 통과하고, 없으면 최소 등급 미달로 막힌다
+      for (const [s, ok] of [[b, true], [d, false]]) {
+        s.treaties[SP].panel = []; addRow(s, SP, TQ, 0.4); addRow(s, SP, 're_alpenglow', 0.34); addRow(s, SP, 're_kallang', 0.26);
+        eq(PL.signedCheck(data, s, SP).blockers.includes('min_rating'), !ok);
+      }
+      eq(store.validateState(b), []);
+      // 해상화물에는 템스 키·알펜글로우·칼랑뿐이라, 템스 키를 빼면 하드마켓에서 100%를 채울 수 없다(그래서 예외 선택지가 의미가 있다)
+      const caps = data.reinsurers.filter((r) => r.id !== TQ && r.capacity_usd_m.marine_cargo > 0).map((r) => Math.min(r.behavior.max_single_share, 0.5));
+      check(caps.reduce((x, y) => x + y, 0) < 1, `${caps}`);
     });
 
     test('사건 시험대(M6b): MAS 점검 — 컴플라이언스 점수로 통과/경고/과태료가 갈린다', () => {
@@ -2555,6 +2567,8 @@
       check(has(fx({ op: 'add', target: 'treaty:trt_x', field: 'big_loss', value: true }), 'set만'));
       check(has(fx({ op: 'set', target: 'client:cli_x', field: 'requirements.shariah_conventional_cap', value: 2 }), 'value'));
       eq(fx({ op: 'set', target: 'reinsurer:re_x', field: 'rating', value: 'BBB+' }), []);
+      eq(fx({ op: 'set', target: 'client:cli_x', field: 'requirements.min_rating', value: 'BBB+' }), []);
+      check(has(fx({ op: 'set', target: 'client:cli_x', field: 'requirements.min_rating', value: 3 }), 'value'));
       const cross = (mut) => { const d = clone(data); mut(d); return validateCross(d); };
       check(has(cross((d) => { d.events.find((e) => e.id === 'evt_jurong_explosion').effects_on_fire[0].target = 'treaty:trt_nope'; }), 'treaties.json에 없는'));
       check(has(cross((d) => { d.events.find((e) => e.id === 'evt_bor_letter').mails_by_client.cli_nope = 'mail_gap_notice'; }), 'clients.json에 없는'));
@@ -2595,6 +2609,7 @@
       check(errs((c) => { delete c.overrides; }).some((e) => e.includes('overrides')));
       check(errs((c) => { c.overrides.reinsurers[TQ].rating = 5; }).some((e) => e.includes('overrides.reinsurers')));
       check(errs((c) => { c.overrides.clients[CN].shariah_conventional_cap = 3; }).some((e) => e.includes('overrides.clients')));
+      check(errs((c) => { c.overrides.clients[CN].min_rating = 5; }).some((e) => e.includes('overrides.clients')));
       check(errs((c) => { c.modifiers[0].until_turn = 'x'; }).some((e) => e.includes('modifiers[0]')));
       check(errs((c) => { c.treaties[JR].phase = 'gone'; }).some((e) => e.includes('phase')));
       check(errs((c) => { c.treaties[JR].lr_extra = 'x'; }).some((e) => e.includes('lr_extra')));

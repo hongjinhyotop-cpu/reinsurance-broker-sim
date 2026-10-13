@@ -81,11 +81,18 @@ export function applyEffect(state, effect) {
         ov.reinsurers[id] = { ...ov.reinsurers[id], rating: String(effect.value) };
         return;
       }
+      if (effect.field === 'requirements.min_rating' && effect.target.startsWith('client:')) {
+        const id = effect.target.slice('client:'.length);
+        if (!state.entities.clients[id]) throw new Error(`없는 효과 대상: ${effect.target}`);
+        const ov = ensureOverrides(state);
+        ov.clients[id] = { ...ov.clients[id], min_rating: String(effect.value) };
+        return;
+      }
       if (effect.field === 'requirements.shariah_conventional_cap' && effect.target.startsWith('client:')) {
         const id = effect.target.slice('client:'.length);
         if (!state.entities.clients[id]) throw new Error(`없는 효과 대상: ${effect.target}`);
         const ov = ensureOverrides(state);
-        const cur = ov.clients[id]?.shariah_conventional_cap ?? effect.base ?? 1;
+        const cur = ov.clients[id]?.shariah_conventional_cap ?? 1;
         const raw = effect.op === 'add' ? cur + effect.value : effect.op === 'mul' ? cur * effect.value : effect.value;
         ov.clients[id] = { ...ov.clients[id], shariah_conventional_cap: Math.round(clamp(raw, 0, 1) * 1e4) / 1e4 };
         return;

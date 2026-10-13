@@ -71,7 +71,7 @@ export function nextAction(data, state) {
     // M6b: 사건이 규칙을 바꿨다면 그 사실을 알린다(공개 정보만 읽는다 — 등급·상한·패널).
     const short = ratingShort(data, state, treaty);
     if (short.length > 0) {
-      return action('swap_panel', `플레이스먼트에서 등급이 낮아진 ${short.map((r) => r.name_ko).join('·')} 대신 다른 재보험사로 지분을 채우기 — 이 고객의 최소 등급에 못 미쳐요`, 'placement');
+      return action('swap_panel', `플레이스먼트에서 등급이 낮아진 ${short.map((r) => r.name_ko).join('·')} 대신 다른 재보험사로 지분을 채우기 — 이 고객의 최소 등급에 못 미쳐요. 채울 곳이 모자라면 인박스 메일에서 다른 길을 찾아보세요`, 'placement');
     }
     if (signedCheck(data, state, treaty.id).blockers.includes('shariah_cap')) {
       return action('over_shariah_cap', '플레이스먼트에서 일반 재보험사 지분을 줄이거나 샤리아 재보험사로 옮기기 — 샤리아 상한을 넘었어요', 'placement');

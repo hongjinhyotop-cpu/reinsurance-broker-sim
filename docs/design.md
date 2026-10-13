@@ -702,7 +702,7 @@ U = Σ w_k × score_k − structure_cut
 | 2 | `evt_shariah_ruling` | Q1 (12–14) | 확정 | 누산타라 샤리아 위원회가 비샤리아 재보험사 출재 상한을 0.20 → 0.15로 하향(M4에서 상한을 0.40에서 0.20으로 낮춘 뒤의 값, §14-4) | C3 요구 조건 덮어쓰기. 선택: 위원회 설득(AP 2, 0.18로 완화) / 상한 수용 + 누르 집중 허용(AP 1, 누르 단일 한도 +10%p·가격선 +3%p, 10주) / 출재 축소(AP 1, 구조 옵션 미리 선택) |
 | 3 | `evt_global_cat_hardening` | Q2 (20–24) | 확정 | 환태평양 대형 지진·Cat 손실로 글로벌 용량 위축 | **M +14**, 템스 키 용량 modifier ×0.7(12주, 끝나면 저절로 회복), 1/7 시즌 가격 상승 |
 | 4 | `evt_jurong_explosion` | Q2 (22–28) | 확률 0.6 | 주롱섬 단지 폭발·화재, C1 대형 손실 | C1 트리티 `lr_extra` +45·`big_loss`, 관계 시험(클레임 지원 선택지), M +4, `flag: jurong_loss`. 3주 뒤 확률 0.7로 템스 키 강등(#5) 연쇄 |
-| 5 | `evt_reinsurer_downgrade` | #4 후 +3주 (후속 예약, 확률 0.7) | `jurong_loss` 플래그 | 템스 키 신디케이트 A- → BBB+ 강등. MAS 자본 규제상 신용 부담 증가 | 템스 키 `rating` 덮어쓰기 → C1·C2의 최소 등급(A-) 위반. 열린 트리티에서 템스 키 확정 지분은 취소되고 다른 재보험사로 패널을 바꿔야 한다. C2의 최소 등급은 데이터에서 BBB+였으나 설계대로 A-로 고친다(§10.1) |
+| 5 | `evt_reinsurer_downgrade` | #4 후 +3주 (후속 예약, 확률 0.7) | `jurong_loss` 플래그 | 템스 키 신디케이트 A- → BBB+ 강등. MAS 자본 규제상 신용 부담 증가 | 템스 키 `rating` 덮어쓰기 → C1·C2의 최소 등급(A-) 위반. 열린 트리티에서 템스 키 확정 지분은 취소되고 패널을 바꿔야 한다. 다만 해상화물·재산 라인에는 재보험사가 셋뿐이라 템스 키를 빼면 100%를 채울 수 없으므로, 메일 선택지에서 **스트레이츠 포트에 한시적 등급 예외**(`requirements.min_rating`을 BBB+로 덮어쓰기)를 받는 길을 둔다(§8.3 ①, §14-22). C2의 최소 등급은 데이터에서 BBB+였으나 설계대로 A-로 고친다(§10.1) |
 | 6 | `evt_malacca_collision` | Q3 (34–42) | 확률 0.6 | 말라카 해협 선박 충돌·컨테이너 야드 화재로 항만 집적 손실 | C2 트리티 `lr_extra` +30·`big_loss`, 집적 이슈 메일, 알펜글로우·템스 키 해상화물 용량 ×0.85(8주) |
 | 7 | `evt_capital_inflow` | Q3 (36–45) | `M ≥ 62` 일 때 0.5 | ILS·신규 자본이 하드마켓으로 유입 | **M −9**, 템스 키 용량 회복. 연착륙 |
 | 8 | `evt_bor_letter` | 27–45 | 창구 시작 때 고객마다 확률 = `0.25 × (1 − loyalty/100) × (1 + (60 − relationship)/100)` (관계 <60인 고객만, §8.3) | 경쟁 브로커의 BOR 레터 도착 | 선택: 가격 양보 제안 / 관계 카드 / 방어 미팅(AP 2) / 답하지 않음. 선택마다 한 주 뒤 이탈 확률이 다르고, 이탈하면 열린 트리티는 `lost`가 된다 |
@@ -745,7 +745,7 @@ M6b의 목표는 사건이 숫자(시장 지수·관계도)만 바꾸는 데서 
 
 **1) 덮어쓴 값 (`overrides`)과 보정 (`modifiers`)** — 정적 데이터(`data/*.json`)는 고치지 않고, 세이브에 바뀐 값만 둔다(§10.9).
 - `overrides.reinsurers[id].rating`: 사건이 바꾼 등급(글자). 없으면 데이터의 등급이다.
-- `overrides.clients[id].shariah_conventional_cap`: 사건이 바꾼 샤리아 상한(0~1). 없으면 데이터의 값이다.
+- `overrides.clients[id].shariah_conventional_cap`: 사건이 바꾼 샤리아 상한(0~1). `overrides.clients[id].min_rating`: 사건 선택지로 받은 한시적 등급 예외(글자). 없으면 데이터의 값이다.
 - `modifiers[]`: 기간이 있는 보정 `{ target: "reinsurer:<id>", field, mult, add, until_turn }`. `modifier_add` 효과가 만들고(`until_turn = 지금 턴 + duration_weeks`), `턴 < until_turn`인 동안만 켜져 있으며 주 전환 때 만료된 것을 지운다(§2.5 1단계). 쓸 수 있는 `field`는 닫힌 집합이다: `capacity`(모든 라인) · `capacity.<line>` · `max_single_share`(더하기만 쓴다) · `price_floor`(더하기만, %p).
 - 계산이 이 값들을 읽는 곳은 `js/live.js`의 순수 함수 `liveReinsurer`·`liveClient` 한 곳이다. 협상 계산·보드·DB 화면·안내띠는 정적 정의 대신 이 "지금 값"을 쓴다. 인수 용량 = `기본 × Π mult + Σ add`(0 미만이면 0), 단일 한도 = `기본 + Σ add`(1 초과면 1), 가격 보정 `A_event = Σ add`(§7.1).
 - 등급과 용량은 **공개 정보**라 DB·보드에 그대로 보인다(숨은 속성이 아니다). 용량이 보정 중이면 "(일시 축소)"처럼 표시한다.
@@ -1119,7 +1119,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
 
 `target` 문법: `player` · `market` · `client:<id>` · `reinsurer:<id>` · `treaty:<id>`. `field`는 점 표기 경로(`scout.loyalty`, `loss_ratio_hist.2`). **M5b부터** `client:<id>`·`reinsurer:<id>`가 `add`/`set`/`mul`에서 동작한다(세이브의 `entities` 값을 고치고 범위 0~100 또는 `min`/`max`로 자른다). **M6a부터** 메일·이벤트 데이터에서도 이 대상을 쓸 수 있고(로더가 id와 필드를 검증한다), `event_schedule`이 동작한다: 예약 큐에 `{ turn: 지금 + delay_weeks, kind: "event", ref: event, prob? }`를 넣고, 발생 판정(조건·`once`·`prob`)은 꺼낼 때 한다(§8.1). 
 
-**M6b부터**: ① `treaty:<id>` 대상(필드 `lr_extra`·`big_loss`·`structure_option`·`phase`, §8.3 ②). ② 덮어쓰기: `set reinsurer:<id> rating <글자>`, `set`/`add client:<id> requirements.shariah_conventional_cap <0~1>` — 값은 세이브 `overrides`에 들어간다. ③ `modifier_add { target: "reinsurer:<id>", field, mult?, add?, duration_weeks }`(§8.3 ①). `mult`·`add` 중 하나는 있어야 하고, `duration_weeks`는 1~60. 이 효과들을 쓰는 곳은 이벤트와 메일 선택지다.
+**M6b부터**: ① `treaty:<id>` 대상(필드 `lr_extra`·`big_loss`·`structure_option`·`phase`, §8.3 ②). ② 덮어쓰기: `set reinsurer:<id> rating <글자>`, `set client:<id> requirements.shariah_conventional_cap <0~1>`, `set client:<id> requirements.min_rating <글자>` — 값은 세이브 `overrides`에 들어간다. ③ `modifier_add { target: "reinsurer:<id>", field, mult?, add?, duration_weeks }`(§8.3 ①). `mult`·`add` 중 하나는 있어야 하고, `duration_weeks`는 1~60. 이 효과들을 쓰는 곳은 이벤트와 메일 선택지다.
 
 ### 10.9 세이브 상태 `localStorage`
 
@@ -1154,7 +1154,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
                "answered": "assist", "thread": "t_01" } ],
   "scheduled": [ { "turn": 15, "kind": "event", "ref": "evt_reinsurer_downgrade", "prob": 0.7 } ],     // kind: mail | event. prob은 이벤트 예약에만, 꺼낼 때 한 번 굴린다
   "fired_events": ["evt_mas_inspection"],
-  "overrides": { "reinsurers": { "re_thames_quay": { "rating": "BBB+" } }, "clients": { "cli_nusantara": { "shariah_conventional_cap": 0.15 } } },   // M6b
+  "overrides": { "reinsurers": { "re_thames_quay": { "rating": "BBB+" } }, "clients": { "cli_nusantara": { "shariah_conventional_cap": 0.15 }, "cli_straits_port": { "min_rating": "BBB+" } } },   // M6b
   "modifiers": [ { "target": "reinsurer:re_thames_quay", "field": "capacity", "mult": 0.7, "add": 0, "until_turn": 34 } ],                              // M6b
   "log": []
 }
@@ -1337,3 +1337,4 @@ rbs_gl_line,"<b>라인 (지분)</b><br>Line","<b>① 한 줄</b> ... <hr><b>② 
 19. **(M6b에서 남김) 샤리아 상한 0.15의 여유**: 상한 0.15에서는 누르 35% + 두네스 50% + 일반 15%가 모두 꽉 차야 100%라 여유가 0이다. 상한 수용 선택지(누르 단일 한도 +10%p)를 고르면 여유가 생긴다. 의도한 난이도지만 너무 빡빡한지는 플레이 후 조정한다.
 21. **(M6b에서 남김) 점검 통과 점수**: 컴플라이언스는 70에서 시작하고 점검 통과선은 75인데, 안내 메일의 가장 점수를 많이 주는 선택이 +4라 74에 그쳐 통과할 길이 없었다. `mail_compliance_notice`의 "점검서 제출 + 감독 관심사 질문"(행동 점수 2) 보상을 +4에서 +6으로 올려 76에 닿게 했다. 보통 제출(+4)은 74라 경고가 난다. 컴플라이언스 정리 행동(§2.4, +4)이 생기면 이 조정은 되돌려도 된다.
 20. **(M6b에서 남김) BOR 이탈 확률**: 선택지·고객별 이탈 확률(`mails.json`의 `event_schedule.prob`)은 초안이다.
+22. **(M6b에서 남김) 강등 뒤 패널을 "갈 수 있는가"**: 재산(주롱)·해상화물(스트레이츠)에는 재보험사가 셋뿐이고 단일 한도(알펜글로우 40%·칼랑 30%) 때문에, 템스 키를 빼면 어느 시장 지수에서도 100%를 채울 수 없다(해상화물은 약 65%까지). 그래서 강등 메일에 "고객에게 한시적 예외를 받는다"(스트레이츠만)를 넣었고, 아무것도 안 하면 1/7을 못 채워 공백 벌칙이 붙는다. 주롱(재산) 쪽 강등은 1/1이 이미 확정된 뒤라 정상 플레이에서는 영향이 없다. 재보험사를 더 두는 일은 1차 범위(5곳) 밖이라 하지 않았다.

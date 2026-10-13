@@ -327,7 +327,7 @@ export function validateState(s) {
   if (!isObj(s.overrides) || !isObj(s.overrides.reinsurers) || !isObj(s.overrides.clients)) bad('overrides', 'reinsurers·clients 객체가 필요해요');
   else {
     for (const [id, o] of Object.entries(s.overrides.reinsurers)) if (!isObj(o) || (o.rating !== undefined && typeof o.rating !== 'string')) bad(`overrides.reinsurers.${id}`, '{ rating: 글자 } 모양이어야 해요');
-    for (const [id, o] of Object.entries(s.overrides.clients)) if (!isObj(o) || (o.shariah_conventional_cap !== undefined && !isNum(o.shariah_conventional_cap, 0, 1))) bad(`overrides.clients.${id}`, '{ shariah_conventional_cap: 0~1 } 모양이어야 해요');
+    for (const [id, o] of Object.entries(s.overrides.clients)) if (!isObj(o) || (o.shariah_conventional_cap !== undefined && !isNum(o.shariah_conventional_cap, 0, 1)) || (o.min_rating !== undefined && typeof o.min_rating !== 'string')) bad(`overrides.clients.${id}`, '{ shariah_conventional_cap: 0~1, min_rating: 글자 } 모양이어야 해요');
   }
   if (Array.isArray(s.modifiers)) {
     s.modifiers.forEach((m, i) => {

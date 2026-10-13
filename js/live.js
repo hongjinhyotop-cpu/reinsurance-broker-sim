@@ -34,9 +34,12 @@ export function liveReinsurers(state, defs) {
 }
 
 export function liveClient(state, def) {
-  const cap = state.overrides?.clients?.[def.id]?.shariah_conventional_cap;
-  if (cap === undefined) return def;
-  return { ...def, requirements: { ...def.requirements, shariah_conventional_cap: cap } };
+  const ov = state.overrides?.clients?.[def.id];
+  if (!ov) return def;
+  const requirements = { ...def.requirements };
+  if (ov.shariah_conventional_cap !== undefined) requirements.shariah_conventional_cap = ov.shariah_conventional_cap;
+  if (ov.min_rating !== undefined) requirements.min_rating = ov.min_rating;
+  return { ...def, requirements };
 }
 
 export function liveClients(state, defs) {

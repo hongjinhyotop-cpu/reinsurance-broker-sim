@@ -365,6 +365,8 @@ function validateEffects(c, effects, path, mailIds) {
       else if (ef.field === 'phase' && ef.value !== 'lost') c.fail(`${p}.value`, 'lost만 쓸 수 있어요', ef.value);
     } else if ((ef.op === 'set') && typeof ef.target === 'string' && /^reinsurer:/.test(ef.target) && ef.field === 'rating') {
       c.str(ef.value, `${p}.value`, 10); // 덮어쓰는 등급(글자)
+    } else if ((ef.op === 'set') && typeof ef.target === 'string' && /^client:/.test(ef.target) && ef.field === 'requirements.min_rating') {
+      c.str(ef.value, `${p}.value`, 10); // 한시적 등급 예외: 고객의 최소 등급을 덮어쓴다
     } else if ((ef.op === 'set') && typeof ef.target === 'string' && /^client:/.test(ef.target) && ef.field === 'requirements.shariah_conventional_cap') {
       c.num(ef.value, `${p}.value`, 0, 1);
     } else if (ef.op === 'add' || ef.op === 'set' || ef.op === 'mul') {
