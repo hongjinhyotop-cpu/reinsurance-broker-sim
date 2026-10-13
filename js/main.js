@@ -7,6 +7,7 @@ import { renderShell, renderPlaceholder, screenTitle, NAV } from './ui/shell.js'
 import { renderSettings } from './ui/settings.js';
 import { renderInbox } from './ui/inbox.js';
 import { renderCalendar } from './ui/calendar_view.js';
+import { renderDatabase } from './ui/database.js';
 import { toast } from './ui/components.js';
 
 const GAME_TITLE = '싱가포르 재보험 브로커 시뮬레이션';
@@ -26,7 +27,7 @@ function render({ focusMain = false } = {}) {
     return;
   }
   const route = currentRoute();
-  const screens = { settings: renderSettings, inbox: renderInbox, calendar: renderCalendar };
+  const screens = { settings: renderSettings, inbox: renderInbox, calendar: renderCalendar, database: renderDatabase };
   const content = screens[route] ? screens[route]() : renderPlaceholder(route);
   app.append(renderShell(route, content));
   document.title = `${screenTitle(route)} · ${GAME_TITLE}`;

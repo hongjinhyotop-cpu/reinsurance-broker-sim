@@ -5,6 +5,7 @@ import * as store from './store.js';
 import { applyEffects } from './effects.js';
 import { describeTurn, turnLabel } from './calendar.js';
 import { describeMarket } from './market.js';
+import { TOPICS, applyMeeting, relationshipAfterMeeting, newlyUnlocked } from './scouting.js';
 import {
   fillText, findTemplate, deadlineTurn, scheduledFor, nextMailId, needsReply, choiceBlockReason,
 } from './mail.js';
@@ -83,6 +84,44 @@ export function markRead(mailId) {
   const mail = store.getState().mails.find((m) => m.id === mailId);
   if (!mail || mail.read) return;
   store.commit(() => { mail.read = true; });
+}
+
+// ---------- 미팅 (design.md §2.4, §4.3) ----------
+
+function findEntity(data, kind, id) {
+  const list = kind === 'client' ? data.clients : kind === 'reinsurer' ? data.reinsurers : null;
+  return list?.find((e) => e.id === id) ?? null;
+}
+
+export function meetBlockReason(data, state, kind, id, topic) {
+  if (!findEntity(data, kind, id)) return '없는 상대예요';
+  if (!TOPICS.includes(topic)) return '없는 미팅 주제예요';
+  const cost = data.config.scouting.meeting_ap;
+  if (state.ap < cost) return `행동 점수가 모자라요 (필요 ${cost}점, 남은 ${state.ap}점)`;
+  return null;
+}
+
+// 미팅: AP를 쓰고 스카우트 값·관계도를 올린다. 새로 읽을 수 있게 된 단서 메모를 돌려준다.
+export function meet(kind, id, topic) {
+  const data = store.getData();
+  const state = store.getState();
+  const reason = meetBlockReason(data, state, kind, id, topic);
+  if (reason) return { ok: false, error: reason };
+  const cfg = data.config.scouting;
+  const def = findEntity(data, kind, id);
+  const entity = (kind === 'client' ? state.entities.clients : state.entities.reinsurers)[id];
+  const before = { ...entity.scout };
+  let after;
+  store.commit((s) => {
+    const e = (kind === 'client' ? s.entities.clients : s.entities.reinsurers)[id];
+    s.ap -= cfg.meeting_ap;
+    e.scout = applyMeeting(e.scout, topic, cfg);
+    e.relationship = relationshipAfterMeeting(e.relationship, cfg);
+    e.meetings += 1;
+    after = e.scout;
+  });
+  store.autosave();
+  return { ok: true, before, after: { ...after }, newNotes: newlyUnlocked(def.scout_notes, before, after) };
 }
 
 // ---------- 게임 시작 / Continue ----------

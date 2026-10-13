@@ -3,14 +3,17 @@
 
 import { nextFloat, normalizeSeed } from './rng.js';
 
-export const SAVE_VERSION = 1; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
+export const SAVE_VERSION = 2; // 세이브 "구조"의 버전. 구조를 바꾸면 올리고 MIGRATIONS에 변환을 추가한다.
 export const SLOTS = ['auto', '1', '2', '3'];
 export const MANUAL_SLOTS = ['1', '2', '3'];
 const KEY_PREFIX = 'rbs:save:v1:'; // 키 형식 버전(구조 버전과 별개)
 const MAX_SAVE_CHARS = 2_000_000; // 가져오기 파일 크기 방어선
 
-// 구조가 바뀔 때마다 { [옛 버전]: (state) => 새 구조 } 를 한 줄씩 추가한다. 지금은 v1뿐이라 비어 있다.
-export const MIGRATIONS = {};
+// 구조가 바뀔 때마다 { [옛 버전]: (state) => 새 구조 } 를 한 줄씩 추가한다.
+// v1→v2(M3): 비어 있던 entities에 고객·재보험사의 동적 상태를 채운다.
+export const MIGRATIONS = {
+  1: (s) => fillEntities({ ...s, entities: { clients: { ...s.entities?.clients }, reinsurers: { ...s.entities?.reinsurers } } }),
+};
 
 let ctx = null; // { config, calendar } — loader가 검증한 정적 데이터
 let state = null;
@@ -87,6 +90,17 @@ function readSlotText(slot) {
 
 // ---------- 새 게임 / 난수 ----------
 
+// 정적 데이터의 initial에서 고객·재보험사의 동적 상태를 만든다. 이미 있는 항목은 건드리지 않는다(새로 생긴 id만 채움).
+function fillEntities(s) {
+  for (const [group, list, extra] of [['clients', ctx.clients ?? [], {}], ['reinsurers', ctx.reinsurers ?? [], { patience: {} }]]) {
+    for (const e of list) {
+      if (s.entities[group][e.id]) continue;
+      s.entities[group][e.id] = { relationship: e.initial.relationship, meetings: 0, notes: '', ...extra, scout: { ...e.initial.scout } };
+    }
+  }
+  return s;
+}
+
 export function newGame({ seed } = {}) {
   const g = ctx.config.game;
   const s = normalizeSeed(seed);
@@ -114,6 +128,7 @@ export function newGame({ seed } = {}) {
     modifiers: [],
     log: [],
   };
+  fillEntities(state);
   generation += 1;
   emit('game');
   return state;
@@ -180,6 +195,18 @@ export function validateState(s) {
 
   if (!isObj(s.entities) || !isObj(s.entities.clients) || !isObj(s.entities.reinsurers)) {
     bad('entities', 'clients·reinsurers 객체가 필요해요');
+  } else {
+    for (const group of ['clients', 'reinsurers']) {
+      for (const [id, e] of Object.entries(s.entities[group])) {
+        const p = `entities.${group}.${id}`;
+        if (!isObj(e)) { bad(p, '객체여야 해요'); continue; }
+        if (!isNum(e.relationship, 0, 100)) bad(`${p}.relationship`, '0~100 사이 숫자여야 해요');
+        if (!isInt(e.meetings, 0, 99999)) bad(`${p}.meetings`, '0 이상 정수여야 해요');
+        if (typeof e.notes !== 'string') bad(`${p}.notes`, '글자여야 해요');
+        if (!isObj(e.scout)) bad(`${p}.scout`, '객체여야 해요');
+        else for (const a of ['conservatism', 'price_sensitivity', 'loyalty']) if (!isNum(e.scout[a], 0, 100)) bad(`${p}.scout.${a}`, '0~100 사이 숫자여야 해요');
+      }
+    }
   }
   if (!isObj(s.treaties)) bad('treaties', '객체여야 해요');
   for (const key of ['mails', 'scheduled', 'fired_events', 'modifiers', 'log']) {
@@ -335,7 +362,7 @@ export function importJson(text) {
 }
 
 function replaceState(next) {
-  state = next;
+  state = fillEntities(next); // 새 버전 데이터에 추가된 고객·재보험사가 있어도 이어서 할 수 있게 한다
   generation += 1;
   emit('game');
 }

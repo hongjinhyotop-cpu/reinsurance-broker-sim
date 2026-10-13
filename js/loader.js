@@ -78,6 +78,32 @@ export function validateConfig(cfg, file = 'config.json') {
     c.int(cfg.turn.deadline_warning_weeks, 'turn.deadline_warning_weeks', 0, 10);
   }
 
+  if (c.object(cfg.scouting, 'scouting')) {
+    const sc = cfg.scouting;
+    c.int(sc.meeting_ap, 'scouting.meeting_ap', 0, 6);
+    c.num(sc.meeting_focus_gain, 'scouting.meeting_focus_gain', 0, 100);
+    c.num(sc.meeting_other_gain, 'scouting.meeting_other_gain', 0, 100);
+    c.num(sc.damping_divisor, 'scouting.damping_divisor', 100, 1000); // 100 미만이면 100에 가까워질 때 증가분이 음수가 된다
+    c.num(sc.meeting_relationship_gain, 'scouting.meeting_relationship_gain', 0, 100);
+    c.num(sc.relationship_damping, 'scouting.relationship_damping', 100, 1000);
+    c.num(sc.err_k, 'scouting.err_k', 0, 100);
+    c.num(sc.jitter_ratio, 'scouting.jitter_ratio', 0, 1); // 1을 넘으면 실제 값이 표시 범위 밖으로 나갈 수 있다
+    if (c.object(sc.stage_thresholds, 'scouting.stage_thresholds')) {
+      const t = sc.stage_thresholds;
+      const ok = ['blurred', 'sharp', 'exact'].map((k) => c.num(t[k], `scouting.stage_thresholds.${k}`, 0, 100));
+      if (ok.every(Boolean) && !(t.blurred < t.sharp && t.sharp < t.exact)) {
+        c.fail('scouting.stage_thresholds', 'blurred < sharp < exact 순서여야 해요', t);
+      }
+    }
+    if (c.object(sc.label_bands, 'scouting.label_bands')) {
+      const lo = c.num(sc.label_bands.low_below, 'scouting.label_bands.low_below', 0, 100);
+      const hi = c.num(sc.label_bands.high_above, 'scouting.label_bands.high_above', 0, 100);
+      if (lo && hi && sc.label_bands.low_below >= sc.label_bands.high_above) {
+        c.fail('scouting.label_bands', 'low_below가 high_above보다 작아야 해요', sc.label_bands);
+      }
+    }
+  }
+
   if (c.object(cfg.market, 'market')) {
     const m = cfg.market;
     c.num(m.intel_error_k, 'market.intel_error_k', 0, 100);
@@ -284,6 +310,126 @@ export function validateMails(mails, file = 'mails.json', calendar = null) {
   return errors;
 }
 
+// ---------- 고객·재보험사 (design.md §10.1, §10.2, §4) ----------
+
+export const HIDDEN_ATTRS = ['conservatism', 'price_sensitivity', 'loyalty'];
+export const LINES = ['property_energy', 'marine_cargo', 'takaful_general'];
+export const CLIENT_KINDS = ['local_insurer', 'marine_specialist', 'takaful_group'];
+export const REINSURER_KINDS = ['global_reinsurer', 'regional_reinsurer', 'syndicate', 'retakaful'];
+
+// 두 파일이 공유하는 부분: id·이름·숨은 속성·초기 상태·단서 메모.
+function validateEntityCommon(c, e, label, idPrefix) {
+  if (c.str(e.id, `${label}.id`, 80)) {
+    if (!new RegExp(`^${idPrefix}[a-z0-9_]+$`).test(e.id)) c.fail(`${label}.id`, `${idPrefix} 로 시작하는 snake_case여야 해요`, e.id);
+  }
+  c.str(e.name, `${label}.name`, 80);
+  c.str(e.name_ko, `${label}.name_ko`, 60);
+  c.str(e.hq, `${label}.hq`, 60);
+
+  if (c.object(e.hidden, `${label}.hidden`)) {
+    for (const a of HIDDEN_ATTRS) c.num(e.hidden[a], `${label}.hidden.${a}`, 0, 100);
+  }
+  if (c.object(e.initial, `${label}.initial`)) {
+    c.num(e.initial.relationship, `${label}.initial.relationship`, 0, 100);
+    if (c.object(e.initial.scout, `${label}.initial.scout`)) {
+      for (const a of HIDDEN_ATTRS) c.num(e.initial.scout[a], `${label}.initial.scout.${a}`, 0, 100);
+    }
+  }
+  // 단서 메모: 속성마다 문턱이 낮은 것부터 읽히므로 같은 속성 안에서는 min_scout이 오름차순이어야 한다.
+  if (c.array(e.scout_notes, `${label}.scout_notes`, 1)) {
+    const lastMin = {};
+    e.scout_notes.forEach((n, j) => {
+      const p = `${label}.scout_notes[${j}]`;
+      if (!c.object(n, p)) return;
+      if (!HIDDEN_ATTRS.includes(n.attr)) c.fail(`${p}.attr`, `${HIDDEN_ATTRS.join(' / ')} 중 하나여야 해요`, n.attr);
+      if (c.num(n.min_scout, `${p}.min_scout`, 0, 100) && HIDDEN_ATTRS.includes(n.attr)) {
+        if (n.min_scout <= (lastMin[n.attr] ?? -1)) c.fail(`${p}.min_scout`, '같은 속성의 앞 단서보다 커야 해요(오름차순)', n.min_scout);
+        lastMin[n.attr] = n.min_scout;
+      }
+      if (c.str(n.text_ko, `${p}.text_ko`, 300)) validateText(c, n.text_ko, `${p}.text_ko`);
+    });
+  }
+}
+
+const checkIntro = (c, text, path) => { if (c.str(text, path, 400)) validateText(c, text, path); };
+
+function validateEntityList(list, file, { idPrefix, kinds, extra }) {
+  const errors = [];
+  const c = checker(file, errors);
+  if (!c.array(list, '(최상위)', 1)) return errors;
+  const seen = new Set();
+  list.forEach((e, i) => {
+    const p = `[${i}]`;
+    if (!c.object(e, p)) return;
+    const label = typeof e.id === 'string' ? `${p}(${e.id})` : p;
+    validateEntityCommon(c, e, label, idPrefix);
+    if (typeof e.id === 'string') {
+      if (seen.has(e.id)) c.fail(`${label}.id`, '다른 항목과 id가 겹쳐요', e.id);
+      seen.add(e.id);
+    }
+    if (!kinds.includes(e.kind)) c.fail(`${label}.kind`, `${kinds.join(' / ')} 중 하나여야 해요`, e.kind);
+    extra(c, e, label);
+  });
+  return errors;
+}
+
+const lineMap = (c, v, path, min, max) => {
+  if (!c.object(v, path)) return;
+  for (const line of LINES) c.num(v[line], `${path}.${line}`, min, max);
+};
+
+export function validateClients(list, file = 'clients.json') {
+  return validateEntityList(list, file, {
+    idPrefix: 'cli_',
+    kinds: CLIENT_KINDS,
+    extra(c, e, label) {
+      if (!c.object(e.profile, `${label}.profile`)) return;
+      const pr = e.profile;
+      checkIntro(c, pr.intro_ko, `${label}.profile.intro_ko`);
+      c.num(pr.gwp_usd_m, `${label}.profile.gwp_usd_m`, 0);
+      c.str(pr.rating, `${label}.profile.rating`, 10);
+      if (c.array(pr.lines, `${label}.profile.lines`, 1)) {
+        pr.lines.forEach((l, j) => { if (!LINES.includes(l)) c.fail(`${label}.profile.lines[${j}]`, `${LINES.join(' / ')} 중 하나여야 해요`, l); });
+      }
+      if (c.object(pr.contact, `${label}.profile.contact`)) {
+        for (const k of ['name', 'title', 'style']) c.str(pr.contact[k], `${label}.profile.contact.${k}`, 60);
+      }
+      if (c.object(e.requirements, `${label}.requirements`)) {
+        const r = e.requirements;
+        c.str(r.min_rating, `${label}.requirements.min_rating`, 10);
+        c.num(r.max_single_share, `${label}.requirements.max_single_share`, 0, 1);
+        c.str(r.preferred_terms, `${label}.requirements.preferred_terms`, 40);
+        if (typeof r.shariah_required !== 'boolean') c.fail(`${label}.requirements.shariah_required`, 'true 또는 false여야 해요', r.shariah_required);
+        if (r.shariah_conventional_cap !== null) c.num(r.shariah_conventional_cap, `${label}.requirements.shariah_conventional_cap`, 0, 1);
+      }
+    },
+  });
+}
+
+export function validateReinsurers(list, file = 'reinsurers.json') {
+  return validateEntityList(list, file, {
+    idPrefix: 're_',
+    kinds: REINSURER_KINDS,
+    extra(c, e, label) {
+      checkIntro(c, e.intro_ko, `${label}.intro_ko`);
+      c.str(e.rating, `${label}.rating`, 10);
+      if (typeof e.onshore !== 'boolean') c.fail(`${label}.onshore`, 'true 또는 false여야 해요', e.onshore);
+      if (typeof e.shariah_ok !== 'boolean') c.fail(`${label}.shariah_ok`, 'true 또는 false여야 해요', e.shariah_ok);
+      c.num(e.target_lr, `${label}.target_lr`, 0, 200);
+      lineMap(c, e.capacity_usd_m, `${label}.capacity_usd_m`, 0);
+      lineMap(c, e.appetite, `${label}.appetite`, 0, 1);
+      if (c.object(e.contact, `${label}.contact`)) {
+        for (const k of ['name', 'title']) c.str(e.contact[k], `${label}.contact.${k}`, 60);
+      }
+      if (c.object(e.behavior, `${label}.behavior`)) {
+        c.int(e.behavior.response_weeks, `${label}.behavior.response_weeks`, 0, 20);
+        c.int(e.behavior.patience, `${label}.behavior.patience`, 0, 20);
+        c.num(e.behavior.max_single_share, `${label}.behavior.max_single_share`, 0, 1);
+      }
+    },
+  });
+}
+
 // 파일 사이의 약속(서로 다른 파일이 같은 값을 말해야 하는 것).
 export function validateCross({ config, calendar }) {
   const errors = [];
@@ -301,6 +447,8 @@ export const DATA_FILES = [
   { key: 'config', file: 'config.json', validate: validateConfig },
   { key: 'calendar', file: 'calendar.json', validate: validateCalendar },
   { key: 'mails', file: 'mails.json', validate: (mails, file, raw) => validateMails(mails, file, raw.calendar) },
+  { key: 'clients', file: 'clients.json', validate: validateClients },
+  { key: 'reinsurers', file: 'reinsurers.json', validate: validateReinsurers },
 ];
 
 // 정적 콘텐츠를 실수로 고치는 코드를 바로 잡아내려고 통째로 얼린다.

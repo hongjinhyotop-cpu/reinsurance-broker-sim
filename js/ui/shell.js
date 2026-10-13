@@ -10,7 +10,7 @@ import { h, formatUsdM, toast } from './components.js';
 // when: 이 화면이 만들어질 마일스톤(design.md §12)
 export const NAV = [
   { id: 'inbox', label: '인박스', when: null },
-  { id: 'database', label: '고객·재보험사 DB', when: 'M3' },
+  { id: 'database', label: '고객·재보험사 DB', when: null },
   { id: 'placement', label: '플레이스먼트', when: 'M5' },
   { id: 'calendar', label: '캘린더', when: null },
   { id: 'standings', label: '순위표', when: 'M7' },
@@ -21,13 +21,11 @@ export const NAV = [
 
 const MILESTONES = {
   M2: '용어집',
-  M3: '숨겨진 속성 스카우팅',
   M5: '라인 구성 보드',
   M7: '재무 · 순위표 · 리뷰',
 };
 
 const PLACEHOLDERS = {
-  database: '거래 상대의 정보를 모아 보는 곳이에요. 미팅을 할수록 상대의 숨은 성격이 드러나는 스카우팅이 여기에 들어가요.',
   placement: '리스크 전체를 100%로 보고, 재보험사들이 몇 %씩 맡을지 채워 넣는 라인 구성 보드예요.',
   standings: '경쟁 중개회사 7곳과 수익을 비교하고 이사회 목표를 확인하는 곳이에요.',
   review: '갱신 시즌이 끝날 때마다, 그리고 연말에 성적표를 보는 곳이에요.',
