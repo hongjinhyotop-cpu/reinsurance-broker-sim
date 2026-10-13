@@ -121,6 +121,7 @@ v1은 아래 세 기능이 "이 게임이 무엇인가"를 정의한다. 다른 
 - 매주 **행동 포인트(AP) 6**을 쓴다. 이월 없음. 용어 카드 열람과 도감 조작은 AP를 쓰지 않는다.
 - Continue는 **다음 중요 시점**까지 자동 진행한다. 중단 조건: 새 긴급/일반 메일 도착, 마감 1주 이내 도래, 시즌 단계 전환, 이벤트 발생. 아무 일 없는 주는 건너뛴다.
 - `blocking: true` 메일은 답하기 전에는 마감일을 넘겨 Continue할 수 없다. 그 외 메일은 마감 시 `default_choice`로 자동 처리된다.
+- (M1 구현 정의) 마감 턴 D는 답할 수 있는 마지막 턴이다. 턴 D에 답하지 않은 `blocking` 메일이 있으면 Continue가 막히고, 그 외 메일은 D+1턴으로 넘어갈 때 `default_choice`가 자동 적용된다. "마감 1주 이내" 기준은 `config.turn.deadline_warning_weeks`(초안 1)다. "시즌 단계 전환" 중단은 시즌 창구가 열리는 턴과 인셉션 턴이다. 마지막 턴(58)에서는 Continue가 멈춘다(연말 리뷰는 M7).
 - 세이브 스컴은 허용한다(싱글 플레이). 매 턴 자동 저장 + 수동 슬롯 3개. 도감은 세이브와 별도 저장(§5.4).
 
 ### 2.2 연간 타임라인 (v1)
@@ -731,6 +732,16 @@ U   = Σ w_k × score_k
 ```
 치환 변수는 화이트리스트(`{client.*}`, `{reinsurer.*}`, `{treaty.*}`, `{market.label}`, `{turn.label}`, `{player.firm}`)만 허용하는 단순 문자열 치환으로 처리한다.
 
+**M1에서 추가된 항목** (고객·재보험사 데이터가 아직 없는 단계라 메일이 스스로 발신자 이름과 도착 시점을 가진다. 기존 필드는 그대로다.)
+- `from.name_ko`: 발신자 표시 이름. `from.id`는 해당 데이터 파일이 생기는 마일스톤(M3)부터 검증하며, 그 전에는 비워 둔다. `from.kind`는 `client | reinsurer | regulator | market | board | system`.
+- `schedule: { "turn": N }`: 고정 턴에 자동 도착하는 메일. 이 필드가 없는 메일은 효과(`mail_send`)·이벤트로만 도착한다.
+- `choices`는 비어 있을 수 있다(안내 메일). `default_choice`는 `ap_cost`가 0인 선택지여야 한다(마감 자동 처리에는 AP가 들지 않는다). `blocking: true`이면 `choices`가 있어야 한다.
+- 용어 마크업 `[[gl_id|표시문구]]`은 M2부터 쓴다. M1 로더는 `[[`가 들어 있으면 오류로 알려 준다.
+- 치환 변수는 M1에서 `{market.label}`, `{turn.label}`, `{player.firm}`만 쓴다.
+- 인스턴스(세이브)는 `{ id, template, turn, deadline_turn, read, answered, auto, thread }`. 마감 턴 `deadline_turn = 도착 턴 + deadline_weeks`는 **답할 수 있는 마지막 턴**이다. 마감 없는 메일은 `null`.
+
+**M1 효과(§10.8) 지원 범위**: `add` · `set` · `mul` · `flag_set` · `flag_clear` · `mail_send` · `cash`. `event_schedule`(M6)과 `modifier_add`는 해당 단계에서 추가하며, 그 전에 데이터에 쓰면 로더가 오류로 알려 준다. M1에서 `target`은 `player`와 `market`만 쓴다(`player` 필드: `reputation` `compliance` `board_confidence` `market_intel`, `market` 필드: `index`).
+
 ### 10.6 용어집 `data/glossary.json`
 ```jsonc
 {
@@ -761,6 +772,7 @@ U   = Σ w_k × score_k
             "weekly_overhead_usd_m": 0.03, "start_market_index": 42, "start_board_confidence": 60,
             "start_reputation": 50, "start_compliance": 70, "start_market_intel": 0,
             "firm_name": "Marina Bay Re Brokers" },
+  "turn": { "deadline_warning_weeks": 1 },
   "market": { "intel_error_k": 12,
               "labels": [ { "max": 25, "label_ko": "매우 소프트" }, { "max": 40, "label_ko": "소프트" },
                           { "max": 60, "label_ko": "중립" }, { "max": 75, "label_ko": "하드" },
@@ -879,7 +891,8 @@ reinsurance-broker-sim/
 │  ├─ anki.js                 # buildAnkiCsv (순수 함수)
 │  ├─ effects.js              # §10.8 연산자 인터프리터
 │  ├─ events.js               # 이벤트 판정·연쇄
-│  ├─ mail.js                 # 템플릿 치환·메일 생성
+│  ├─ mail.js                 # 템플릿 치환·메일 생성 (순수 함수)
+│  ├─ turn.js                 # §2.5 턴 파이프라인(M1: 주 전환·예약 메일·마감 처리·Continue 중단 판정)
 │  ├─ finance.js              # 브로커리지·비용·이사회 평가
 │  ├─ rivals.js               # 라이벌 브로커 시뮬
 │  └─ ui/
