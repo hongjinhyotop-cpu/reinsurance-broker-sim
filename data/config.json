@@ -35,7 +35,21 @@
         "max": 100,
         "label_ko": "매우 하드"
       }
-    ]
+    ],
+    "cycle": {
+      "center": 50,
+      "revert": 0.15,
+      "noise_sd": 2
+    },
+    "family": {
+      "soft_max": 40,
+      "hard_min": 61,
+      "mails": {
+        "soft": "mail_market_shift_soft",
+        "neutral": "mail_market_shift_neutral",
+        "hard": "mail_market_shift_hard"
+      }
+    }
   },
   "turn": {
     "deadline_warning_weeks": 1

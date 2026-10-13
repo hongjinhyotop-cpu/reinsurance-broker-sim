@@ -58,6 +58,13 @@ export function applyEffect(state, effect) {
       // 지연 0주여도 예약 큐에 넣는다. 도착 처리는 turn.js가 한곳에서 한다.
       state.scheduled.push({ turn: state.turn + (effect.delay_weeks ?? 0), kind: 'mail', ref: effect.mail });
       return;
+    case 'event_schedule': {
+      // 발생 판정(조건·once·prob)은 예약을 꺼낼 때 turn.js가 한다(design.md §8.1).
+      const item = { turn: state.turn + effect.delay_weeks, kind: 'event', ref: effect.event };
+      if (effect.prob !== undefined) item.prob = effect.prob;
+      state.scheduled.push(item);
+      return;
+    }
     default:
       throw new Error(`지원하지 않는 연산자: ${effect.op}`);
   }

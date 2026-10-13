@@ -42,6 +42,7 @@ function stat(label, value, sub, title) {
 }
 
 const STOP_TEXT = {
+  event: '큰 사건이 터졌어요 — 인박스를 확인하세요',
   deadline: '답장 마감이 다가와요',
   phase: '갱신 시즌의 새 단계예요',
   end: '마지막 주에 도착했어요',
@@ -54,6 +55,7 @@ function onContinue() {
   const to = describeTurn(calendar, res.toTurn);
   const parts = [`${turnLabel(to)}(턴 ${res.toTurn})로 넘어왔어요`];
   if (res.arrived.length > 0) parts.push(`새 메일 ${res.arrived.length}통`);
+  if (res.events.length > 0) parts.push(`사건 ${res.events.length}건`);
   if (res.autoResolved.length > 0) parts.push(`마감이 지나 자동 처리된 메일 ${res.autoResolved.length}통`);
   if (res.expiredCounters > 0) parts.push(`유효 기간이 지나 사라진 반제 ${res.expiredCounters}건`);
   if (res.stop && STOP_TEXT[res.stop]) parts.push(STOP_TEXT[res.stop]);

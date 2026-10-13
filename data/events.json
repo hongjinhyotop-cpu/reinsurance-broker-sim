@@ -1,0 +1,95 @@
+[
+  {
+    "id": "evt_global_cat_hardening",
+    "category": "market",
+    "trigger": {
+      "window": { "from_turn": 20, "to_turn": 24 },
+      "prob": 1,
+      "once": true,
+      "conditions": []
+    },
+    "effects_on_fire": [
+      { "op": "add", "target": "market", "field": "index", "value": 14 },
+      { "op": "flag_set", "flag": "global_cat_loss" }
+    ],
+    "mail": "mail_evt_global_cat_hardening",
+    "followups": []
+  },
+  {
+    "id": "evt_jurong_explosion",
+    "category": "loss",
+    "trigger": {
+      "window": { "from_turn": 22, "to_turn": 28 },
+      "prob": 0.6,
+      "once": true,
+      "conditions": [ { "type": "flag_absent", "flag": "jurong_loss" } ]
+    },
+    "effects_on_fire": [
+      { "op": "add", "target": "market", "field": "index", "value": 4 },
+      { "op": "flag_set", "flag": "jurong_loss" }
+    ],
+    "mail": "mail_evt_jurong_explosion",
+    "followups": []
+  },
+  {
+    "id": "evt_malacca_collision",
+    "category": "loss",
+    "trigger": {
+      "window": { "from_turn": 34, "to_turn": 42 },
+      "prob": 0.6,
+      "once": true,
+      "conditions": []
+    },
+    "effects_on_fire": [
+      { "op": "flag_set", "flag": "malacca_loss" }
+    ],
+    "mail": "mail_evt_malacca_collision",
+    "followups": []
+  },
+  {
+    "id": "evt_capital_inflow",
+    "category": "market",
+    "trigger": {
+      "window": { "from_turn": 36, "to_turn": 45 },
+      "prob": 0.5,
+      "once": true,
+      "conditions": [ { "type": "market_gte", "value": 62 } ]
+    },
+    "effects_on_fire": [
+      { "op": "add", "target": "market", "field": "index", "value": -9 },
+      { "op": "flag_set", "flag": "capital_inflow" }
+    ],
+    "mail": "mail_evt_capital_inflow",
+    "followups": []
+  },
+  {
+    "id": "evt_sea_local_retention",
+    "category": "sea",
+    "trigger": {
+      "window": { "from_turn": 46, "to_turn": 52 },
+      "prob": 0.5,
+      "once": true,
+      "conditions": []
+    },
+    "effects_on_fire": [
+      { "op": "flag_set", "flag": "sea_local_retention" }
+    ],
+    "mail": "mail_evt_sea_local_retention",
+    "followups": []
+  },
+  {
+    "id": "evt_monsoon_flood_my",
+    "category": "loss",
+    "trigger": {
+      "window": { "from_turn": 52, "to_turn": 58 },
+      "prob": 0.7,
+      "once": true,
+      "conditions": []
+    },
+    "effects_on_fire": [
+      { "op": "flag_set", "flag": "monsoon_flood" }
+    ],
+    "mail": "mail_evt_monsoon_flood_my",
+    "followups": []
+  }
+]

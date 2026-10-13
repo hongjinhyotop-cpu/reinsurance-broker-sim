@@ -381,5 +381,464 @@
       "turn": 7
     },
     "choices": []
+  },
+  {
+    "id": "mail_market_shift_hard",
+    "type": "market_report",
+    "from": {
+      "kind": "market",
+      "name_ko": "시장 리포트 데스크"
+    },
+    "subject_ko": "[시장 리포트] 시장이 단단해졌습니다 — 현재 {market.label}",
+    "body_ko": [
+      "{turn.label} 시장 리포트입니다. 지난 몇 주 사이 재보험 시장의 공기가 바뀌었습니다. 현재 시장 온도는 '{market.label}'입니다.",
+      "재보험사들이 가격을 쉽게 내주지 않고, 같은 물건에도 맡겠다는 몫이 눈에 띄게 줄었습니다. 라인 구성 보드에서 이전과 같은 가격으로도 채울 수 있는 지분이 작아졌다는 뜻입니다.",
+      "고객은 이 사실을 바로 받아들이지 못합니다. 기대를 미리 조율하지 않으면 시즌 막판에 곤란해집니다. 리포트는 어디까지나 어제의 이야기라는 점도 잊지 마십시오."
+    ],
+    "priority": "normal",
+    "blocking": false,
+    "choices": []
+  },
+  {
+    "id": "mail_market_shift_soft",
+    "type": "market_report",
+    "from": {
+      "kind": "market",
+      "name_ko": "시장 리포트 데스크"
+    },
+    "subject_ko": "[시장 리포트] 시장이 느슨해졌습니다 — 현재 {market.label}",
+    "body_ko": [
+      "{turn.label} 시장 리포트입니다. 재보험 시장에 여유 용량이 다시 넘치기 시작했습니다. 현재 시장 온도는 '{market.label}'입니다.",
+      "재보험사들이 앞다퉈 자리를 채우려 하니 가격이 내려가고 맡겠다는 몫도 넉넉해집니다. 반대로 고객은 이 소식을 먼저 알고 더 큰 폭의 인하를 기대하기 쉽습니다.",
+      "싸게 구했다고 안심하는 순간 다음 해에 되돌려 받는 것이 이 업계의 오래된 버릇입니다. 지금 좋은 조건에는 지금만의 사정이 있다는 점을 기억하십시오."
+    ],
+    "priority": "normal",
+    "blocking": false,
+    "choices": []
+  },
+  {
+    "id": "mail_market_shift_neutral",
+    "type": "market_report",
+    "from": {
+      "kind": "market",
+      "name_ko": "시장 리포트 데스크"
+    },
+    "subject_ko": "[시장 리포트] 시장이 균형을 되찾았습니다 — 현재 {market.label}",
+    "body_ko": [
+      "{turn.label} 시장 리포트입니다. 한쪽으로 쏠려 있던 재보험 시장이 균형 쪽으로 돌아왔습니다. 현재 시장 온도는 '{market.label}'입니다.",
+      "어느 한쪽이 일방적으로 유리하지 않은 시기라 협상이 가장 정직하게 돌아갑니다. 준비한 만큼, 그리고 상대를 아는 만큼 결과가 나옵니다.",
+      "이런 때일수록 잔재주보다 기본기가 힘을 씁니다."
+    ],
+    "priority": "low",
+    "blocking": false,
+    "choices": []
+  },
+  {
+    "id": "mail_evt_global_cat_hardening",
+    "type": "event",
+    "from": {
+      "kind": "reinsurer",
+      "name_ko": "알펜글로우 리 언더라이터 (가상)"
+    },
+    "subject_ko": "[통보] 환태평양 지진 손실 — 당사 용량 정책 재검토",
+    "body_ko": [
+      "알펜글로우 리 언더라이터입니다. 환태평양 지진의 잠정 손실이 오늘 아침 본사에 올라왔습니다. 짧게 말씀드리겠습니다.",
+      "본사가 전 세계 용량 정책을 다시 보고 있습니다. 당장 저희 라인이 사라지는 것은 아닙니다. 다만 앞으로 나가는 견적에는 이 사건이 들어간다고 보시면 됩니다. 저희만의 이야기가 아닙니다. 시장 전체가 단단해질 것입니다.",
+      "시장 분위기는 한 단계 단단한 쪽으로 움직일 것으로 보고 있습니다. 자세한 내용은 서면으로 정리해 따로 보내겠습니다. 이상입니다."
+    ],
+    "priority": "normal",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "watch",
+    "choices": [
+      {
+        "id": "brief_clients",
+        "label_ko": "고객들에게 시장이 바뀌고 있다고 먼저 설명 메일을 돌린다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": 3
+          },
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "relationship",
+            "value": 2
+          },
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": 2
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 1
+          }
+        ],
+        "result_ko": "세 고객 모두 '미리 알려 줘서 고맙다'는 짧은 답을 보내왔습니다. 가격 기대를 낮추는 일이 한결 수월해졌고, 평판도 조금 올랐습니다."
+      },
+      {
+        "id": "sound_out",
+        "label_ko": "재보험사 몇 곳에 전화를 돌려 분위기를 직접 확인한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "player",
+            "field": "market_intel",
+            "value": 10
+          }
+        ],
+        "result_ko": "통화마다 말투는 달랐지만 방향은 같았습니다. 시장을 읽는 눈이 좋아졌고, 상단의 시장 오차 범위가 줄어듭니다."
+      },
+      {
+        "id": "watch",
+        "label_ko": "서면 통보를 기다리며 지켜본다",
+        "ap_cost": 0,
+        "effects": [],
+        "result_ko": "서면이 올 때까지 기다리기로 했습니다. 점수는 아꼈지만, 고객들은 시장 소식을 다른 경로로 먼저 들을 수도 있습니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_jurong_explosion",
+    "type": "event",
+    "from": {
+      "kind": "client",
+      "name_ko": "주롱 크레스트 손해보험 CRO (가상)"
+    },
+    "subject_ko": "[긴급] 주롱섬 단지 사고 통지 — 오늘 안에 회신 부탁드립니다",
+    "body_ko": [
+      "탄 웨이밍입니다. 오늘 새벽 주롱섬 단지에서 폭발과 화재가 있었고, 저희 인수 물건이 있는 구역입니다. 아직 손실 범위를 확정하지 못했습니다. 현장 확인이 끝나는 대로 표로 정리하려는데, 솔직히 지금은 전화가 끊이지 않아 엑셀을 열 틈도 없습니다.",
+      "재보험사들에 손해 통지를 어떤 순서로, 누구에게 먼저 해야 하는지 브로커의 의견이 필요합니다. 이사회에 오전 중으로 첫 보고를 올려야 하는데 '무엇을 아직 모르는지'까지 정리해서 가야 하거든요.",
+      "이런 날은 누가 곁에 있어 주는지 오래 기억하게 되더군요. 부탁드립니다."
+    ],
+    "priority": "urgent",
+    "blocking": true,
+    "deadline_weeks": 2,
+    "default_choice": "notice_only",
+    "choices": [
+      {
+        "id": "assist",
+        "label_ko": "현장 손해사정에 동행하고, 재보험사 통지를 직접 이끈다",
+        "ap_cost": 3,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "relationship",
+            "value": 8
+          },
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "scout.loyalty",
+            "value": 6
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 2
+          }
+        ],
+        "result_ko": "탄 웨이밍이 한숨을 돌리며 깊이 고마워했습니다. 정리된 보고서를 받은 이사회도 조용해졌다고 합니다. 관계가 크게 두터워졌고 평판도 올랐습니다."
+      },
+      {
+        "id": "guide",
+        "label_ko": "통지 절차 안내서를 보내고, 필요하면 언제든 전화하라고 한다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "relationship",
+            "value": 2
+          }
+        ],
+        "result_ko": "안내서는 요긴하게 쓰였지만 '곁에 와 줄 줄 알았는데'라는 아쉬움이 짧은 답장에 묻어났습니다. 관계는 조금 나아졌을 뿐입니다."
+      },
+      {
+        "id": "notice_only",
+        "label_ko": "공식 통지서만 전달하고 추이를 지켜본다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_jurong_crest",
+            "field": "relationship",
+            "value": -5
+          }
+        ],
+        "result_ko": "형식은 갖췄지만 고객은 대응이 느리다고 느꼈습니다. 답장이 평소보다 눈에 띄게 차가워졌습니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_malacca_collision",
+    "type": "event",
+    "from": {
+      "kind": "client",
+      "name_ko": "스트레이츠 포트 마린 CFO (가상)"
+    },
+    "subject_ko": "[긴급] 말라카 야드 화재 — 얼마나 걸립니까",
+    "body_ko": [
+      "메논입니다. 말라카 해협 충돌 사고로 항만 야드에 컨테이너 화재. 우리 물건이 한 곳에 몰려 있어서 손실이 한꺼번에 겹칩니다.",
+      "재보험사들한테 뭐라고 할 겁니까. 숫자는 이쪽이 정리합니다. 그쪽은 누구에게 어떻게 말할지만 정해 주세요.",
+      "오늘 안에 답 주세요."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "formal_only",
+    "choices": [
+      {
+        "id": "take_lead",
+        "label_ko": "재보험사 통지를 직접 이끌고, 몰린 손실의 성격을 대신 설명한다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": 6
+          },
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "scout.loyalty",
+            "value": 5
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 1
+          }
+        ],
+        "result_ko": "'좋습니다. 그렇게 하세요.' 한 줄이 돌아왔습니다. 메논이 이 정도 말을 한다면 꽤 만족한 것입니다. 관계가 두터워졌습니다."
+      },
+      {
+        "id": "formal_only",
+        "label_ko": "공식 통지문만 전달한다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_straits_port",
+            "field": "relationship",
+            "value": -3
+          }
+        ],
+        "result_ko": "답장은 '알겠습니다' 한마디였습니다. 불만이 있어도 길게 말하지 않는 사람이라 오히려 신경 쓰입니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_capital_inflow",
+    "type": "event",
+    "from": {
+      "kind": "reinsurer",
+      "name_ko": "칼랑 리 트리티 언더라이팅 헤드 (가상)"
+    },
+    "subject_ko": "좋은 소식이에요! 시장에 새 자본이 들어오고 있어요",
+    "body_ko": [
+      "안녕하세요, 칼랑 리 추메이링이에요. 요즘 표정이 많이 굳어 계셨을 것 같아서 반가운 소식부터 전해요.",
+      "연기금이랑 대체자본 쪽에서 줄줄이 들어오고 있어요. 공급이 늘면서 저희 쪽 분위기도 한결 풀렸고요. 협상 자리에서 숨통이 좀 트일 거예요.",
+      "시간 되시면 차 한잔해요. 제가 요즘 본 흐름도 들려 드릴게요."
+    ],
+    "priority": "normal",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "thanks",
+    "choices": [
+      {
+        "id": "tea",
+        "label_ko": "칼랑 리와 차 한잔하며 새로 들어온 자본이 어떤 곳인지 듣는다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "add",
+            "target": "reinsurer:re_kallang",
+            "field": "relationship",
+            "value": 4
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "market_intel",
+            "value": 6
+          }
+        ],
+        "result_ko": "수다 반, 정보 반의 즐거운 시간이었습니다. 새 자본이 어디서 왔는지 감이 잡혔고, 칼랑 리와는 한결 편해졌습니다."
+      },
+      {
+        "id": "thanks",
+        "label_ko": "고맙다고 짧게 답장하고 넘어간다",
+        "ap_cost": 0,
+        "effects": [],
+        "result_ko": "'언제든 연락해요!'라는 밝은 답이 왔습니다. 점수는 아꼈습니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_monsoon_flood_my",
+    "type": "event",
+    "from": {
+      "kind": "client",
+      "name_ko": "누산타라 무티아라 타카풀 리타카풀 총괄 (가상)"
+    },
+    "subject_ko": "[말씀드립니다] 몬순 홍수로 청구가 한꺼번에 들어오고 있습니다",
+    "body_ko": [
+      "안녕하세요, 파라 아지즈입니다. 가족분들도 모두 평안하신지요. 이렇게 먼저 연락드리게 되어 마음이 무겁습니다.",
+      "이번 몬순 홍수로 말레이시아와 인도네시아 쪽 가입자분들의 청구가 한꺼번에 들어오고 있습니다. 올해 숫자가 많이 힘들어질 듯합니다. 샤리아 위원회에도 상황을 보고드려야 하는데, 어디서부터 말씀드려야 할지 아직 정리가 안 되었습니다.",
+      "재타카풀 파트너분들이 이런 때 저희를 어떻게 대해 주시는지, 저는 지켜볼 수밖에 없습니다. 서두르시라는 뜻은 아닙니다. 다만 곁에서 함께해 주신다면 오래 잊지 않겠습니다."
+    ],
+    "priority": "urgent",
+    "blocking": false,
+    "deadline_weeks": 2,
+    "default_choice": "no_reply",
+    "choices": [
+      {
+        "id": "letters",
+        "label_ko": "누르와 칼랑에 지원 서신을 부탁하고, 현지 상황을 직접 챙긴다",
+        "ap_cost": 3,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": 6
+          },
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "scout.loyalty",
+            "value": 5
+          },
+          {
+            "op": "add",
+            "target": "reinsurer:re_nur",
+            "field": "relationship",
+            "value": 4
+          },
+          {
+            "op": "add",
+            "target": "reinsurer:re_kallang",
+            "field": "relationship",
+            "value": 3
+          },
+          {
+            "op": "add",
+            "target": "player",
+            "field": "reputation",
+            "value": 1
+          }
+        ],
+        "result_ko": "두 재타카풀사의 위로 서신이 며칠 사이 도착했습니다. 파라 아지즈가 '이 일은 오래 기억하겠습니다'라고 답했습니다. 고객과 두 재보험사 모두와 가까워졌습니다."
+      },
+      {
+        "id": "condolence",
+        "label_ko": "위로의 뜻을 전하고, 청구 처리 절차를 정리해 보낸다",
+        "ap_cost": 1,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": 3
+          }
+        ],
+        "result_ko": "정리된 절차에 감사하다는 정중한 답이 왔습니다. 고마워하지만 한편으로는 조금 더 가까이 와 주기를 바라는 기색도 느껴집니다."
+      },
+      {
+        "id": "no_reply",
+        "label_ko": "당장은 답하지 않고 상황을 지켜본다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": -4
+          }
+        ],
+        "result_ko": "별다른 항의는 없었지만, 이후 연락이 눈에 띄게 줄었습니다. 서운함은 말로 하지 않는 사람입니다."
+      }
+    ]
+  },
+  {
+    "id": "mail_evt_sea_local_retention",
+    "type": "event",
+    "from": {
+      "kind": "reinsurer",
+      "name_ko": "두네스 크레센트 리타카풀 CUO (가상)"
+    },
+    "subject_ko": "[참고] 인도네시아 당국의 국내 재보험 출재 확대 움직임",
+    "body_ko": [
+      "두네스 크레센트 하다드입니다. 인도네시아 당국이 국내 재보험사 출재를 늘리는 방향으로 움직이고 있다는 소식입니다. 아직 초안이지만 방향은 분명합니다.",
+      "누산타라 같은 그룹은 다음 갱신에서 현지 몫을 일정 부분 떼어 달라는 요구를 받을 가능성이 높습니다. 지금 패널 구성이 그대로 갈 수 없다는 뜻입니다. 저희도 영향을 받습니다.",
+      "대비는 빠를수록 좋습니다. 이상입니다."
+    ],
+    "priority": "normal",
+    "blocking": false,
+    "deadline_weeks": 3,
+    "default_choice": "wait_and_see",
+    "choices": [
+      {
+        "id": "probe_local",
+        "label_ko": "현지 재보험사와 손을 잡을 수 있는지 먼저 타진해 둔다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "flag_set",
+            "flag": "sea_response_partner"
+          },
+          {
+            "op": "add",
+            "target": "reinsurer:re_dunes_crescent",
+            "field": "relationship",
+            "value": 3
+          }
+        ],
+        "result_ko": "현지 쪽에서 대화에 응할 의사를 비쳤습니다. 다음 갱신에서 한 자리를 내줄 준비가 시작됐습니다. 두네스 크레센트의 하다드도 '빠르시군요'라고 짧게 적었습니다."
+      },
+      {
+        "id": "defend_panel",
+        "label_ko": "지금 패널의 강점을 정리해서 누산타라에 먼저 설명한다",
+        "ap_cost": 2,
+        "effects": [
+          {
+            "op": "flag_set",
+            "flag": "sea_response_defend"
+          },
+          {
+            "op": "add",
+            "target": "client:cli_nusantara",
+            "field": "relationship",
+            "value": 4
+          }
+        ],
+        "result_ko": "파라 아지즈가 '샤리아 위원회와도 같이 보겠습니다'라며 반겼습니다. 패널을 지키는 쪽으로 힘이 실렸지만, 당국의 방향이 굳어지면 한계가 있을 것입니다."
+      },
+      {
+        "id": "wait_and_see",
+        "label_ko": "초안이 확정될 때까지 지켜본다",
+        "ap_cost": 0,
+        "effects": [
+          {
+            "op": "flag_set",
+            "flag": "sea_response_watch"
+          }
+        ],
+        "result_ko": "아직 확정되지 않은 일에 힘을 쏟지 않기로 했습니다. 점수는 아꼈지만, 변화가 오면 대비 없이 맞게 됩니다."
+      }
+    ]
   }
 ]
