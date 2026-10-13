@@ -1,0 +1,218 @@
+[
+  {
+    "id": "cli_jurong_crest",
+    "name": "Jurong Crest General Insurance",
+    "name_ko": "주롱 크레스트 손해보험",
+    "kind": "local_insurer",
+    "hq": "Singapore",
+    "profile": {
+      "gwp_usd_m": 180,
+      "rating": "A-",
+      "lines": [
+        "property_energy"
+      ],
+      "contact": {
+        "name": "Tan Wei Ming",
+        "title": "Chief Risk Officer",
+        "style": "analytical"
+      },
+      "intro_ko": "주롱섬 정유·석유화학 공장 물건을 주로 받는 싱가포르 손해보험사예요. CRO 탄 웨이밍은 회의마다 엑셀 출력본을 들고 오고, 첫 질문은 늘 \"작년이랑 뭐가 달라졌나요?\"예요. 이사회에 설명할 수 있는 숫자만 믿는 분이에요."
+    },
+    "hidden": {
+      "conservatism": 72,
+      "price_sensitivity": 55,
+      "loyalty": 68
+    },
+    "initial": {
+      "relationship": 55,
+      "scout": {
+        "conservatism": 10,
+        "price_sensitivity": 20,
+        "loyalty": 20
+      }
+    },
+    "scout_notes": [
+      {
+        "attr": "conservatism",
+        "min_scout": 25,
+        "text_ko": "\"패널은 가급적 그대로 가져가고 싶습니다.\" 지난 3년간 재보험사 구성이 한 번도 바뀌지 않았다."
+      },
+      {
+        "attr": "conservatism",
+        "min_scout": 60,
+        "text_ko": "신규 재보험사를 소개하면 늘 \"내부 위원회 심사가 필요합니다\"라고 답한다. 심사 일정은 한 번도 먼저 잡지 않았다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 25,
+        "text_ko": "첫 미팅에서 작년 대비 인하 폭부터 물었다. 그러면서 \"무리한 요구는 아니고요\"라고 덧붙였다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 60,
+        "text_ko": "이사회 보고용 비교표를 직접 만들어 온다. 가격이 비슷하면 절차가 더 단순한 쪽을 고른다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 25,
+        "text_ko": "담당 브로커가 바뀌어도 불평하지 않았다. 다만 이전 담당자 이야기를 두 번 꺼냈다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 60,
+        "text_ko": "지난 대형 손실 때 곁을 지켜 준 브로커 이름을 아직도 정확히 기억한다. 그런데 새 인물에게 마음을 여는 데는 시간이 걸린다."
+      }
+    ],
+    "requirements": {
+      "min_rating": "A-",
+      "max_single_share": 0.35,
+      "preferred_terms": "standard",
+      "shariah_required": false,
+      "shariah_conventional_cap": null
+    }
+  },
+  {
+    "id": "cli_straits_port",
+    "name": "Straits Port Marine Assurance",
+    "name_ko": "스트레이츠 포트 마린",
+    "kind": "marine_specialist",
+    "hq": "Singapore",
+    "profile": {
+      "gwp_usd_m": 120,
+      "rating": "BBB+",
+      "lines": [
+        "marine_cargo"
+      ],
+      "contact": {
+        "name": "Rajiv Menon",
+        "title": "Chief Financial Officer",
+        "style": "blunt"
+      },
+      "intro_ko": "항만 해상화물과 선박 물건을 박리다매로 굴리는 전문 보험사예요. CFO 라지브 메논은 전화를 받자마자 \"그래서 얼마요?\"부터 묻는 스타일이고, 명함은 이번 분기에 또 바뀌었어요. 말은 빠르고 메일은 세 줄을 넘기지 않아요."
+    },
+    "hidden": {
+      "conservatism": 35,
+      "price_sensitivity": 88,
+      "loyalty": 30
+    },
+    "initial": {
+      "relationship": 40,
+      "scout": {
+        "conservatism": 10,
+        "price_sensitivity": 15,
+        "loyalty": 10
+      }
+    },
+    "scout_notes": [
+      {
+        "attr": "conservatism",
+        "min_scout": 25,
+        "text_ko": "새 재보험사를 소개하자 \"조건만 맞으면 누구든 좋습니다\"라고 했다. 이름은 묻지 않았다."
+      },
+      {
+        "attr": "conservatism",
+        "min_scout": 60,
+        "text_ko": "최근 두 해 동안 패널의 절반이 바뀌었는데도 아무도 이유를 설명하지 않았다. 바꾸는 데 부담이 없는 사람이다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 25,
+        "text_ko": "첫 마디가 \"그래서 얼마요?\"였다. 서류는 가격 페이지부터 넘겨 본다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 60,
+        "text_ko": "1% 차이로 거래 상대를 바꾼 적이 몇 번 있다고 자랑하듯 말했다. 좋은 서비스 이야기에는 시계를 봤다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 25,
+        "text_ko": "\"저희 쪽 브로커는 계속 바뀌어요. 저도 그렇고요.\" 웃으며 한 말이다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 60,
+        "text_ko": "경쟁 브로커의 견적서를 책상에 펼쳐 둔 채 미팅을 시작한다. 지난 사고 때 도와준 곳이 어디인지는 기억하지 못했다."
+      }
+    ],
+    "requirements": {
+      "min_rating": "BBB+",
+      "max_single_share": 0.5,
+      "preferred_terms": "standard",
+      "shariah_required": false,
+      "shariah_conventional_cap": null
+    }
+  },
+  {
+    "id": "cli_nusantara",
+    "name": "Nusantara Mutiara Takaful",
+    "name_ko": "누산타라 무티아라 타카풀",
+    "kind": "takaful_group",
+    "hq": "Kuala Lumpur",
+    "profile": {
+      "gwp_usd_m": 90,
+      "rating": "A-",
+      "lines": [
+        "takaful_general"
+      ],
+      "contact": {
+        "name": "Farah Aziz",
+        "title": "Head of Retakaful",
+        "style": "courteous"
+      },
+      "intro_ko": "말레이시아·인도네시아 원보험 그룹의 타카풀 자회사예요. 리타카풀 총괄 파라 아지즈는 회의 전에 가족 안부부터 묻고, 결정은 \"샤리아 위원회와 상의하겠습니다\"로 마무리해요. 서두르면 오히려 멀어지는 곳이에요."
+    },
+    "hidden": {
+      "conservatism": 60,
+      "price_sensitivity": 42,
+      "loyalty": 85
+    },
+    "initial": {
+      "relationship": 35,
+      "scout": {
+        "conservatism": 10,
+        "price_sensitivity": 10,
+        "loyalty": 15
+      }
+    },
+    "scout_notes": [
+      {
+        "attr": "conservatism",
+        "min_scout": 25,
+        "text_ko": "새 구조를 제안하자 \"위원회에 올려 보겠습니다\"라고 했다. 즉답은 한 번도 없었다."
+      },
+      {
+        "attr": "conservatism",
+        "min_scout": 60,
+        "text_ko": "조건이 맞아도 위원회 일정이 잡히기 전에는 다음 단계로 가지 않는다. 한 번 승인된 구조는 오래 유지한다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 25,
+        "text_ko": "가격 이야기는 미팅 마지막 5분에 나왔다. 그것도 상대가 먼저 꺼낸 뒤였다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 60,
+        "text_ko": "더 싼 견적을 보여 줘도 반응이 크지 않았다. 샤리아 적합성 확인서 이야기에 훨씬 오래 머물렀다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 25,
+        "text_ko": "미팅 때마다 지난번에 나눈 사소한 이야기를 먼저 꺼낸다. 아이 학교 이야기까지 기억한다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 60,
+        "text_ko": "라마단 기간에도 먼저 안부 메일을 보내 온다. 손실이 났던 해에도 담당 브로커를 바꾸지 않았다."
+      }
+    ],
+    "requirements": {
+      "min_rating": "A-",
+      "max_single_share": 0.4,
+      "preferred_terms": "standard",
+      "shariah_required": true,
+      "shariah_conventional_cap": 0.2
+    }
+  }
+]

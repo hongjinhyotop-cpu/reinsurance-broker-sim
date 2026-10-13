@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (rng · calendar · market · loader · store · mail · effects · turn)</h1>
+  <h1>테스트 (rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -31,6 +31,9 @@
     import { applyEffects } from '../js/effects.js';
     import * as turn from '../js/turn.js';
     import * as store from '../js/store.js';
+    import { revealAttr, stageOf, labelOf, awareness, ATTRS } from '../js/reveal.js';
+    import { applyMeeting, relationshipAfterMeeting, unlockedNotes, newlyUnlocked, TOPICS } from '../js/scouting.js';
+    import { validateClients, validateReinsurers } from '../js/loader.js';
 
     // ---------- 미니 러너 ----------
     const tests = [];
@@ -205,11 +208,12 @@
         const r = map[name]; if (r instanceof Error) throw r;
         return { ok: r.status === 200, status: r.status, json: async () => JSON.parse(r.body) };
       };
-      const res = await loadData({ fetchFn: fake({ 'mails.json': { status: 200, body: '[]' }, 'config.json': { status: 404 }, 'calendar.json': { status: 200, body: '{ "turns": ' } }) });
+      const ent = { 'clients.json': { status: 200, body: JSON.stringify(data.clients) }, 'reinsurers.json': { status: 200, body: JSON.stringify(data.reinsurers) } };
+      const res = await loadData({ fetchFn: fake({ ...ent, 'mails.json': { status: 200, body: '[]' }, 'config.json': { status: 404 }, 'calendar.json': { status: 200, body: '{ "turns": ' } }) });
       check(!res.ok); eq(res.errors.length, 2);
       check(res.errors[0].message.includes('config.json') && res.errors[0].message.includes('HTTP 404'), res.errors[0].message);
       check(res.errors[1].message.includes('calendar.json') && res.errors[1].message.includes('JSON 문법'), res.errors[1].message);
-      const net = await loadData({ fetchFn: fake({ 'mails.json': { status: 200, body: '[]' }, 'config.json': new TypeError('Failed to fetch'), 'calendar.json': { status: 200, body: '{}' } }) });
+      const net = await loadData({ fetchFn: fake({ ...ent, 'mails.json': { status: 200, body: '[]' }, 'config.json': new TypeError('Failed to fetch'), 'calendar.json': { status: 200, body: '{}' } }) });
       check(!net.ok && has(net.errors, 'Failed to fetch'));
     });
 
@@ -218,9 +222,10 @@
 
     test('store: 새 게임의 모양이 설계(§10.9)와 시작값(config)을 따른다', () => {
       fresh(); const s = store.newGame({ seed: 777 });
-      eq(s.version, 1); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
+      eq(s.version, 2); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
       eq(s.player, { firm: 'Marina Bay Re Brokers', cash_usd_m: 1, reputation: 50, compliance: 70, board_confidence: 60, market_intel: 0, flags: [] });
-      eq(s.market, { index: 42 }); eq(s.entities, { clients: {}, reinsurers: {} });
+      eq(s.market, { index: 42 });
+      eq(Object.keys(s.entities.clients), data.clients.map((c) => c.id)); eq(Object.keys(s.entities.reinsurers), data.reinsurers.map((r) => r.id));
       eq([s.treaties, s.mails, s.scheduled, s.fired_events, s.modifiers, s.log], [{}, [], [], [], [], []]);
       eq(store.validateState(s), []);
     });
@@ -288,7 +293,7 @@
       fresh(); store.newGame({ seed: 9 }); const base = clone(store.getState());
       const parse = (v) => { const s = clone(base); if (v === undefined) delete s.version; else s.version = v; return store.parseSave(JSON.stringify(s)); };
       for (const v of [undefined, 0, 1.5, '1', null]) check(!parse(v).ok, `version ${String(v)}`);
-      const future = parse(2); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
+      const future = parse(3); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
     });
     test('store: 마이그레이션 체인 (v1→v2→v3), 규칙 누락·실패 처리', () => {
       const raw = { version: 1, x: 1 };
@@ -296,7 +301,7 @@
       check(ok.ok); eq([ok.state.version, ok.state.a, ok.state.b], [3, 1, 2]);
       check(!store.migrate(raw, { current: 3, migrations: { 1: (s) => s } }).ok, '규칙 누락');
       check(!store.migrate(raw, { current: 2, migrations: { 1: () => null } }).ok, '변환 실패');
-      eq(store.SAVE_VERSION, 1); eq(store.migrate({ version: 1 }).ok, true);
+      eq(store.SAVE_VERSION, 2); eq(store.migrate({ version: 1 }).ok, true);
     });
     test('store: __proto__ 키가 든 세이브를 가져와도 오염되지 않는다', () => {
       fresh(); store.newGame({ seed: 4 });
@@ -493,6 +498,196 @@
       check(bad((c) => { c.mails[0].read = 'yes'; }).length === 1);
       check(bad((c) => { delete c.mails[0].auto; }).length === 1);
       check(bad((c) => { c.scheduled.push({ turn: 'x' }); }).length === 1);
+    });
+
+
+    // ---------- reveal (숨은 속성 → 단계·범위·라벨) ----------
+    const sc = data?.config.scouting;
+    const rv = (value, s, extra = {}) => revealAttr({ value, s, entityId: 'cli_x', attr: 'loyalty', seed: 7, ...extra }, sc);
+
+    test('reveal: 단계 경계 — 14는 미확인, 15 흐림, 45 선명, 85 확정', () => {
+      eq([14, 15, 44, 45, 84, 85, 100].map((s) => stageOf(s, sc)), ['unknown', 'blurred', 'blurred', 'sharp', 'sharp', 'exact', 'exact']);
+    });
+    test('reveal: 미확인이면 숫자를 하나도 돌려주지 않는다', () => {
+      const r = rv(72, 14);
+      eq(r, { stage: 'unknown', lo: null, hi: null, label: null, exact: null });
+      check(!JSON.stringify(r).includes('72'));
+    });
+    test('reveal: 실제 값은 흐림·선명 범위 안에 항상 들어 있다(전 값 스캔)', () => {
+      for (let v = 0; v <= 100; v += 5) {
+        for (let s = 15; s < 85; s += 5) {
+          const r = rv(v, s, { entityId: `e${v}` });
+          check(r.lo <= v && v <= r.hi && r.lo >= 0 && r.hi <= 100, `v=${v} s=${s} → ${r.lo}~${r.hi}`);
+        }
+      }
+    });
+    test('reveal: s가 오를수록 범위 폭이 줄고 같은 입력이면 같은 범위(jitter 고정)', () => {
+      const a = rv(50, 20), b = rv(50, 50), c = rv(50, 80);
+      check(a.hi - a.lo > b.hi - b.lo && b.hi - b.lo > c.hi - c.lo, `${a.hi - a.lo}/${b.hi - b.lo}/${c.hi - c.lo}`);
+      eq(rv(50, 20), a);
+      check(rv(50, 20, { seed: 8 }).lo !== a.lo || rv(50, 20, { seed: 9 }).lo !== a.lo, '시드가 다르면 범위도 달라질 수 있어야 해요');
+    });
+    test('reveal: 설계 오차표 — s=15 ±26, 45 ±17, 70 ±9, 84 ±5 (jitter 0일 때의 폭)', () => {
+      const w = (s) => { const r = revealAttr({ value: 50, s, entityId: 'z', attr: 'a', seed: 1 }, { ...sc, jitter_ratio: 0 }); return (r.hi - r.lo) / 2; };
+      eq([w(15), w(45), w(70), w(84)], [26, 17, 9, 5]);
+    });
+    test('reveal: 확정이면 정확한 값과 라벨', () => {
+      const r = rv(72, 90); eq([r.stage, r.exact, r.lo, r.hi, r.label], ['exact', 72, 72, 72, 'high']);
+    });
+    test('reveal: 라벨 — 범위 전체가 한 구간에 들어올 때만 낮음/보통/높음, 아니면 불명', () => {
+      eq(labelOf(10, 34, sc), 'low'); eq(labelOf(35, 65, sc), 'mid'); eq(labelOf(66, 90, sc), 'high');
+      eq(labelOf(20, 50, sc), 'unclear'); eq(labelOf(30, 70, sc), 'unclear'); eq(labelOf(0, 100, sc), 'unclear');
+    });
+    test('reveal: 파악도는 세 속성 평균', () => { eq(awareness({ conservatism: 10, price_sensitivity: 20, loyalty: 30 }), 20); });
+
+    // ---------- scouting (스카우트 값 증가·단서 해금) ----------
+    test('scouting: 주제 속성은 +16, 나머지는 +5에 체감(1 − s/120)이 곱해진다', () => {
+      const r = applyMeeting({ conservatism: 12, price_sensitivity: 12, loyalty: 12 }, 'loyalty', sc);
+      eq(r, { conservatism: 16.5, price_sensitivity: 16.5, loyalty: 26.4 });
+    });
+    test('scouting: 일반 주제는 세 속성 모두 +5, 100을 넘지 않고 원본을 바꾸지 않는다', () => {
+      const src = { conservatism: 10, price_sensitivity: 99.9, loyalty: 50 };
+      const r = applyMeeting(src, 'general', sc);
+      eq(r.conservatism, 14.6); check(r.price_sensitivity <= 100); eq(src.conservatism, 10);
+      let s = { conservatism: 99, price_sensitivity: 99, loyalty: 99 };
+      for (let i = 0; i < 20; i++) s = applyMeeting(s, 'conservatism', sc);
+      check(ATTRS.every((a) => s[a] <= 100));
+    });
+    test('scouting: 모르는 주제는 거부', () => {
+      let threw = false; try { applyMeeting({ conservatism: 0, price_sensitivity: 0, loyalty: 0 }, 'x', sc); } catch { threw = true; }
+      check(threw); eq(TOPICS, ['general', 'conservatism', 'price_sensitivity', 'loyalty']);
+    });
+    test('scouting: 관계도는 오를수록 덜 오르고 100을 넘지 않는다', () => {
+      const lo = relationshipAfterMeeting(10, sc) - 10, hi = relationshipAfterMeeting(90, sc) - 90;
+      check(lo > hi && hi > 0, `${lo} ${hi}`); check(relationshipAfterMeeting(100, sc) <= 100);
+    });
+    test('scouting: 단서 해금 — 문턱 이상이면 읽히고, 이번 미팅에서 처음 넘은 것만 새 단서', () => {
+      const notes = [{ attr: 'loyalty', min_scout: 25 }, { attr: 'loyalty', min_scout: 60 }, { attr: 'conservatism', min_scout: 25 }];
+      const before = { conservatism: 20, price_sensitivity: 0, loyalty: 30 }, after = { conservatism: 26, price_sensitivity: 0, loyalty: 31 };
+      eq(unlockedNotes(notes, after).length, 2);
+      eq(newlyUnlocked(notes, before, after), [notes[2]]);
+    });
+    test('scouting: 계수 검증 — 세 속성 모두 선명(≥45)까지 평균 5회 안팎(4~6회), 확정까지는 훨씬 더 걸린다', () => {
+      const all = [...data.clients, ...data.reinsurers];
+      const counts = all.map((e) => {
+        let s = { ...e.initial.scout }, n = 0;
+        while (Math.min(...ATTRS.map((a) => s[a])) < sc.stage_thresholds.sharp && n < 50) {
+          const lowest = ATTRS.reduce((m, a) => (s[a] < s[m] ? a : m), ATTRS[0]); // 가장 낮은 속성을 주제로 고른다
+          s = applyMeeting(s, lowest, sc); n++;
+        }
+        return n;
+      });
+      const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
+      check(counts.every((n) => n >= 3 && n <= 7), `회수 ${counts}`);
+      check(avg >= 4 && avg <= 6, `평균 ${avg} (${counts})`);
+    });
+
+    // ---------- 고객·재보험사 데이터 ----------
+    test('데이터: 고객 3·재보험사 4, 단서 메모는 엔티티당 6줄(총 42줄)이고 [[ ]] 마크업이 없다', () => {
+      eq([data.clients.length, data.reinsurers.length], [3, 4]);
+      const all = [...data.clients, ...data.reinsurers];
+      check(all.every((e) => e.scout_notes.length === 6), '엔티티당 6줄');
+      eq(all.reduce((n, e) => n + e.scout_notes.length, 0), 42);
+      check(!JSON.stringify(all).includes('[['));
+    });
+    test('데이터: 설계 §1.4의 숨은 속성값', () => {
+      const h = (list) => Object.fromEntries(list.map((e) => [e.id, ATTRS.map((a) => e.hidden[a])]));
+      eq(h(data.clients), { cli_jurong_crest: [72, 55, 68], cli_straits_port: [35, 88, 30], cli_nusantara: [60, 42, 85] });
+      eq(h(data.reinsurers), { re_alpenglow: [78, 70, 40], re_kallang: [50, 45, 80], re_thames_quay: [25, 85, 20], re_nur: [65, 40, 75] });
+    });
+    test('데이터: 소개문·단서 문구에 숨은 속성이 직접 드러나지 않는다(보수성/가격 민감도/충성도·숫자 값)', () => {
+      const all = [...data.clients, ...data.reinsurers];
+      for (const e of all) {
+        const texts = [e.profile?.intro_ko ?? e.intro_ko, ...e.scout_notes.map((n) => n.text_ko)].join(' ');
+        check(!/보수성|가격 민감|충성도|conservatism|price_sensitivity|loyalty/.test(texts), `${e.id}: 속성 이름이 문구에 있어요`);
+      }
+    });
+    test('데이터: 새 게임의 초기 스카우트 값이 initial과 같고, 미확인(???)이 섞여 있다', () => {
+      fresh(); const s = store.newGame({ seed: 5 });
+      for (const c of data.clients) eq(s.entities.clients[c.id].scout, c.initial.scout);
+      const stages = Object.values(s.entities.clients).flatMap((e) => ATTRS.map((a) => stageOf(e.scout[a], sc)));
+      check(stages.includes('unknown') && stages.includes('blurred'));
+    });
+    test('로더(clients/reinsurers): 잘못된 값은 위치와 함께 알려 준다', () => {
+      const bad = (mut) => { const c = clone(data.clients); mut(c); return validateClients(c); };
+      check(has(bad((c) => { c[0].hidden.loyalty = 120; }), 'hidden.loyalty'));
+      check(has(bad((c) => { c[0].id = 'jurong'; }), 'cli_'));
+      check(has(bad((c) => { c[1].id = c[0].id; }), '겹쳐요'));
+      check(has(bad((c) => { c[0].scout_notes[0].attr = 'mood'; }), 'attr'));
+      check(has(bad((c) => { c[0].scout_notes[1].min_scout = 10; }), '오름차순'));
+      check(has(bad((c) => { c[0].scout_notes[0].text_ko = '[[gl_x|용어]]'; }), 'M2'));
+      check(has(bad((c) => { c[0].profile.lines = ['car']; }), 'lines'));
+      const badR = (mut) => { const r = clone(data.reinsurers); mut(r); return validateReinsurers(r); };
+      check(has(badR((r) => { r[0].appetite.marine_cargo = 2; }), 'appetite'));
+      check(has(badR((r) => { r[0].id = 'cli_x'; }), 're_'));
+      eq(validateClients(data.clients), []); eq(validateReinsurers(data.reinsurers), []);
+    });
+    test('로더(config.scouting): 단계 순서·라벨 구간·jitter 한도가 틀리면 거절', () => {
+      const bad = (mut) => { const c = clone(data.config); mut(c.scouting); return validateConfig(c); };
+      check(has(bad((s) => { s.stage_thresholds.sharp = 10; }), 'blurred < sharp < exact'));
+      check(has(bad((s) => { s.jitter_ratio = 1.5; }), 'jitter_ratio'));
+      check(has(bad((s) => { s.label_bands.low_below = 70; }), 'low_below'));
+      check(has(bad((s) => { s.damping_divisor = 50; }), 'damping_divisor'));
+    });
+
+    // ---------- 세이브 v2 마이그레이션 ----------
+    test('store: v1 세이브(entities 비어 있음)를 불러오면 v2로 올라가며 고객·재보험사가 채워진다', () => {
+      fresh(); store.newGame({ seed: 3 });
+      const old = clone(store.getState()); old.version = 1; old.entities = { clients: {}, reinsurers: {} };
+      const r = store.parseSave(JSON.stringify(old));
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 2);
+      eq(Object.keys(r.state.entities.clients).length, 3); eq(Object.keys(r.state.entities.reinsurers).length, 4);
+      eq(r.state.entities.reinsurers.re_alpenglow.scout, data.reinsurers[0].initial.scout);
+    });
+    test('store: 엔티티 상태의 범위·형식이 틀린 세이브는 거부', () => {
+      fresh(); store.newGame({ seed: 3 }); const base = clone(store.getState());
+      const bad = (mut) => { const c = clone(base); mut(c); return store.validateState(c); };
+      check(bad((c) => { c.entities.clients.cli_jurong_crest.scout.loyalty = 120; }).length === 1);
+      check(bad((c) => { c.entities.clients.cli_jurong_crest.meetings = -1; }).length === 1);
+      check(bad((c) => { delete c.entities.reinsurers.re_nur.scout; }).length >= 1);
+    });
+
+    // ---------- meet (미팅) ----------
+    test('turn.meet: AP 2 차감·스카우트 값·관계도·미팅 횟수 갱신, 새 단서 반환, 자동 저장', () => {
+      const s = begin(11); const id = 'cli_jurong_crest';
+      const before = clone(s.entities.clients[id]);
+      const r = turn.meet('client', id, 'price_sensitivity');
+      check(r.ok, JSON.stringify(r));
+      const e = store.getState().entities.clients[id];
+      eq(store.getState().ap, 4); eq(e.meetings, 1);
+      check(e.scout.price_sensitivity > before.scout.price_sensitivity + 10 && e.relationship > before.relationship);
+      eq(e.scout, r.after); eq(r.before, before.scout);
+      eq(store.validateState(store.getState()), []);
+      // 가격 민감도 20 → 약 33이 되어 문턱 25를 넘으므로 첫 단서가 열린다
+      eq(r.newNotes.map((n) => [n.attr, n.min_scout]), [['price_sensitivity', 25]]);
+    });
+    test('turn.meet: AP 부족·모르는 상대·모르는 주제는 거부하고 상태를 바꾸지 않는다', () => {
+      const s = begin(12); s.ap = 1; const snap = JSON.stringify(s);
+      check(!turn.meet('client', 'cli_jurong_crest', 'general').ok);
+      s.ap = 6;
+      const snap2 = JSON.stringify(s);
+      check(!turn.meet('client', 'cli_none', 'general').ok); check(!turn.meet('reinsurer', 'cli_jurong_crest', 'general').ok);
+      check(!turn.meet('client', 'cli_jurong_crest', 'mood').ok);
+      eq(JSON.stringify(store.getState()), snap2);
+      void snap;
+    });
+    test('turn.meet: 같은 시드·같은 행동이면 같은 결과(재현성), 3번 미팅하면 AP 0', () => {
+      const run = () => { begin(21); for (const t of ['conservatism', 'loyalty', 'general']) turn.meet('reinsurer', 're_thames_quay', t); return JSON.stringify(store.getState().entities); };
+      eq(run(), run());
+      eq(store.getState().ap, 0);
+      check(!turn.meet('reinsurer', 're_thames_quay', 'general').ok, 'AP 0이면 못 해요');
+    });
+    test('흐름: 선명까지 가는 동안 흐림 → 선명 단계와 범위 축소가 실제 데이터로 나타난다', () => {
+      begin(31); const e = data.clients[1]; // 스트레이츠 포트: 가격 민감도 88
+      const shown = [];
+      for (let i = 0; i < 4; i++) {
+        const st = store.getState();
+        const r = revealAttr({ value: e.hidden.price_sensitivity, s: st.entities.clients[e.id].scout.price_sensitivity, entityId: e.id, attr: 'price_sensitivity', seed: st.seed }, sc);
+        shown.push([r.stage, r.lo, r.hi]);
+        st.ap = 6; turn.meet('client', e.id, 'price_sensitivity');
+      }
+      check(shown[0][0] === 'blurred' && shown[3][0] === 'sharp', JSON.stringify(shown));
+      check(shown[3][2] - shown[3][1] < shown[0][2] - shown[0][1], JSON.stringify(shown));
     });
 
     // ---------- 실행 ----------

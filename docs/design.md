@@ -269,6 +269,13 @@ label  = 범위 전체가 한 구간(<35 낮음 / 35–65 보통 / >65 높음)�
 
 **접촉에 따른 관계 변화**: 관계 상승 `gain × (1 − relationship/130)`으로 체감. 접촉 없이 8주마다 `−1 × (1 − loyalty/150)`.
 
+**M3 구현 메모** (설계가 비워 둔 부분을 `data/config.json`의 `scouting` 값으로 정했다)
+- 미팅 주제 ⓐ 일반은 세 속성에 모두 `meeting_other_gain`을 준다(주제 속성이 없다). 주제 ⓑⓒⓓ는 주제 속성 `meeting_focus_gain`, 나머지 `meeting_other_gain`. 증가분은 모두 `× (1 − s/damping_divisor)`로 체감하고 s는 100을 넘지 않는다.
+- 미팅 1회의 비용은 `meeting_ap`(2). 미팅 1회당 관계는 `meeting_relationship_gain × (1 − relationship/130)`만큼 오른다(100 상한). 설계에 gain 값이 없어 정한 초안이다.
+- `jitter`는 `err × jitter_ratio`를 한도로 한 값(−한도~+한도)이고 (엔티티 id, 속성, 세이브 시드)의 해시에서 뽑는다. 한도가 err 이하이므로 실제 값은 항상 표시 범위 안에 들어가며, 범위는 s가 오를수록 좁아진다. 범위는 0~100으로 자른다.
+- 이번 마일스톤에서 s를 올리는 경로는 **미팅뿐**이다(인디케이션·협상 반응·이벤트·시즌 완료·시장 정찰은 해당 기능이 생기는 마일스톤에서 붙인다). 접촉 없는 관계 감소(8주마다 −1)와 재보험사 미팅 분기당 4회 초과 시 컴플라이언스 −2도 이후로 미룬다.
+- 미팅 직후 알림은 토스트와 스카우트 리포트의 "방금 알게 된 것"으로 보여 준다. 인박스 회신 메일은 동적 메일 구조가 없어 이후로 미룬다.
+
 ---
 
 ## 5. 용어집 시스템 (핵심 기능 ①)
@@ -608,7 +615,8 @@ U   = Σ w_k × score_k
   "hq": "SG",
   "profile": {
     "gwp_usd_m": 180, "rating": "A-", "lines": ["property_energy"],
-    "contact": { "name": "Tan Wei Ming", "title": "Chief Risk Officer", "style": "analytical" }
+    "contact": { "name": "Tan Wei Ming", "title": "Chief Risk Officer", "style": "analytical" },
+    "intro_ko": "…"                           // 공개 소개문(M3 추가). 성격을 말로 직접 밝히지 않고 어조·행동으로만 암시한다
   },
   "hidden": { "conservatism": 72, "price_sensitivity": 55, "loyalty": 68 },   // 0–100, UI 직접 노출 금지
   "initial": {
@@ -624,7 +632,7 @@ U   = Σ w_k × score_k
     "min_rating": "A-", "max_single_share": 0.35, "preferred_terms": "standard",
     "shariah_required": false, "shariah_conventional_cap": null
   },
-  "treaties": ["trt_jurong_property_xl"]
+  "treaties": ["trt_jurong_property_xl"]      // treaties.json이 생기는 마일스톤(M4~M5)에서 추가. M3의 clients.json에는 없다
 }
 ```
 
@@ -636,6 +644,8 @@ U   = Σ w_k × score_k
   "kind": "global_reinsurer",                 // global_reinsurer | regional_reinsurer | syndicate | retakaful
   "hq": "Zurich (가상)", "onshore": true,     // 싱가포르 지점 보유 여부(담보 점수 보정, 단순화)
   "rating": "AA-",
+  "intro_ko": "…",                            // 공개 소개문(M3 추가). 고객 profile.intro_ko와 같은 규칙
+  "contact": { "name": "…", "title": "…" },   // 공개 담당자(M3 추가)
   "capacity_usd_m": { "property_energy": 60, "marine_cargo": 40, "takaful_general": 0 },
   "appetite":       { "property_energy": 0.8, "marine_cargo": 0.6, "takaful_general": 0.0 },
   "shariah_ok": false,
@@ -777,8 +787,10 @@ U   = Σ w_k × score_k
               "labels": [ { "max": 25, "label_ko": "매우 소프트" }, { "max": 40, "label_ko": "소프트" },
                           { "max": 60, "label_ko": "중립" }, { "max": 75, "label_ko": "하드" },
                           { "max": 100, "label_ko": "매우 하드" } ] },
-  "scouting": { "meeting_focus_gain": 10, "meeting_other_gain": 3, "damping_divisor": 120,
-                "stage_thresholds": { "blurred": 15, "sharp": 45, "exact": 85 }, "err_k": 30 },
+  "scouting": { "meeting_ap": 2, "meeting_focus_gain": 16, "meeting_other_gain": 5, "damping_divisor": 120,
+                "meeting_relationship_gain": 4, "relationship_damping": 130,
+                "stage_thresholds": { "blurred": 15, "sharp": 45, "exact": 85 }, "err_k": 30,
+                "jitter_ratio": 0.6, "label_bands": { "low_below": 35, "high_above": 65 } },
   "negotiation": {
     "market_k": 0.30, "loss_k": 0.5, "cons_k": 8, "theta_base": 1.5, "theta_span": 3.5,
     "line_adj": { "property_energy": 1.0, "marine_cargo": 0.0, "takaful_general": -1.0 },
@@ -861,6 +873,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
 }
 ```
 - `version` 불일치 시 `store.js`의 마이그레이션 체인(`migrate_1_to_2` …)을 거친다. 마이그레이션 없이 구조를 바꾸지 않는다.
+- **M3: 세이브 v2.** M1의 `entities`는 비어 있었다. v2부터 새 게임이 시작될 때 고객·재보험사마다 `{ relationship, meetings, notes, scout }`(재보험사는 `patience: {}`도)를 `initial`에서 채워 넣는다. v1 세이브는 `1→2` 변환에서 같은 방식으로 채운다.
 - JSON 파일 내보내기/가져오기(백업) 지원.
 
 ---
@@ -933,7 +946,7 @@ reinsurance-broker-sim/
 | M0 | 셸, 로더+검증, 세이브/로드, 시드 RNG | 빈 화면에서 새 게임·저장·불러오기 |
 | M1 | 턴 루프, 캘린더, 인박스·메일·선택지·효과 | 프리시즌 6주를 메일만으로 진행 |
 | M2 | **용어집**: 마크업 파서, 카드, 도감, Anki CSV, `rbs:codex:v1` | 메일 속 용어 클릭 → 카드 → 도감 → CSV가 Anki에서 열림 |
-| M3 | **스카우팅**: DB 화면, 미팅 주제, `reveal.js`, 단서 | 미팅할수록 `???` → 범위 → 확정 |
+| M3 | **스카우팅**: DB 화면, 미팅 주제, `reveal.js`, 단서 (범위: 고객 3·재보험사 4 데이터 + 미팅으로 s 상승. 용어 마크업·협상·라인 보드 제외) | 미팅할수록 `???` → 범위 → 확정 |
 | M4 | 협상 엔진(순수 함수) + `tests/` | §7.7 예시 수치 재현 |
 | M5 | **라인 구성 보드** UI | 1/1 시즌을 막대 100% 채우기로 끝까지 플레이 |
 | M6 | 이벤트 10개, 시장 사이클, 연쇄 | Q2 연쇄가 1/7에 영향 |
@@ -977,5 +990,7 @@ v1에서는 구현하지 않으며, 여기서는 항목만 정리한다.
    |---|---|---|---|
    | 세 속성 모두 선명(≥45) | 약 9회 | 18 | 126 AP (연간 총 348 AP의 약 36%) |
    | 세 속성 모두 확정(≥85) | 약 24회 | 48 | 336 AP (사실상 불가능) |
+
+   **M3 조정**: 위 값은 선명까지 비용이 커서, 계수를 주제 +16 / 나머지 +5로 올렸다(체감식은 그대로). 같은 방식으로 시뮬레이션하면 세 속성 모두 선명까지 약 5회(4~6회), 한 속성만 집중하면 약 3회, 세 속성 모두 확정까지 약 15회다. 7곳 전체를 선명까지 끌어올리는 비용은 약 35회(70 AP, 연간 AP의 약 20%)다. 수치는 `data/config.json`의 `scouting`만 고치면 된다.
 
    확정은 소수의 핵심 상대에게만 가능하고, 선명까지는 대부분 가능하게 하려는 의도다. 협상·마케팅에도 AP가 들어가므로 실제로는 더 빡빡하다. 이 곡선이 "어디에 AP를 쓸지"의 선택이 되는지, 아니면 너무 비싼지는 플레이 후 `data/config.json`의 `scouting` 계수로 조정한다.

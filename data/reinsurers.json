@@ -1,0 +1,306 @@
+[
+  {
+    "id": "re_alpenglow",
+    "name": "Alpenglow Re",
+    "name_ko": "알펜글로우 리",
+    "kind": "global_reinsurer",
+    "hq": "Zurich",
+    "onshore": true,
+    "rating": "AA-",
+    "contact": {
+      "name": "Markus Weidmann",
+      "title": "Senior Underwriter"
+    },
+    "intro_ko": "알프스 자락에 본사를 둔 대형 글로벌 재보험사예요. 담당 언더라이터 마쿠스는 점심 약속도 잘 잡고 농담도 잘하지만, 가격표 이야기가 나오면 갑자기 말수가 줄어들어요. 용량은 크고 문은 넓은데, 안으로 들어가는 길에는 기준선이 그어져 있어요.",
+    "capacity_usd_m": {
+      "property_energy": 60,
+      "marine_cargo": 40,
+      "takaful_general": 0
+    },
+    "appetite": {
+      "property_energy": 0.8,
+      "marine_cargo": 0.6,
+      "takaful_general": 0.0
+    },
+    "shariah_ok": false,
+    "target_lr": 58,
+    "hidden": {
+      "conservatism": 78,
+      "price_sensitivity": 70,
+      "loyalty": 40
+    },
+    "behavior": {
+      "response_weeks": 1,
+      "patience": 3,
+      "max_single_share": 0.4
+    },
+    "initial": {
+      "relationship": 45,
+      "scout": {
+        "conservatism": 15,
+        "price_sensitivity": 20,
+        "loyalty": 5
+      }
+    },
+    "scout_notes": [
+      {
+        "attr": "conservatism",
+        "min_scout": 25,
+        "text_ko": "새 고객 이야기를 꺼내자 \"일단 자료부터 보내 주세요\"라며 웃었다. 그 자료의 목록은 A4 한 장이었다."
+      },
+      {
+        "attr": "conservatism",
+        "min_scout": 60,
+        "text_ko": "대형 손실 직후 분기에는 신규 거래 문의에 답이 늦어진다. 기존 고객의 라인은 줄여도 새 고객 라인은 더 조심스럽다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 25,
+        "text_ko": "\"좋은 관계는 중요하지만 가격은 가격이죠.\" 같은 문장을 두 번 말했다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 60,
+        "text_ko": "제시한 하한보다 낮은 숫자를 내밀었을 때 한 번도 흔들리지 않았다. 대신 조건을 바꾸는 이야기에는 열려 있었다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 25,
+        "text_ko": "\"다음 주는 다른 중개사 분들과 선약이 있어서요.\" 늘 상냥하게 말하지만, 일정은 항상 더 급한 쪽으로 먼저 찼다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 60,
+        "text_ko": "손실이 크게 난 해에는 라인을 조용히 줄였다. 담당 언더라이터의 인사 이동에도 거래 조건은 흔들리지 않았다."
+      }
+    ]
+  },
+  {
+    "id": "re_kallang",
+    "name": "Kallang Re",
+    "name_ko": "칼랑 리",
+    "kind": "regional_reinsurer",
+    "hq": "Singapore",
+    "onshore": true,
+    "rating": "A",
+    "contact": {
+      "name": "Chua Mei Ling",
+      "title": "Head of Treaty Underwriting"
+    },
+    "intro_ko": "싱가포르에 뿌리를 둔 지역 재보험사예요. 책임자 추아 메이링은 \"한 잔 해요\"라며 코피티암(동네 식당)으로 이끄는 분이고, 거래처 생일은 달력에 적어 둬요. 숫자도 보지만 먼저 사람을 봐요.",
+    "capacity_usd_m": {
+      "property_energy": 40,
+      "marine_cargo": 30,
+      "takaful_general": 10
+    },
+    "appetite": {
+      "property_energy": 0.6,
+      "marine_cargo": 0.7,
+      "takaful_general": 0.3
+    },
+    "shariah_ok": false,
+    "target_lr": 62,
+    "hidden": {
+      "conservatism": 50,
+      "price_sensitivity": 45,
+      "loyalty": 80
+    },
+    "behavior": {
+      "response_weeks": 2,
+      "patience": 4,
+      "max_single_share": 0.3
+    },
+    "initial": {
+      "relationship": 40,
+      "scout": {
+        "conservatism": 10,
+        "price_sensitivity": 15,
+        "loyalty": 15
+      }
+    },
+    "scout_notes": [
+      {
+        "attr": "conservatism",
+        "min_scout": 25,
+        "text_ko": "새 고객이 소개되면 \"그 회사 사람들 만나 봤어요?\"부터 묻는다. 서류보다 사람을 먼저 본다."
+      },
+      {
+        "attr": "conservatism",
+        "min_scout": 60,
+        "text_ko": "낯선 구조는 한 번에 받지 않고 소액부터 시험해 본다. 익숙해지고 나면 한도를 후하게 올려 준다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 25,
+        "text_ko": "가격 이야기가 나오면 \"그 얘기는 밥 먹고 해요\"라고 한다. 다만 숫자는 정확히 기억한다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 60,
+        "text_ko": "좋은 관계의 거래처에는 약간의 할인을 주기도 하지만, 너무 무리한 요구에는 선을 긋는다. 극단으로 가지 않는다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 25,
+        "text_ko": "지난 연말 감사 카드를 거래처 전원에게 손으로 써서 보냈다. 이쪽 몫도 있었다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 60,
+        "text_ko": "손실이 크게 난 해에도 라인을 거의 줄이지 않았다. \"그래도 같이 가야죠\"라고 했다."
+      }
+    ]
+  },
+  {
+    "id": "re_thames_quay",
+    "name": "Thames Quay Syndicate",
+    "name_ko": "템스 키 신디케이트",
+    "kind": "syndicate",
+    "hq": "London",
+    "onshore": false,
+    "rating": "A-",
+    "contact": {
+      "name": "Giles Harrington",
+      "title": "Lead Underwriter"
+    },
+    "intro_ko": "런던 마켓 스타일로 움직이는 신디케이트예요. 리드 언더라이터 자일스는 \"시장이 좋으면 가장 먼저 들어가고, 나쁘면 가장 먼저 나가요\"라고 자랑삼아 말해요. 빠르고 공격적이고, 숫자가 틀리면 바로 알려 줘요.",
+    "capacity_usd_m": {
+      "property_energy": 45,
+      "marine_cargo": 35,
+      "takaful_general": 0
+    },
+    "appetite": {
+      "property_energy": 0.9,
+      "marine_cargo": 0.8,
+      "takaful_general": 0.0
+    },
+    "shariah_ok": false,
+    "target_lr": 55,
+    "hidden": {
+      "conservatism": 25,
+      "price_sensitivity": 85,
+      "loyalty": 20
+    },
+    "behavior": {
+      "response_weeks": 1,
+      "patience": 2,
+      "max_single_share": 0.45
+    },
+    "initial": {
+      "relationship": 30,
+      "scout": {
+        "conservatism": 10,
+        "price_sensitivity": 20,
+        "loyalty": 5
+      }
+    },
+    "scout_notes": [
+      {
+        "attr": "conservatism",
+        "min_scout": 25,
+        "text_ko": "낯선 구조를 설명하는 도중에 \"좋아요, 일단 해 봅시다\"라고 끊었다. 세부는 나중에 물었다."
+      },
+      {
+        "attr": "conservatism",
+        "min_scout": 60,
+        "text_ko": "새 고객이든 새 구조든 서류 심사에 오래 머물지 않는다. 대신 마음이 식으면 같은 속도로 빠져나간다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 25,
+        "text_ko": "견적서를 받자마자 계산기를 꺼냈다. 인수 가격 숫자만 세 번 확인했다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 60,
+        "text_ko": "제시한 하한 아래로는 몇 번 설득해도 내려오지 않았다. \"원칙입니다\"라는 표현을 자주 쓴다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 25,
+        "text_ko": "지난 분기에도 다른 브로커와 같은 고객 건으로 만났다는 이야기를 숨기지 않았다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 60,
+        "text_ko": "시장이 꺾이자마자 몇몇 라인에서 말없이 빠졌다. 오래 거래한 상대라는 이유로 유예해 주는 일은 없었다."
+      }
+    ]
+  },
+  {
+    "id": "re_nur",
+    "name": "Nur Retakaful (Labuan)",
+    "name_ko": "누르 리타카풀",
+    "kind": "retakaful",
+    "hq": "Labuan",
+    "onshore": false,
+    "rating": "A-",
+    "contact": {
+      "name": "Aminah Yusof",
+      "title": "Head of Retakaful Underwriting"
+    },
+    "intro_ko": "라부안에 본사를 둔 리타카풀 사업자예요. 책임자 아미나는 질문 하나에도 샤리아 자문 의견서를 첨부해 답하고, 메일 마지막엔 늘 \"천천히 가셔도 됩니다\"라고 써요. 용량은 크지 않지만, 한번 잡은 손은 쉽게 놓지 않는 곳이에요.",
+    "capacity_usd_m": {
+      "property_energy": 5,
+      "marine_cargo": 0,
+      "takaful_general": 30
+    },
+    "appetite": {
+      "property_energy": 0.2,
+      "marine_cargo": 0.0,
+      "takaful_general": 0.8
+    },
+    "shariah_ok": true,
+    "target_lr": 60,
+    "hidden": {
+      "conservatism": 65,
+      "price_sensitivity": 40,
+      "loyalty": 75
+    },
+    "behavior": {
+      "response_weeks": 2,
+      "patience": 4,
+      "max_single_share": 0.35
+    },
+    "initial": {
+      "relationship": 35,
+      "scout": {
+        "conservatism": 10,
+        "price_sensitivity": 10,
+        "loyalty": 15
+      }
+    },
+    "scout_notes": [
+      {
+        "attr": "conservatism",
+        "min_scout": 25,
+        "text_ko": "제안을 받으면 \"자문위원 의견을 확인하겠습니다\"라고 한다. 확인 기간은 보통 2주를 넘는다."
+      },
+      {
+        "attr": "conservatism",
+        "min_scout": 60,
+        "text_ko": "샤리아 구조가 조금만 달라져도 처음부터 다시 검토한다. 검증된 구조는 해가 바뀌어도 그대로 이어 간다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 25,
+        "text_ko": "가격 이야기를 하면 \"공정한지가 더 중요합니다\"라고 답했다. 수치에는 크게 반응하지 않았다."
+      },
+      {
+        "attr": "price_sensitivity",
+        "min_scout": 60,
+        "text_ko": "다른 곳보다 비싸도 구조가 맞으면 받아들인다. 다만 근거 없이 깎자고 하면 대답이 짧아진다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 25,
+        "text_ko": "미팅이 끝나면 직접 쓴 감사 메일이 온다. 이쪽의 사소한 부탁도 기록해 둔다."
+      },
+      {
+        "attr": "loyalty",
+        "min_scout": 60,
+        "text_ko": "손실이 난 뒤에도 같은 거래처의 갱신을 먼저 챙겼다. 오래 알고 지낸 상대에게는 조건이 한 칸 더 부드러워진다."
+      }
+    ]
+  }
+]

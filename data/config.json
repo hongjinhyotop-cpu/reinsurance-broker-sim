@@ -39,5 +39,24 @@
   },
   "turn": {
     "deadline_warning_weeks": 1
+  },
+  "scouting": {
+    "meeting_ap": 2,
+    "meeting_focus_gain": 16,
+    "meeting_other_gain": 5,
+    "damping_divisor": 120,
+    "meeting_relationship_gain": 4,
+    "relationship_damping": 130,
+    "stage_thresholds": {
+      "blurred": 15,
+      "sharp": 45,
+      "exact": 85
+    },
+    "err_k": 30,
+    "jitter_ratio": 0.6,
+    "label_bands": {
+      "low_below": 35,
+      "high_above": 65
+    }
   }
 }

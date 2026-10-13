@@ -130,3 +130,52 @@
   .inbox { grid-template-columns: minmax(0, 1fr); }
   .cal-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 }
+
+/* ---- 고객·재보험사 DB / 스카우트 ---- */
+.db { display: grid; grid-template-columns: minmax(300px, 470px) minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.db .card { margin-bottom: 0; }
+.db-list { padding: 6px; overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.table th, .table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); font-weight: normal; }
+.table thead th { color: var(--text-dim); font-size: 0.78rem; }
+.table td, .table thead th { white-space: nowrap; }
+.table tr.is-selected { background: var(--bg-elev-2); }
+.link-btn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-align: left; font: inherit; text-decoration: underline; }
+.db-detail-head h2 { margin-bottom: 2px; }
+.db-intro { max-width: 62ch; }
+
+.meet-box { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 12px; margin-bottom: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+.meet-box select { min-height: 36px; padding: 4px 8px; background: var(--bg-elev-2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); }
+.fresh-box { margin-bottom: 12px; border-color: var(--accent); }
+.fresh-box .plain-list { margin: 6px 0 0; }
+
+.attr-list { display: grid; gap: 10px; }
+.attr-row { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+.attr-head { display: flex; align-items: center; gap: 10px; }
+.attr-head h3 { margin: 0; font-size: 1rem; }
+.attr-help { font-size: 0.82rem; margin: 2px 0 6px; }
+.attr-reading { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 26px; }
+.attr-unknown { font-family: var(--mono); font-size: 1.1rem; letter-spacing: 0.15em; color: var(--text-dim); }
+.attr-label { font-weight: 700; }
+.attr-low { color: var(--ok); }
+.attr-mid { color: var(--text); }
+.attr-high { color: var(--warn); }
+.attr-unclear { color: var(--text-dim); }
+.attr-scout { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 0.82rem; }
+.stage-sharp, .stage-exact { border-color: var(--accent); color: var(--accent); }
+
+.rbar { position: relative; display: inline-block; flex: none; width: 180px; height: 10px; background: var(--bg-elev-2); border: 1px solid var(--border); border-radius: 5px; }
+.rbar-fill { position: absolute; top: -1px; bottom: -1px; background: var(--accent); border-radius: 5px; min-width: 4px; }
+.gauge { position: relative; display: inline-block; flex: none; width: 140px; height: 6px; background: var(--bg-elev-2); border-radius: 3px; }
+.gauge-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--text-dim); border-radius: 3px; }
+.gauge-mark { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--border); }
+
+.clues { margin-top: 14px; }
+.clues h3 { font-size: 1rem; }
+.clue { margin: 0 0 8px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 0 var(--radius) var(--radius) 0; }
+.clue p { margin: 0 0 2px; max-width: 62ch; }
+.clue footer { font-size: 0.78rem; }
+
+@media (max-width: 900px) {
+  .db { grid-template-columns: minmax(0, 1fr); }
+}
