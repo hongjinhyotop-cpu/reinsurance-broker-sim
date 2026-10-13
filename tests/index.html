@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
+  <h1>테스트 (용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -40,6 +40,11 @@
     import * as ev from '../js/events.js';
     import { validateEvents } from '../js/loader.js';
     import { renderPlacement } from '../js/ui/placement_view.js';
+    import * as gl from '../js/glossary.js';
+    import { validateGlossary, glossaryWarnings } from '../js/loader.js';
+    import { richText, glossaryLink, openTermCard, renderCodex, resetTermScope, showInCodex } from '../js/ui/glossary_view.js';
+    import { renderInbox } from '../js/ui/inbox.js';
+    import { renderDatabase } from '../js/ui/database.js';
 
     // ---------- 미니 러너 ----------
     const tests = [];
@@ -70,6 +75,7 @@
     const data = loaded.ok ? loaded.data : null;
     const clone = (o) => structuredClone(o);
     if (data) store.configure(data);
+    gl.useCodexStorage(memoryStorage()); // 테스트가 진짜 localStorage(플레이어의 도감)를 건드리지 않게 항상 가짜 저장소를 쓴다
 
     // ---------- rng ----------
     test('rng: 표준 mulberry32 기준값과 일치(시드 0, 12345, 4294967295)', () => {
@@ -214,7 +220,7 @@
         const r = map[name]; if (r instanceof Error) throw r;
         return { ok: r.status === 200, status: r.status, json: async () => JSON.parse(r.body) };
       };
-      const ent = { 'clients.json': { status: 200, body: JSON.stringify(data.clients) }, 'reinsurers.json': { status: 200, body: JSON.stringify(data.reinsurers) }, 'treaties.json': { status: 200, body: JSON.stringify(data.treaties) }, 'events.json': { status: 200, body: JSON.stringify(data.events) } };
+      const ent = { 'glossary.json': { status: 200, body: JSON.stringify(data.glossary) }, 'clients.json': { status: 200, body: JSON.stringify(data.clients) }, 'reinsurers.json': { status: 200, body: JSON.stringify(data.reinsurers) }, 'treaties.json': { status: 200, body: JSON.stringify(data.treaties) }, 'events.json': { status: 200, body: JSON.stringify(data.events) } };
       const res = await loadData({ fetchFn: fake({ ...ent, 'mails.json': { status: 200, body: '[]' }, 'config.json': { status: 404 }, 'calendar.json': { status: 200, body: '{ "turns": ' } }) });
       check(!res.ok); eq(res.errors.length, 2);
       check(res.errors[0].message.includes('config.json') && res.errors[0].message.includes('HTTP 404'), res.errors[0].message);
@@ -369,9 +375,16 @@
       check(has(mailErrs((m) => { m[0].from.kind = 'alien'; }), 'from.kind'));
       check(has(mailErrs((m) => { m[0].priority = 'x'; }), 'priority'));
     });
-    test('mails: 용어 마크업은 M2부터, 모르는 치환 변수는 거부', () => {
-      check(has(mailErrs((m) => { m[0].body_ko[0] = '[[gl_claim|손해]]'; }), 'M2'));
+    test('mails: 모르는 치환 변수는 거부, 용어 마크업은 본문·답장 결과에서만 허용', () => {
+      const terms = new Set(data.glossary.map((t) => t.id));
+      const withTerms = (mutate) => { const m = mailsOf(); mutate(m); return validateMails(m, 'mails.json', data.calendar, terms); };
       check(has(mailErrs((m) => { m[0].body_ko[0] = '{client.name_ko}'; }), '{client.name_ko}'));
+      eq(withTerms((m) => { m[0].body_ko[0] = '[[gl_claim|손해]]가 났어요'; }), []);
+      check(has(withTerms((m) => { m[0].body_ko[0] = '[[gl_nope|손해]]'; }), 'glossary.json에 없는 용어 id'));
+      check(has(withTerms((m) => { m[0].body_ko[0] = '[[gl_claim|손해'; }), '짝이 맞지 않아요'));
+      check(has(withTerms((m) => { m[1].subject_ko = '[[gl_claim|손해]] 통지'; }), '이 칸에서는 용어 표시'));
+      check(has(withTerms((m) => { m[1].choices[0].label_ko = '[[gl_claim|손해]]'; }), '이 칸에서는 용어 표시'));
+      eq(withTerms((m) => { m[1].choices[0].result_ko = '[[gl_claim]] 확인'; }), []);
     });
     test('mails: 효과 — 닫힌 연산자만, 대상·필드는 정해진 것만, mail_send는 존재하는 id만', () => {
       const bad = (ef) => mailErrs((m) => { m[1].choices[0].effects = [ef]; });
@@ -598,12 +611,12 @@
     });
 
     // ---------- 고객·재보험사 데이터 ----------
-    test('데이터: 고객 3·재보험사 5, 단서 메모는 엔티티당 6줄(총 48줄)이고 [[ ]] 마크업이 없다', () => {
+    test('데이터: 고객 3·재보험사 5, 단서 메모는 엔티티당 6줄(총 48줄)이고 단서·반응 칸에 [[ ]] 마크업이 없다', () => {
       eq([data.clients.length, data.reinsurers.length], [3, 5]);
       const all = [...data.clients, ...data.reinsurers];
       check(all.every((e) => e.scout_notes.length === 6), '엔티티당 6줄');
       eq(all.reduce((n, e) => n + e.scout_notes.length, 0), 48);
-      check(!JSON.stringify(all).includes('[['));
+      check(!all.flatMap((e) => [...e.scout_notes.map((n) => n.text_ko), ...Object.values(e.meeting_reactions)]).some((t) => t.includes('[[')), '단서·미팅 반응 칸에는 용어 표시가 없어야 해요');
     });
     test('데이터: 설계 §1.4의 숨은 속성값', () => {
       const h = (list) => Object.fromEntries(list.map((e) => [e.id, ATTRS.map((a) => e.hidden[a])]));
@@ -630,7 +643,7 @@
       check(has(bad((c) => { c[1].id = c[0].id; }), '겹쳐요'));
       check(has(bad((c) => { c[0].scout_notes[0].attr = 'mood'; }), 'attr'));
       check(has(bad((c) => { c[0].scout_notes[1].min_scout = 10; }), '오름차순'));
-      check(has(bad((c) => { c[0].scout_notes[0].text_ko = '[[gl_x|용어]]'; }), 'M2'));
+      check(has(bad((c) => { c[0].scout_notes[0].text_ko = '[[gl_x|용어]]'; }), '이 칸에서는 용어 표시'));
       check(has(bad((c) => { c[0].profile.lines = ['car']; }), 'lines'));
       const badR = (mut) => { const r = clone(data.reinsurers); mut(r); return validateReinsurers(r); };
       check(has(badR((r) => { r[0].appetite.marine_cargo = 2; }), 'appetite'));
@@ -1089,7 +1102,7 @@
       check(has(bad((c) => { delete c[0].meeting_reactions; }), 'meeting_reactions'));
       check(has(bad((c) => { c[0].meeting_reactions.loyalty = ''; }), 'meeting_reactions.loyalty'));
       check(has(bad((c) => { delete c[1].meeting_reactions.general; }), 'meeting_reactions.general'));
-      check(has(bad((c) => { c[0].meeting_reactions.general = '[[gl_x|용어]]'; }), 'M2'));
+      check(has(bad((c) => { c[0].meeting_reactions.general = '[[gl_x|용어]]'; }), '이 칸에서는 용어 표시'));
       const badR = (mut) => { const r = clone(data.reinsurers); mut(r); return validateReinsurers(r); };
       check(has(badR((r) => { r[2].meeting_reactions.price_sensitivity = 'x'.repeat(201); }), 'meeting_reactions.price_sensitivity'));
     });
@@ -1119,7 +1132,7 @@
       check(has(bad((c) => { delete c[0].verdict_reasons; }), 'verdict_reasons'));
       check(has(bad((c) => { delete c[0].verdict_reasons.bad.structure; }), 'verdict_reasons.bad.structure'));
       check(has(bad((c) => { c[1].verdict_reasons.good.price = ''; }), 'verdict_reasons.good.price'));
-      check(has(bad((c) => { c[2].verdict_reasons.good.service = '[[gl_x|용어]]'; }), 'M2'));
+      check(has(bad((c) => { c[2].verdict_reasons.good.service = '[[gl_x|용어]]'; }), '이 칸에서는 용어 표시'));
       const badR = (mut) => { const r = clone(data.reinsurers); mut(r); return validateReinsurers(r); };
       check(has(badR((r) => { delete r[0].response_lines; }), 'response_lines'));
       check(has(badR((r) => { delete r[3].response_lines.counter; }), 'response_lines.counter'));
@@ -1721,6 +1734,341 @@
         check(!root.textContent.includes('null'), '화면에 "null" 글자가 있어요');
         check(root.querySelector('h1')?.textContent.includes('라인 구성 보드'));
       } finally { root.remove(); }
+    });
+
+    // ---------- 용어집 (M2) ----------
+    const termIds = () => data.glossary.map((t) => t.id);
+    const freshCodex = (opts) => { const st = memoryStorage(opts); gl.useCodexStorage(st); return st; };
+    const glossaryBad = (mut) => { const g = clone(data.glossary); mut(g); return validateGlossary(g); };
+
+    test('용어집 파싱: [[id|문구]]·[[id]]·일반 글자를 조각으로 나눈다', () => {
+      const r = gl.parseMarkup('이게 [[gl_line|라인]]과 [[gl_xol]] 입니다');
+      eq(r.problems, []);
+      eq(r.segments, [{ text: '이게 ' }, { term: 'gl_line', label: '라인' }, { text: '과 ' }, { term: 'gl_xol', label: null }, { text: ' 입니다' }]);
+      eq(gl.parseMarkup('마크업 없음').segments, [{ text: '마크업 없음' }]);
+      eq(gl.termIdsIn('[[gl_a|가]] [[gl_b|나]]'), ['gl_a', 'gl_b']);
+    });
+    test('용어집 파싱: 짝이 안 맞거나 id 모양이 틀리거나 문구가 빈 마크업을 문제로 알린다', () => {
+      const kinds = (t) => gl.parseMarkup(t).problems.map((p) => p.kind);
+      eq(kinds('[[gl_line'), ['unbalanced']);
+      eq(kinds('gl_line]]'), ['unbalanced']);
+      eq(kinds('[[Line|라인]]'), ['bad_id']);
+      eq(kinds('[[gl_line|]]'), ['empty_label']);
+      eq(kinds('[[gl_a|가|나]]'), ['unbalanced']);
+    });
+
+    test('도감 규칙: 처음 읽으면 새 용어, 높은 단계만 남기고 내려가지 않으며 원본은 바뀌지 않는다', () => {
+      const c0 = gl.emptyCodex();
+      const a = gl.recordLevel(c0, 'gl_line', 1, 'T1');
+      eq([a.isNew, a.changed, a.codex.entries.gl_line], [true, true, { levels: 1, first_seen: 'T1' }]);
+      eq(c0.entries, {}, '원본 보호');
+      const b = gl.recordLevel(a.codex, 'gl_line', 3, 'T2');
+      eq([b.isNew, b.changed, b.codex.entries.gl_line], [false, true, { levels: 3, first_seen: 'T1' }]);
+      const c = gl.recordLevel(b.codex, 'gl_line', 2, 'T3');
+      eq([c.changed, c.codex.entries.gl_line.levels], [false, 3]);
+    });
+    test('도감 규칙: 별·상태·진행률(용어집에서 사라진 id는 세지 않는다)', () => {
+      let c = gl.emptyCodex();
+      for (const [id, lv] of [['gl_a', 1], ['gl_b', 3], ['gl_old', 2]]) c = gl.recordLevel(c, id, lv, 'T').codex;
+      eq(['gl_a', 'gl_b', 'gl_zzz'].map((id) => gl.starsOf(c.entries[id])), [1, 3, 0]);
+      eq(['gl_a', 'gl_b', 'gl_zzz'].map((id) => gl.stateOf(c.entries[id])), ['seen', 'mastered', 'unseen']);
+      eq([1, 2, 3, 0].map(gl.starText), ['★☆☆', '★★☆', '★★★', '☆☆☆']);
+      eq(gl.progressOf(c, ['gl_a', 'gl_b', 'gl_c']), { seen: 2, mastered: 1, total: 3 });
+    });
+    test('도감 규칙: 저장소에서 읽은 값을 점검한다(버전·모양·__proto__)', () => {
+      eq(gl.sanitizeCodex(null), null); eq(gl.sanitizeCodex([]), null); eq(gl.sanitizeCodex({ version: 2, entries: {} }), null);
+      eq(gl.sanitizeCodex({ version: 1, entries: [] }), null);
+      const raw = JSON.parse('{"version":1,"entries":{"gl_ok":{"levels":2,"first_seen":"T"},"gl_zero":{"levels":0},"gl_big":{"levels":9},"BAD":{"levels":1},"gl_str":{"levels":"2"},"__proto__":{"levels":1}}}');
+      eq(Object.keys(gl.sanitizeCodex(raw).entries), ['gl_ok']);
+      check(!('levels' in {}), '객체 오염 없음');
+    });
+    test('도감 검색: 못 만난 용어는 이름·별칭으로 찾아지지 않고, 카테고리·상태 필터가 먹는다', () => {
+      let c = gl.emptyCodex();
+      c = gl.recordLevel(c, 'gl_line', 1, 'T').codex; c = gl.recordLevel(c, 'gl_panel', 3, 'T').codex;
+      const find = (o) => gl.searchTerms(data.glossary, c, o).map((t) => t.id);
+      eq(find({ query: '지분' }), ['gl_line'], '별칭 "지분"은 만난 라인만');
+      eq(find({ query: 'excess' }), [], '못 만난 용어는 영어 이름으로도 안 나온다');
+      eq(find({ query: 'PANEL' }), ['gl_panel'], '대소문자 무시');
+      eq(find({ status: 'seen' }).sort(), ['gl_line', 'gl_panel']);
+      eq(find({ status: 'mastered' }), ['gl_panel']);
+      eq(find({ category: 'placement', status: 'mastered' }), ['gl_panel']);
+      eq(find({ category: 'game' }).length, data.glossary.filter((t) => t.category === 'game').length, '필터만 있고 검색어가 없으면 못 만난 용어도 목록에 있다');
+    });
+
+    test('도감 저장: rbs:codex:v1에 저장되고, 새 게임·다른 세이브 불러오기에도 남는다', () => {
+      const st = freshCodex(); store.useStorage(st);
+      eq(gl.collect('gl_line', 1, 'T1').isNew, true);
+      check(JSON.parse(st.map.get('rbs:codex:v1')).entries.gl_line.levels === 1, '키와 모양');
+      store.newGame({ seed: 3 }); turn.startGame(); store.save('1');
+      store.newGame({ seed: 4 }); store.load('1');
+      eq(JSON.parse(st.map.get('rbs:codex:v1')).entries.gl_line, { levels: 1, first_seen: 'T1' });
+      check(![...st.map.keys()].filter((k) => k.startsWith('rbs:save:')).some((k) => st.map.get(k).includes('first_seen')), '세이브에는 도감이 들어가지 않는다');
+      gl.useCodexStorage(st); // 다시 읽기
+      eq(gl.getCodex().entries.gl_line.levels, 1);
+    });
+    test('도감 저장: 읽기 실패·깨진 값은 빈 도감으로 시작하고, 쓰기 실패는 예외 없이 세션 동안만 유지', () => {
+      freshCodex({ failGet: true }); eq(gl.getCodex().entries, {});
+      const st = freshCodex(); st.map.set('rbs:codex:v1', '{깨진');
+      eq(gl.getCodex().entries, {}); eq(gl.collect('gl_line', 1, 'T').save.ok, true); eq(JSON.parse(st.map.get('rbs:codex:v1')).entries.gl_line.levels, 1);
+      freshCodex({ failSet: true });
+      const r1 = gl.collect('gl_line', 1, 'T'); const r2 = gl.collect('gl_panel', 1, 'T');
+      eq([r1.save.ok, r1.save.failedFirst, r2.save.failedFirst], [false, true, false], '실패 알림은 처음 한 번만');
+      eq(Object.keys(gl.getCodex().entries), ['gl_line', 'gl_panel']);
+    });
+    test('도감 저장: 더 새로운 버전의 값은 덮어쓰지 않고, 초기화는 비운다', () => {
+      const st = freshCodex(); const future = JSON.stringify({ version: 2, entries: { gl_line: { levels: 3 } } });
+      st.map.set('rbs:codex:v1', future);
+      eq(gl.getCodex().entries, {}); gl.collect('gl_line', 1, 'T');
+      eq(st.map.get('rbs:codex:v1'), future, '미래 버전은 그대로');
+      const st2 = freshCodex(); gl.collect('gl_line', 3, 'T'); gl.resetCodex();
+      eq(gl.getCodex().entries, {}); eq(JSON.parse(st2.map.get('rbs:codex:v1')).entries, {});
+    });
+
+    test('용어집 데이터: 로더 통과, 경고 없음(길이·미사용), 용어는 26개 이상이고 전 카테고리가 쓰인다', () => {
+      eq(validateGlossary(data.glossary), []);
+      eq(loaded.warnings, []);
+      check(data.glossary.length >= 20, `${data.glossary.length}개`);
+      eq(new Set(data.glossary.map((t) => t.category)).size >= 7, true);
+      check(gl.UI_TERM_IDS.every((id) => termIds().includes(id)), 'UI 용어 id가 용어집에 있어야 해요');
+    });
+    test('용어집 데이터: 3단계가 모두 있고, 쉬운 말·길이 규칙을 지킨다', () => {
+      for (const t of data.glossary) {
+        check(t.level1_ko.length <= 60 && t.level2_ko.length <= 120, `${t.id}: 길이 ${t.level1_ko.length}/${t.level2_ko.length}`);
+        check(t.level3.industry_ko.length > 0 && t.level3.game_example_ko.length > 0, `${t.id}: 3단계`);
+        if (t.category !== 'game') check(t.level3.industry_en.length >= 1 && t.term_en, `${t.id}: 영어 표현`);
+        check(t.related.every((r) => r !== t.id && termIds().includes(r)), `${t.id}: related`);
+      }
+    });
+    test('용어집 데이터: 숨은 성격과 협상 계산 방식을 설명에 쓰지 않는다', () => {
+      const banned = /보수성|가격 민감|충성|성향|성격|숨은 속성|스카우트 값|conservatism|price_sensitivity|loyalty|hidden|F_r|U 점수|협상 점수|가격 하한|계산식|인내심/;
+      for (const t of data.glossary) check(!banned.test(JSON.stringify(t)), `${t.id}: 금지어`);
+    });
+    test('용어집 로더: 필수 항목·id·카테고리·related·본문 오류를 모두 알려 준다', () => {
+      check(has(glossaryBad((g) => { g[1].id = g[0].id; }), '겹쳐요'));
+      check(has(glossaryBad((g) => { g[0].id = 'line'; }), 'gl_ 로 시작'));
+      check(has(glossaryBad((g) => { g[0].category = 'misc'; }), 'category'));
+      check(has(glossaryBad((g) => { g[0].level2_ko = ''; }), 'level2_ko'));
+      check(has(glossaryBad((g) => { delete g[0].level3; }), 'level3'));
+      check(has(glossaryBad((g) => { g[0].level3.industry_en = []; }), 'industry_en'));
+      check(has(glossaryBad((g) => { delete g[0].term_en; }), 'term_en'));
+      check(has(glossaryBad((g) => { g[0].related = ['gl_nope']; }), '없는 용어 id'));
+      check(has(glossaryBad((g) => { g[0].related = [g[0].id]; }), '자기 자신'));
+      check(has(glossaryBad((g) => { g[0].level1_ko = '{market.label}라고 해요'; }), '치환 변수'));
+      check(has(glossaryBad((g) => { g[0].level1_ko = '[[gl_nope|없는 말]]'; }), '없는 용어 id'));
+      check(has(glossaryBad((g) => { g[0].appears_in = ['mall']; }), 'appears_in'));
+      check(has(glossaryBad((g) => { g[0].appears_in = []; }), 'appears_in'));
+      check(has(glossaryBad((g) => { g[0].gloss_ko = 'x'.repeat(21); }), 'gloss_ko'));
+      check(has(validateGlossary({}), '최상위'));
+      const game = clone(data.glossary).find((t) => t.category === 'game'); delete game.term_en; game.level3.industry_en = [];
+      eq(validateGlossary([game]).filter((e) => !e.message.includes('related')), [], '게임 규칙 용어는 영어 이름·예문이 없어도 된다');
+    });
+    test('용어집 로더: 경고(1단계 60자·2단계 120자 초과, 어디에도 안 쓰인 용어)는 막지 않고 알려 준다', () => {
+      const raw = { ...data, glossary: clone(data.glossary) };
+      raw.glossary[0].level1_ko = '가'.repeat(61); raw.glossary[1].level2_ko = '가'.repeat(121);
+      const w = glossaryWarnings(raw);
+      check(w.some((m) => m.includes(raw.glossary[0].id) && m.includes('level1_ko')) && w.some((m) => m.includes(raw.glossary[1].id) && m.includes('level2_ko')), w.join('\n'));
+      const solo = { ...raw, glossary: [...raw.glossary, { ...clone(raw.glossary[0]), id: 'gl_unused_x', level1_ko: '짧아요' }] };
+      check(glossaryWarnings(solo).some((m) => m.includes('gl_unused_x') && m.includes('쓰이지 않는')));
+    });
+    test('용어집 로더: 데이터 글 속 용어 id가 용어집에 없으면 어느 파일이든 막는다(소개글은 허용)', () => {
+      const ids = new Set(termIds());
+      const c = clone(data.clients); c[0].profile.intro_ko = '[[gl_nope|없는 말]]'; check(has(validateClients(c, 'clients.json', ids), '없는 용어 id'));
+      const r = clone(data.reinsurers); r[0].intro_ko = '[[gl_line|지분]]을 맡아요'; eq(validateReinsurers(r, 'reinsurers.json', ids), []);
+      const m = mailsOf(); m[0].body_ko[0] = '[[gl_nope]]'; check(has(validateMails(m, 'mails.json', data.calendar, ids), '없는 용어 id'));
+    });
+    test('용어집 로더: glossary.json이 없으면 그 파일만 알리고 메일의 용어 표시를 줄줄이 오류로 만들지 않는다', async () => {
+      const files = { 'config.json': data.config, 'calendar.json': data.calendar, 'mails.json': data.mails, 'clients.json': data.clients, 'reinsurers.json': data.reinsurers, 'treaties.json': data.treaties, 'events.json': data.events };
+      const fetchFn = async (url) => {
+        const name = String(url).split('/').pop();
+        if (name === 'glossary.json') return { ok: false, status: 404, json: async () => null };
+        return { ok: true, status: 200, json: async () => files[name] };
+      };
+      const res = await loadData({ fetchFn });
+      check(!res.ok && res.errors.length === 1 && res.errors[0].message.includes('glossary.json'), res.errors?.map((e) => e.message).join('\n'));
+    });
+
+    // ---- 화면 ----
+    const withToasts = (fn) => { const host = document.createElement('div'); host.id = 'toasts'; document.body.append(host); try { return fn(host); } finally { host.remove(); } };
+    const closeCards = () => document.querySelectorAll('dialog.term-card').forEach((d) => { d.close(); d.remove(); });
+    const startScreens = (seed = 12) => { fresh(); freshCodex(); store.newGame({ seed }); turn.startGame(); resetTermScope(); };
+
+    test('용어 링크: 첫 등장만 점선 밑줄 버튼, 같은 용어가 또 나오면 글자만', () => {
+      resetTermScope();
+      const nodes = richText('[[gl_line|라인]]과 [[gl_line|라인]], 그리고 [[gl_xol]]');
+      const btns = nodes.filter((n) => n instanceof Node);
+      eq(btns.map((b) => [b.tagName, b.className, b.dataset.term, b.textContent]), [['BUTTON', 'term', 'gl_line', '라인'], ['BUTTON', 'term', 'gl_xol', '초과손해 재보험(XoL)']], '표시문구 생략 시 term_ko');
+      eq(nodes.filter((n) => typeof n === 'string').join(''), '과 라인, 그리고 ');
+      eq(richText('[[gl_line|지분]]').filter((n) => n instanceof Node).length, 0, '같은 화면(범위)에서는 이미 나왔다');
+      resetTermScope();
+      eq(richText('[[gl_line|지분]]').filter((n) => n instanceof Node).length, 1, '범위를 비우면 다시 첫 등장');
+      eq(richText('[[gl_line|지분]]', { scope: new Set() }).filter((n) => n instanceof Node).length, 1, '따로 준 범위는 독립');
+    });
+    test('용어 링크: 화면 라벨은 처음 한 번만 쉬운 말을 병기한다(RC(작년 대비 가격 변화))', () => {
+      resetTermScope();
+      const a = glossaryLink('gl_rate_change', { label: 'RC', gloss: true });
+      eq([a.tagName, a.textContent], ['BUTTON', 'RC(작년 대비 가격 변화)']);
+      eq(glossaryLink('gl_rate_change', { label: 'RC', gloss: true }), 'RC');
+      eq(glossaryLink('gl_nope', { label: '없음' }), '없음', '모르는 id는 글자로 둔다');
+    });
+    test('3단계 카드: 1단계만 열린 채 뜨고 한 단계씩 펼치며, 펼칠 때마다 도감에 기록된다', () => {
+      freshCodex(); store.configure(data);
+      withToasts((host) => {
+        try {
+          openTermCard('gl_line');
+          const dlg = document.querySelector('dialog.term-card');
+          check(dlg && dlg.open, '카드가 떠야 해요');
+          eq(dlg.getAttribute('aria-labelledby') === dlg.querySelector('h2').id, true, '제목과 연결');
+          eq(dlg.querySelectorAll('.term-level').length, 1);
+          check(dlg.textContent.includes(data.glossary.find((t) => t.id === 'gl_line').level1_ko));
+          check(!dlg.textContent.includes(data.glossary.find((t) => t.id === 'gl_line').level2_ko), '2단계는 아직 숨김');
+          check(host.textContent.includes(`새 용어 수집! (1/${data.glossary.length})`), host.textContent);
+          eq(gl.getCodex().entries.gl_line.levels, 1);
+          const step = () => [...dlg.querySelectorAll('button')].find((b) => /보기 ▾$/.test(b.textContent));
+          eq(step().textContent, '비유 보기 ▾'); step().click();
+          eq([dlg.querySelectorAll('.term-level').length, gl.getCodex().entries.gl_line.levels], [2, 2]);
+          eq(step().textContent, '실무 표현 보기 ▾'); step().click();
+          eq([dlg.querySelectorAll('.term-level').length, gl.getCodex().entries.gl_line.levels, step()], [3, 3, undefined]);
+          check(dlg.querySelector('.term-en-list li'), '영어 예문');
+          check(dlg.textContent.includes('게임 속 예시'), '게임 속 예시');
+          eq(host.querySelectorAll('.toast').length, 1, '이미 본 용어를 다시 펼쳐도 새 용어 알림은 한 번');
+          [...dlg.querySelectorAll('button')].find((b) => b.textContent === '닫기').click(); // 정리는 카드 자신의 닫기 처리에 맡긴다
+        } catch (e) { closeCards(); throw e; }
+      });
+      eq(document.querySelector('dialog.term-card'), null, '닫으면 사라진다');
+    });
+    test('3단계 카드: 관련 용어 칩으로 카드가 바뀌고 새 용어는 1단계로 기록, 닫아도 이미 읽은 단계는 유지', () => {
+      freshCodex(); store.configure(data);
+      try {
+        openTermCard('gl_line');
+        const dlg = document.querySelector('dialog.term-card');
+        const chip = dlg.querySelector('.term-related .chip');
+        const rel = data.glossary.find((t) => t.id === 'gl_line').related[0];
+        eq(chip.textContent, data.glossary.find((t) => t.id === rel).term_ko);
+        chip.click();
+        eq(dlg.querySelector('h2').textContent, chip.textContent);
+        eq(gl.getCodex().entries[rel].levels, 1);
+        eq(dlg.querySelectorAll('.term-level').length, 1, '바뀐 카드도 1단계부터');
+        openTermCard('gl_line'); eq(document.querySelectorAll('dialog.term-card').length, 1, '카드는 하나만');
+      } finally { closeCards(); }
+      eq(gl.getCodex().entries.gl_line.levels, 1);
+    });
+    test('도감 화면: 못 만난 용어는 ???로만 보이고, 만난 용어는 별과 함께 이름이 보인다', () => {
+      freshCodex(); store.configure(data);
+      let root = renderCodex(); document.body.append(root);
+      try {
+        const cardsText = () => [...root.querySelectorAll('.codex-card')].map((c) => c.textContent).join('|');
+        eq(root.querySelectorAll('.codex-card').length, data.glossary.length);
+        check(root.textContent.includes(`발견 0 / ${data.glossary.length}`));
+        check([...root.querySelectorAll('.codex-card .codex-name')].every((n) => n.textContent === '???'), '이름이 드러나면 안 돼요');
+        gl.collect('gl_line', 2, 'T'); root.remove(); root = renderCodex(); document.body.append(root);
+        const card = root.querySelector('[data-term="gl_line"]');
+        check(card.textContent.includes('라인(지분)') && card.textContent.includes('★★☆'), card.textContent);
+        check(root.textContent.includes(`발견 1 / ${data.glossary.length}`));
+      } finally { root.remove(); }
+    });
+    test('도감 화면: 상세는 3단계를 한 번에 보여 주되 별을 올리지 않고, 못 만난 용어 상세는 ???', () => {
+      freshCodex(); store.configure(data); gl.collect('gl_line', 1, 'T');
+      const t = data.glossary.find((x) => x.id === 'gl_line');
+      showInCodex('gl_line');
+      let root = renderCodex(); document.body.append(root);
+      try {
+        const detail = root.querySelector('.codex-detail');
+        check(detail.textContent.includes(t.level1_ko) && detail.textContent.includes(t.level2_ko) && detail.textContent.includes(t.level3.industry_ko), '3단계가 한 번에');
+        eq(gl.getCodex().entries.gl_line.levels, 1, '상세 열람은 별을 올리지 않아요');
+        showInCodex('gl_xol'); root.remove(); root = renderCodex(); document.body.append(root);
+        const d2 = root.querySelector('.codex-detail');
+        eq(d2.querySelector('h2').textContent, '???'); check(!d2.textContent.includes('초과손해'), '이름 숨김');
+        check(d2.textContent.includes('이런 곳에서 만날 수 있어요'), '힌트');
+      } finally { root.remove(); }
+    });
+    test('도감 화면: 필터·검색 상태는 showInCodex로 초기화되고 검색 입력은 목록만 다시 그린다', () => {
+      freshCodex(); store.configure(data); gl.collect('gl_line', 1, 'T'); showInCodex(null);
+      const root = renderCodex(); document.body.append(root);
+      try {
+        const input = root.querySelector('#codex-search');
+        input.value = '지분'; input.dispatchEvent(new Event('input'));
+        eq([...root.querySelectorAll('.codex-card')].map((c) => c.dataset.term), ['gl_line']);
+        eq(root.querySelector('#codex-search'), input, '검색창이 다시 만들어지지 않는다(입력 중 포커스 유지)');
+        input.value = ''; input.dispatchEvent(new Event('input')); showInCodex(null);
+      } finally { root.remove(); }
+    });
+    test('화면(인박스): 메일 본문의 용어는 클릭 가능한 버튼이 되고 목록 줄·[[ 글자는 없다', () => {
+      startScreens();
+      const root = renderInbox(); document.body.append(root);
+      try {
+        const terms = [...root.querySelectorAll('.mail-body .term')];
+        check(terms.length >= 1, '본문에 용어 링크가 있어야 해요');
+        eq(new Set(terms.map((b) => b.dataset.term)).size, terms.length, '한 메일 안에서는 같은 용어가 한 번만 링크');
+        eq(root.querySelectorAll('.mail-list .term').length, 0, '목록 줄에는 링크가 없어요');
+        check(!root.textContent.includes('[['), '마크업이 그대로 보이면 안 돼요');
+        terms[0].click(); check(document.querySelector('dialog.term-card'), '눌러서 카드가 떠야 해요');
+      } finally { closeCards(); root.remove(); }
+    });
+    test('화면(인박스): 모든 메일을 열어도 마크업 글자가 그대로 보이지 않는다', () => {
+      startScreens();
+      const s = store.getState();
+      for (const tpl of data.mails) {
+        s.mails.push({ id: `m_${String(900 + s.mails.length).padStart(4, '0')}`, template: tpl.id, turn: 1, deadline_turn: null, read: true, answered: tpl.choices[0]?.id ?? null, auto: false, thread: 't_x' });
+      }
+      const picks = s.mails.slice(-data.mails.length);
+      for (const m of picks) {
+        const node = document.createElement('div');
+        document.body.append(node);
+        try {
+          // 인박스는 선택된 메일 하나만 그리므로, 가장 위에 오도록 마지막으로 추가한 메일 순서로 하나씩 확인한다.
+          s.mails.push(...[]); node.append(renderInbox());
+          check(!node.textContent.includes('[['), `${m.template}`);
+        } finally { node.remove(); }
+      }
+    });
+    test('화면(보드): RC는 처음 한 번만 쉬운 말과 함께 링크되고 다른 용어도 링크되며 마크업 글자가 없다', () => {
+      startScreens();
+      const root = renderPlacement(); document.body.append(root);
+      try {
+        const rc = [...root.querySelectorAll('.term')].filter((b) => b.dataset.term === 'gl_rate_change');
+        eq(rc.length, 1, 'RC 링크는 한 번만');
+        eq(rc[0].textContent, 'RC(작년 대비 가격 변화)');
+        const ids = [...root.querySelectorAll('.term')].map((b) => b.dataset.term);
+        for (const id of ['gl_inception', 'gl_single_share', 'gl_rating', 'gl_line', 'gl_treaty', 'gl_panel', 'gl_counter_offer', 'gl_ap']) check(ids.includes(id), `${id} 링크가 없어요`);
+        eq(new Set(ids).size, ids.length, '같은 용어를 두 번 링크하지 않아요');
+        check(!root.textContent.includes('[['));
+        eq(root.querySelectorAll('label .term').length, 0, 'label 안에는 버튼을 넣지 않아요');
+        check(root.querySelector('h1').textContent.includes('라인 구성 보드'));
+      } finally { root.remove(); }
+    });
+    test('화면(보드): 입력 때문에 다시 그려도 첫 등장 링크가 사라지지 않는다', () => {
+      startScreens();
+      const root = renderPlacement(); document.body.append(root);
+      try {
+        root.querySelector('.btn-step').click();
+        eq([...root.querySelectorAll('.term')].filter((b) => b.dataset.term === 'gl_rate_change').length, 1);
+      } finally { root.remove(); }
+    });
+    test('화면(DB): 표 머리의 등급·용량에 쉬운 말이 붙고, 프로필 소개글의 용어가 링크로 바뀐다', () => {
+      startScreens();
+      let root = renderDatabase(); document.body.append(root);
+      try {
+        const head = root.querySelector('thead').textContent;
+        check(head.includes('등급(') , head);
+        check(!root.textContent.includes('[['));
+        const profileTab = [...root.querySelectorAll('.chip')].find((b) => b.textContent === '프로필'); profileTab.click();
+        root.remove(); root = renderDatabase(); document.body.append(root);
+        check(root.querySelector('.info-list'), '프로필');
+        const clientTerms = [...root.querySelectorAll('.db-detail .term')].map((b) => b.dataset.term);
+        check(clientTerms.includes('gl_cedant'), clientTerms.join());
+        check(!root.textContent.includes('[['));
+      } finally { root.remove(); }
+    });
+    test('화면: 모든 고객·재보험사 프로필에서 마크업 글자가 그대로 보이지 않고, 용어는 모두 도감 id를 가진다', () => {
+      startScreens();
+      for (const group of ['client', 'reinsurer']) {
+        for (const e of group === 'client' ? data.clients : data.reinsurers) {
+          const intro = group === 'client' ? e.profile.intro_ko : e.intro_ko;
+          const nodes = richText(intro, { scope: new Set() });
+          check(!nodes.filter((n) => typeof n === 'string').join('').includes('[['), e.id);
+          for (const n of nodes) if (n instanceof Node) check(termIds().includes(n.dataset.term), n.dataset.term);
+        }
+      }
     });
 
     // ---------- 실행 ----------

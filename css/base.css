@@ -140,6 +140,27 @@ a { color: var(--accent); }
 
 .boot-fallback { padding: 24px; color: var(--text-dim); }
 
+/* ---- 용어 링크 · 3단계 카드 (design.md §5) ---- */
+.term {
+  appearance: none; background: none; border: 0; margin: 0; padding: 0;
+  font: inherit; color: inherit; cursor: help;
+  text-decoration: underline dotted var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px;
+}
+.term:hover { color: var(--accent); }
+.term-card { width: min(560px, calc(100vw - 32px)); max-width: none; padding: 0; }
+.term-card-body { padding: 20px; max-height: min(80vh, 720px); overflow-y: auto; }
+.term-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.term-head h2 { font-size: 1.3rem; margin-bottom: 2px; }
+.term-en { margin: 0 0 8px; }
+.term-stars { color: var(--warn); letter-spacing: 2px; white-space: nowrap; }
+.term-level { margin: 14px 0; padding-left: 12px; border-left: 3px solid var(--accent); }
+.term-level h3 { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 4px; }
+.term-level p { margin-bottom: 0.5em; }
+.term-en-list { margin: 0 0 0.6em; padding-left: 1.2em; color: var(--text-dim); font-style: italic; }
+.term-game { background: var(--bg-elev-2); border-radius: var(--radius); padding: 8px 10px; }
+.term-related { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+
+
 /* ---- 좁은 화면: 내비를 가로 한 줄로 ---- */
 @media (max-width: 760px) {
   .shell { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "nav" "main"; }

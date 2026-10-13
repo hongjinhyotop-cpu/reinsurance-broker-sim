@@ -5,6 +5,7 @@ import { describeTurn, turnLabel } from '../calendar.js';
 import { fillText, findTemplate, needsReply, matchesFilter, choiceBlockReason, MAIL_FILTERS } from '../mail.js';
 import { mailVars, markRead, answer } from '../turn.js';
 import { h, toast } from './components.js';
+import { richText } from './glossary_view.js';
 
 const PRIORITY_LABEL = { urgent: '긴급', normal: '일반', low: '참고' };
 const FROM_KIND_LABEL = { client: '고객', reinsurer: '재보험사', regulator: '규제', market: '시장', board: '이사회', system: '시스템' };
@@ -65,7 +66,7 @@ function renderReader(mail, template, state, data) {
       template.blocking ? h('span', { class: 'tag tag-warn' }, '답해야 다음 주로 넘어가요') : null),
   );
 
-  const body = h('div', { class: 'mail-body' }, template.body_ko.map((line) => h('p', {}, fillText(line, vars))));
+  const body = h('div', { class: 'mail-body' }, template.body_ko.map((line) => h('p', {}, richText(fillText(line, vars)))));
 
   const parts = [header, body];
 
@@ -92,7 +93,7 @@ function renderReader(mail, template, state, data) {
     parts.push(h('section', { class: 'mail-reply' },
       h('p', { class: 'dim' }, mail.auto ? '마감이 지나 기본 선택이 자동으로 적용됐어요' : '내가 보낸 답장'),
       h('p', { class: 'reply-choice' }, fillText(choice.label_ko, vars)),
-      h('p', {}, fillText(choice.result_ko, vars)),
+      h('p', {}, richText(fillText(choice.result_ko, vars))),
     ));
   }
   return h('article', { class: 'mail-reader' }, parts);

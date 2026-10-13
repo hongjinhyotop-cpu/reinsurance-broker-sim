@@ -1,7 +1,8 @@
-// 설정 화면: 세이브 슬롯, 파일 백업, 게임 정보, M0 점검용 난수 도구.
+// 설정 화면: 세이브 슬롯, 파일 백업, 도감 초기화, 게임 정보, M0 점검용 난수 도구.
 // 슬롯 목록과 가져오기 버튼은 시작 화면도 같이 쓴다.
 
 import * as store from '../store.js';
+import { getCodex, progressOf, resetCodex } from '../glossary.js';
 import { describeTurn, turnLabel } from '../calendar.js';
 import { h, toast, confirmDialog, navigate, formatUsdM, formatDateTime } from './components.js';
 
@@ -155,6 +156,24 @@ function renderDevPanel() {
   );
 }
 
+function renderCodexReset() {
+  const ids = store.getData().glossary.map((t) => t.id);
+  const prog = progressOf(getCodex(), ids);
+  return h('section', { class: 'card' },
+    h('h2', {}, '용어 도감'),
+    h('p', { class: 'dim' }, `지금까지 ${prog.seen}개를 만났고 ${prog.mastered}개를 마스터했어요. 도감은 세이브와 따로 저장돼서 새 게임을 시작해도 남아요.`),
+    h('button', {
+      class: 'btn btn-danger', type: 'button',
+      onclick: async () => {
+        const yes = await confirmDialog({ title: '도감을 초기화할까요?', message: '모은 용어와 별이 모두 사라지고 되돌릴 수 없어요. 게임 진행은 그대로예요.', confirmLabel: '초기화', danger: true });
+        if (!yes) return;
+        const res = resetCodex();
+        toast(res.ok ? '도감을 초기화했어요' : '도감을 비웠지만 저장소에 쓰지 못했어요(이번에 켜 둔 동안만 비어 있어요)', res.ok ? 'ok' : 'warn');
+        store.refresh();
+      },
+    }, '도감 초기화'));
+}
+
 export function renderSettings() {
   const state = store.getState();
   const { calendar } = store.getData();
@@ -195,6 +214,7 @@ export function renderSettings() {
       ),
       h('p', { class: 'dim' }, '같은 시드로 새 게임을 시작하면 같은 난수 흐름으로 시작해요.'),
     ),
+    renderCodexReset(),
     renderDevPanel(),
     h('section', { class: 'card' },
       h('h2', {}, '시작 화면으로'),
