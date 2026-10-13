@@ -7,6 +7,7 @@ import { describeTurn, turnLabel, isQuarterStart } from './calendar.js';
 import { describeMarket, driftIndex, gaussian, marketBand } from './market.js';
 import { windowStarters, pickFireTurn, canFire, pickOutcome, pickClientProb, pickClientStillValid } from './events.js';
 import { expireCounters, voidInvalidRows, applyGap } from './placement.js';
+import { settleWeek, closeQuarterIfEnd, checkEnding } from './finance.js';
 import { TOPICS, applyMeeting, relationshipAfterMeeting, newlyUnlocked } from './scouting.js';
 import {
   fillText, findTemplate, deadlineTurn, scheduledFor, nextMailId, needsReply, choiceBlockReason,
@@ -20,6 +21,18 @@ export function mailVars(data, state) {
     'market.label': describeMarket(state.market.index, state.player.market_intel, data.config.market).label_ko,
     'turn.label': desc ? turnLabel(desc) : `턴 ${state.turn}`,
     'player.firm': state.player.firm,
+    ...reportVars(data, state),
+  };
+}
+
+// 성적표 메일 변수(design.md §10.5 M7a). 성적표가 아직 없으면 빈 글자다.
+function reportVars(data, state) {
+  const r = state.ending?.report;
+  const short = (id) => data.report?.components?.[id]?.short_ko ?? '';
+  return {
+    'report.grade': r ? r.grade : '',
+    'report.strong': r ? short(r.strong) : '',
+    'report.weak': r ? short(r.weak) : '',
   };
 }
 
@@ -151,6 +164,7 @@ export function answerBlockReason(data, state, mailId, choiceId) {
   if (mail.answered !== null) return '이미 답한 메일이에요';
   const choice = findTemplate(data.mails, mail.template)?.choices.find((c) => c.id === choiceId);
   if (!choice) return '없는 선택지예요';
+  if (state.ending) return '게임이 끝나 더는 답할 수 없어요';
   return choiceBlockReason(choice, state.ap);
 }
 
@@ -189,6 +203,7 @@ function findEntity(data, kind, id) {
 export function meetBlockReason(data, state, kind, id, topic) {
   if (!findEntity(data, kind, id)) return '없는 상대예요';
   if (!TOPICS.includes(topic)) return '없는 미팅 주제예요';
+  if (state.ending) return '게임이 끝나 더는 미팅할 수 없어요';
   const cost = data.config.scouting.meeting_ap;
   if (state.ap < cost) return `행동 점수가 모자라요 (필요 ${cost}점, 남은 ${state.ap}점)`;
   return null;
@@ -233,7 +248,12 @@ function unansweredMails(data, state) {
 
 // Continue를 누를 수 있는지. 못 누르면 이유를 알려 준다.
 export function continueBlockReason(data, state) {
-  if (state.turn >= data.calendar.turns) return '마지막 주예요. 연말 리뷰는 아직 만들지 않았어요';
+  if (state.ending) {
+    return state.ending.kind === 'fired'
+      ? '이사회에서 해고가 결정됐어요 — 시즌 리뷰에서 결과를 확인하세요'
+      : '한 해가 끝났어요 — 시즌 리뷰에서 성적표를 확인하세요';
+  }
+  if (state.turn >= data.calendar.turns) return '마지막 주예요. 성적표가 없는 옛 세이브라 더 진행할 수 없어요';
   const blocker = unansweredMails(data, state).find(({ mail, template }) => template.blocking && mail.deadline_turn !== null && mail.deadline_turn <= state.turn);
   if (blocker) return `이번 주가 마감인 필수 메일에 먼저 답해 주세요: "${blocker.template.subject_ko}"`;
   return null;
@@ -261,12 +281,16 @@ function stepWeek(data, state) {
   const voided = voidInvalidRows(data, state); // 등급 강등 등으로 무효가 된 확정 지분(§8.3 ⑥)
   const gaps = applyGap(data, state); // 인셉션이 지났는데 열린 트리티(§8.3 ⑤)
   stepMarket(data, state);
+  const booked = settleWeek(data, state); // 재무 정산(§2.5 7단계, §9.1)
+  const closedQuarter = closeQuarterIfEnd(data, state); // 분기 결산·라이벌 갱신·순위 메일(§2.5 9단계)
+  const ending = checkEnding(data, state); // 연말 성적표 또는 해고(§9.2)
   const arrived = deliverDue(data, state);
-  return { arrived, autoResolved, expiredCounters, fired, voided, gaps };
+  return { arrived, autoResolved, expiredCounters, fired, voided, gaps, booked, closedQuarter, ending };
 }
 
 // 멈춰야 하는 이유(없으면 null). 설계 §2.1: 새 메일, 마감 임박, 시즌 단계 전환.
 export function stopReason(data, state, arrived, fired = [], gaps = []) {
+  if (state.ending) return 'ending';
   if (fired.length > 0) return 'event';
   if (gaps.length > 0) return 'mail';
   if (arrived.length > 0) return 'mail';
@@ -284,7 +308,7 @@ export function advance() {
   const reason = continueBlockReason(data, store.getState());
   if (reason) return { ok: false, error: reason };
 
-  const summary = { ok: true, fromTurn: store.getState().turn, arrived: [], autoResolved: [], expiredCounters: 0, events: [], voided: [], gaps: [], stop: null };
+  const summary = { ok: true, fromTurn: store.getState().turn, arrived: [], autoResolved: [], expiredCounters: 0, events: [], voided: [], gaps: [], booked: [], closedQuarters: [], ending: null, stop: null };
   store.commit((s) => {
     // 끝없는 반복 방지: 전체 턴 수를 넘길 수 없다.
     for (let guard = 0; guard < data.calendar.turns; guard += 1) {
@@ -295,6 +319,9 @@ export function advance() {
       summary.events.push(...step.fired);
       summary.voided.push(...step.voided);
       summary.gaps.push(...step.gaps);
+      summary.booked.push(...step.booked);
+      if (step.closedQuarter) summary.closedQuarters.push(step.closedQuarter);
+      if (step.ending) summary.ending = step.ending.kind;
       summary.stop = stopReason(data, s, step.arrived, step.fired, step.gaps);
       if (summary.stop) break;
     }

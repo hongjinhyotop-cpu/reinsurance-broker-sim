@@ -88,6 +88,7 @@ export function validateConfig(cfg, file = 'config.json') {
     c.int(cfg.guide.scout_min_meetings, 'guide.scout_min_meetings', 0, 99);
     c.num(cfg.guide.counter_close_pp, 'guide.counter_close_pp', 0, 20);
     c.int(cfg.guide.careful_patience, 'guide.careful_patience', 0, 9);
+    c.int(cfg.guide.year_end_weeks, 'guide.year_end_weeks', 0, 58);
   }
 
   if (c.object(cfg.scouting, 'scouting')) {
@@ -162,7 +163,73 @@ export function validateConfig(cfg, file = 'config.json') {
     c.str(g.mail, 'season.gap.mail', 80);
   }
   if (c.object(cfg.negotiation, 'negotiation')) validateNegotiation(c, cfg.negotiation);
+  validateFinanceConfig(c, cfg);
   return errors;
+}
+
+export const PART_IDS = ['revenue', 'retention', 'rank', 'compliance', 'reputation'];
+export const GRADE_LETTERS = ['S', 'A', 'B', 'C', 'D'];
+export const RANK_MAIL_KEYS = ['top_up', 'top_down', 'mid_up', 'mid_down', 'low_up', 'low_down'];
+
+// 재무·라이벌·이사회 계수(design.md §9, §10.7, M7a)
+function validateFinanceConfig(c, cfg) {
+  if (c.object(cfg.finance, 'finance')) {
+    c.int(cfg.finance.cash_delay_weeks, 'finance.cash_delay_weeks', 0, 20);
+    c.num(cfg.finance.negative_cash_penalty, 'finance.negative_cash_penalty', -100, 0);
+  }
+  if (c.object(cfg.rivals, 'rivals')) {
+    c.num(cfg.rivals.market_k, 'rivals.market_k', 0, 1);
+    if (c.array(cfg.rivals.quarters, 'rivals.quarters', 1)) cfg.rivals.quarters.forEach((q, i) => c.str(q, `rivals.quarters[${i}]`, 20)); // 존재 여부는 validateCross가 본다
+  }
+  if (!c.object(cfg.board, 'board')) return;
+  const b = cfg.board;
+  if (c.object(b.targets, 'board.targets')) {
+    c.num(b.targets.brokerage_usd_m, 'board.targets.brokerage_usd_m', 0.01, 1000); // 0이면 수익 비율을 나눌 수 없다
+    c.int(b.targets.rank_max, 'board.targets.rank_max', 1, 20);
+    c.int(b.targets.clients_kept, 'board.targets.clients_kept', 0, 99);
+    c.num(b.targets.compliance_min, 'board.targets.compliance_min', 0, 100);
+  }
+  c.num(b.fired_below, 'board.fired_below', 0, 100);
+  if (c.object(b.score, 'board.score')) {
+    if (c.object(b.score.weights, 'board.score.weights')) {
+      let sum = 0;
+      for (const id of PART_IDS) if (c.num(b.score.weights[id], `board.score.weights.${id}`, 0, 100)) sum += b.score.weights[id];
+      if (Math.abs(sum - 100) > 1e-9) c.fail('board.score.weights', '다섯 항목의 합이 100이어야 점수가 100점 만점이에요', sum);
+    }
+    c.num(b.score.revenue_cap, 'board.score.revenue_cap', 0, 1);
+    c.num(b.score.rank_unknown_fraction, 'board.score.rank_unknown_fraction', 0, 1);
+    if (c.array(b.score.rank_fraction, 'board.score.rank_fraction', 1)) b.score.rank_fraction.forEach((x, i) => c.num(x, `board.score.rank_fraction[${i}]`, 0, 1));
+  }
+  if (c.array(b.grades, 'board.grades', 1)) {
+    let prev = Infinity;
+    b.grades.forEach((g, i) => {
+      const p = `board.grades[${i}]`;
+      if (!c.object(g, p)) return;
+      if (!GRADE_LETTERS.includes(g.grade)) c.fail(`${p}.grade`, `${GRADE_LETTERS.join(' / ')} 중 하나여야 해요`, g.grade);
+      if (c.num(g.min, `${p}.min`, 0, 100)) {
+        if (g.min >= prev) c.fail(`${p}.min`, '앞 등급보다 작아야 해요(높은 등급부터)', g.min);
+        prev = g.min;
+      }
+    });
+    const last = b.grades[b.grades.length - 1];
+    if (isObj(last) && last.min !== 0) c.fail(`board.grades[${b.grades.length - 1}].min`, '마지막 등급은 0점부터여야 모든 점수가 등급을 받아요', last.min);
+    const letters = b.grades.map((g) => g?.grade);
+    if (GRADE_LETTERS.some((g) => !letters.includes(g))) c.fail('board.grades', 'S A B C D 다섯 등급이 모두 있어야 해요', letters);
+  }
+  if (c.object(b.grade_delta, 'board.grade_delta')) for (const g of GRADE_LETTERS) c.num(b.grade_delta[g], `board.grade_delta.${g}`, -100, 100);
+  if (c.object(b.report, 'board.report')) {
+    c.num(b.report.tier_good, 'board.report.tier_good', 0, 1);
+    c.num(b.report.tier_weak, 'board.report.tier_weak', 0, 1);
+    c.num(b.report.tip_below, 'board.report.tip_below', 0, 1);
+    c.int(b.report.tip_max, 'board.report.tip_max', 0, 5);
+    if (Number.isFinite(b.report.tier_good) && Number.isFinite(b.report.tier_weak) && b.report.tier_weak > b.report.tier_good) c.fail('board.report.tier_weak', 'tier_good보다 클 수 없어요', b.report.tier_weak);
+  }
+  if (c.object(b.rank_buckets, 'board.rank_buckets')) c.int(b.rank_buckets.top_max, 'board.rank_buckets.top_max', 1, 20);
+  if (c.object(b.mails, 'board.mails')) {
+    if (c.object(b.mails.rank, 'board.mails.rank')) for (const k of RANK_MAIL_KEYS) c.str(b.mails.rank[k], `board.mails.rank.${k}`, 80);
+    if (c.object(b.mails.grade, 'board.mails.grade')) for (const g of GRADE_LETTERS) c.str(b.mails.grade[g], `board.mails.grade.${g}`, 80);
+    for (const k of ['fired', 'cash_warning', 'cash_penalty']) c.str(b.mails[k], `board.mails.${k}`, 80);
+  }
 }
 
 // 협상 계수(design.md §10.7). 범위는 "식이 깨지지 않는" 정도만 막고, 값 튜닝은 자유롭게 둔다.
@@ -292,7 +359,7 @@ export const MAIL_TYPES = ['client_request', 'reinsurer_response', 'event', 'reg
 export const MAIL_FROM_KINDS = ['client', 'reinsurer', 'regulator', 'market', 'board', 'system', 'mentor'];
 export const MAIL_PRIORITIES = ['urgent', 'normal', 'low'];
 // M1에서 쓸 수 있는 치환 변수. {client.*} 등은 해당 데이터가 생기는 마일스톤에서 추가한다.
-export const MAIL_VARS = ['market.label', 'turn.label', 'player.firm'];
+export const MAIL_VARS = ['market.label', 'turn.label', 'player.firm', 'report.grade', 'report.strong', 'report.weak'];
 // 효과 연산자: 닫힌 집합(§10.8). 아직 구현하지 않은 연산자는 별도로 안내한다.
 export const EFFECT_OPS = ['add', 'set', 'mul', 'flag_set', 'flag_clear', 'mail_send', 'cash', 'event_schedule', 'modifier_add'];
 const LATER_OPS = {};
@@ -382,6 +449,7 @@ function validateEffects(c, effects, path, mailIds) {
       if (ef.max !== undefined) c.num(ef.max, `${p}.max`);
     } else if (ef.op === 'cash') {
       c.num(ef.value, `${p}.value`);
+      if (ef.kind !== undefined && ef.kind !== 'fine') c.fail(`${p}.kind`, 'fine만 쓸 수 있어요(과태료로 기록)', ef.kind);
     } else if (ef.op === 'flag_set' || ef.op === 'flag_clear') {
       if (c.str(ef.flag, `${p}.flag`, 60) && !ID_RE.test(ef.flag)) c.fail(`${p}.flag`, 'snake_case 영문이어야 해요', ef.flag);
     } else if (ef.op === 'mail_send') {
@@ -677,7 +745,7 @@ export function glossaryWarnings(raw) {
     else if (Array.isArray(v)) v.forEach(walk);
     else if (isObj(v)) Object.values(v).forEach(walk);
   };
-  walk(raw.mails); walk(raw.clients); walk(raw.reinsurers);
+  walk(raw.mails); walk(raw.clients); walk(raw.reinsurers); walk(raw.report);
   for (const t of list) if (!used.has(t.id)) warnings.push(`glossary.json › ${t.id} — 어디에서도 쓰이지 않는 용어예요`);
   return warnings;
 }
@@ -950,6 +1018,70 @@ function validateEventLinks({ config, events, mails, clients, reinsurers, treati
   return errors;
 }
 
+// ---------- 라이벌 브로커 (design.md §9.3, §10.7) ----------
+
+export function validateBrokers(list, file = 'brokers.json') {
+  const errors = [];
+  const c = checker(file, errors);
+  if (!c.array(list, '(최상위)', 1)) return errors;
+  const seen = new Set();
+  list.forEach((b, i) => {
+    const p = `[${i}]`;
+    if (!c.object(b, p)) return;
+    const label = typeof b.id === 'string' ? `${p}(${b.id})` : p;
+    if (c.str(b.id, `${label}.id`, 80)) {
+      if (!/^brk_[a-z0-9_]+$/.test(b.id)) c.fail(`${label}.id`, 'brk_ 로 시작하는 snake_case여야 해요', b.id);
+      if (seen.has(b.id)) c.fail(`${label}.id`, '다른 라이벌과 id가 겹쳐요', b.id);
+      seen.add(b.id);
+    }
+    c.str(b.name, `${label}.name`, 60);
+    c.str(b.name_ko, `${label}.name_ko`, 40);
+    c.str(b.tag_ko, `${label}.tag_ko`, 40);
+    c.num(b.base_income_usd_m, `${label}.base_income_usd_m`, 0.1, 100);
+    c.num(b.volatility, `${label}.volatility`, 0, 1);
+    c.num(b.market_beta, `${label}.market_beta`, 0, 3);
+    c.num(b.commission_rate, `${label}.commission_rate`, 0.01, 1); // 플레이스드 프리미엄을 수익/수수료율로 어림하므로 0이면 안 된다
+    c.int(b.clients, `${label}.clients`, 0, 999);
+    c.num(b.reputation, `${label}.reputation`, 0, 100);
+  });
+  return errors;
+}
+
+// ---------- 성적표 문구 (design.md §10.7 report.json) ----------
+
+export function validateReport(rep, file = 'report.json', terms = true) {
+  const errors = [];
+  const c = checker(file, errors);
+  if (!c.object(rep, '(최상위)')) return errors;
+  const text = (v, path, max) => { if (c.str(v, path, max)) validateText(c, v, path, terms); };
+  if (c.object(rep.components, 'components')) {
+    for (const id of PART_IDS) {
+      const p = `components.${id}`;
+      if (!c.object(rep.components[id], p)) continue;
+      const comp = rep.components[id];
+      c.str(comp.label_ko, `${p}.label_ko`, 20);
+      c.str(comp.short_ko, `${p}.short_ko`, 20);
+      for (const k of ['good_ko', 'mid_ko', 'weak_ko']) text(comp[k], `${p}.${k}`, 300);
+      text(comp.tip_ko, `${p}.tip_ko`, 500);
+    }
+  }
+  if (c.object(rep.grades, 'grades')) {
+    for (const g of GRADE_LETTERS) {
+      const p = `grades.${g}`;
+      if (!c.object(rep.grades[g], p)) continue;
+      text(rep.grades[g].title_ko, `${p}.title_ko`, 60);
+      if (c.array(rep.grades[g].summary_ko, `${p}.summary_ko`, 1)) rep.grades[g].summary_ko.forEach((line, i) => text(line, `${p}.summary_ko[${i}]`, 400));
+    }
+  }
+  if (c.object(rep.fired, 'fired')) {
+    text(rep.fired.title_ko, 'fired.title_ko', 60);
+    if (c.array(rep.fired.summary_ko, 'fired.summary_ko', 1)) rep.fired.summary_ko.forEach((line, i) => text(line, `fired.summary_ko[${i}]`, 400));
+  }
+  text(rep.keep_going_ko, 'keep_going_ko', 300);
+  text(rep.preview_note_ko, 'preview_note_ko', 300);
+  return errors;
+}
+
 // 파일 사이의 약속(서로 다른 파일이 같은 값을 말해야 하는 것).
 export function validateCross({ config, calendar, clients, reinsurers, treaties, events, mails }) {
   const errors = [];
@@ -962,6 +1094,31 @@ export function validateCross({ config, calendar, clients, reinsurers, treaties,
   }
   if (treaties && clients && reinsurers) errors.push(...validateTreatyLinks({ treaties, clients, reinsurers, calendar }));
   if (events && mails && config.market?.family) errors.push(...validateEventLinks({ config, events, mails, clients, reinsurers, treaties }));
+  errors.push(...validateBoardLinks({ config, calendar, mails }));
+  return errors;
+}
+
+// 이사회 메일 id가 mails.json에 있고 고정 도착이 아닌지, 라이벌 분기가 calendar에 있는지(M7a).
+function validateBoardLinks({ config, calendar, mails }) {
+  const errors = [];
+  const c = checker('config.json', errors);
+  const b = config.board;
+  if (isObj(b) && isObj(b.mails) && Array.isArray(mails)) {
+    const mailById = new Map(mails.map((m) => [m.id, m]));
+    const check = (id, path) => {
+      if (typeof id !== 'string') return;
+      const mail = mailById.get(id);
+      if (!mail) c.fail(`board.mails.${path}`, 'mails.json에 없는 메일 id예요', id);
+      else if (mail.schedule !== undefined) c.fail(`board.mails.${path}`, '이사회 메일은 고정 턴(schedule)에 도착하면 안 돼요', id);
+    };
+    for (const [k, id] of Object.entries(b.mails.rank ?? {})) check(id, `rank.${k}`);
+    for (const [k, id] of Object.entries(b.mails.grade ?? {})) check(id, `grade.${k}`);
+    for (const k of ['fired', 'cash_warning', 'cash_penalty']) check(b.mails[k], k);
+  }
+  if (isObj(config.rivals) && Array.isArray(config.rivals.quarters) && Array.isArray(calendar?.quarters)) {
+    const ids = new Set(calendar.quarters.map((q) => q.id));
+    config.rivals.quarters.forEach((q, i) => { if (!ids.has(q)) c.fail(`rivals.quarters[${i}]`, 'calendar.json에 없는 분기 id예요', q); });
+  }
   return errors;
 }
 
@@ -977,6 +1134,8 @@ export const DATA_FILES = [
   { key: 'reinsurers', file: 'reinsurers.json', validate: (list, file, raw) => validateReinsurers(list, file, termSet(raw)) },
   { key: 'treaties', file: 'treaties.json', validate: validateTreaties },
   { key: 'events', file: 'events.json', validate: validateEvents },
+  { key: 'brokers', file: 'brokers.json', validate: validateBrokers },
+  { key: 'report', file: 'report.json', validate: (rep, file, raw) => validateReport(rep, file, termSet(raw)) },
 ];
 
 // 정적 콘텐츠를 실수로 고치는 코드를 바로 잡아내려고 통째로 얼린다.

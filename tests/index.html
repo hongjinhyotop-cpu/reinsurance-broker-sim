@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (규칙을 바꾸는 사건 · 길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
+  <h1>테스트 (돈·순위·성적표·해고 · 규칙을 바꾸는 사건 · 길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -220,7 +220,7 @@
         const r = map[name]; if (r instanceof Error) throw r;
         return { ok: r.status === 200, status: r.status, json: async () => JSON.parse(r.body) };
       };
-      const ent = { 'glossary.json': { status: 200, body: JSON.stringify(data.glossary) }, 'clients.json': { status: 200, body: JSON.stringify(data.clients) }, 'reinsurers.json': { status: 200, body: JSON.stringify(data.reinsurers) }, 'treaties.json': { status: 200, body: JSON.stringify(data.treaties) }, 'events.json': { status: 200, body: JSON.stringify(data.events) } };
+      const ent = { 'glossary.json': { status: 200, body: JSON.stringify(data.glossary) }, 'clients.json': { status: 200, body: JSON.stringify(data.clients) }, 'reinsurers.json': { status: 200, body: JSON.stringify(data.reinsurers) }, 'treaties.json': { status: 200, body: JSON.stringify(data.treaties) }, 'events.json': { status: 200, body: JSON.stringify(data.events) }, 'brokers.json': { status: 200, body: JSON.stringify(data.brokers) }, 'report.json': { status: 200, body: JSON.stringify(data.report) } };
       const res = await loadData({ fetchFn: fake({ ...ent, 'mails.json': { status: 200, body: '[]' }, 'config.json': { status: 404 }, 'calendar.json': { status: 200, body: '{ "turns": ' } }) });
       check(!res.ok); eq(res.errors.length, 2);
       check(res.errors[0].message.includes('config.json') && res.errors[0].message.includes('HTTP 404'), res.errors[0].message);
@@ -234,7 +234,7 @@
 
     test('store: 새 게임의 모양이 설계(§10.9)와 시작값(config)을 따른다', () => {
       fresh(); const s = store.newGame({ seed: 777 });
-      eq(s.version, 7); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
+      eq(s.version, 8); eq(s.seed, 777); eq(s.rng_state, 777); eq(s.turn, 1); eq(s.ap, 6);
       eq(s.player, { firm: 'Marina Bay Re Brokers', cash_usd_m: 1, reputation: 50, compliance: 70, board_confidence: 60, market_intel: 0, flags: [] });
       eq(s.market, { index: 42, band: 'neutral' });
       eq(Object.keys(s.entities.clients), data.clients.map((c) => c.id)); eq(Object.keys(s.entities.reinsurers), data.reinsurers.map((r) => r.id));
@@ -309,7 +309,7 @@
       fresh(); store.newGame({ seed: 9 }); const base = clone(store.getState());
       const parse = (v) => { const s = clone(base); if (v === undefined) delete s.version; else s.version = v; return store.parseSave(JSON.stringify(s)); };
       for (const v of [undefined, 0, 1.5, '1', null]) check(!parse(v).ok, `version ${String(v)}`);
-      const future = parse(8); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
+      const future = parse(9); check(!future.ok && future.error.includes('더 새로운'), JSON.stringify(future));
     });
     test('store: 마이그레이션 체인 (v1→v2→v3), 규칙 누락·실패 처리', () => {
       const raw = { version: 1, x: 1 };
@@ -317,7 +317,7 @@
       check(ok.ok); eq([ok.state.version, ok.state.a, ok.state.b], [3, 1, 2]);
       check(!store.migrate(raw, { current: 3, migrations: { 1: (s) => s } }).ok, '규칙 누락');
       check(!store.migrate(raw, { current: 2, migrations: { 1: () => null } }).ok, '변환 실패');
-      eq(store.SAVE_VERSION, 7); eq(store.migrate({ version: 1 }).ok, true);
+      eq(store.SAVE_VERSION, 8); eq(store.migrate({ version: 1 }).ok, true);
     });
     test('store: __proto__ 키가 든 세이브를 가져와도 오염되지 않는다', () => {
       fresh(); store.newGame({ seed: 4 });
@@ -667,7 +667,7 @@
       fresh(); store.newGame({ seed: 3 });
       const old = clone(store.getState()); old.version = 1; old.entities = { clients: {}, reinsurers: {} };
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 7); eq(Object.keys(r.state.treaties).length, 3);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 8); eq(Object.keys(r.state.treaties).length, 3);
       eq(Object.keys(r.state.entities.clients).length, 3); eq(Object.keys(r.state.entities.reinsurers).length, 5);
       eq(r.state.entities.reinsurers.re_alpenglow.scout, data.reinsurers[0].initial.scout);
     });
@@ -1170,13 +1170,13 @@
       old.version = 2; old.treaties = {}; old.ap = 3; old.entities.clients.cli_jurong_crest.relationship = 61;
       for (const r of Object.values(old.entities.reinsurers)) delete r.patience;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 7);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 8);
       eq(Object.keys(r.state.treaties), data.treaties.map((t) => t.id)); eq(r.state.treaties[JR].phase, 'open'); eq(r.state.treaties[JR].panel, []);
       eq(r.state.ap, 3); eq(r.state.entities.clients.cli_jurong_crest.relationship, 61); eq(r.state.entities.reinsurers.re_nur.patience, {});
       eq(store.validateState(r.state), []);
       // 실제 슬롯 불러오기도 같은 길을 지난다
       const st = fresh(); st.map.set('rbs:save:v1:1', JSON.stringify(old));
-      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 7);
+      const loadedOk = store.load('1'); check(loadedOk.ok, JSON.stringify(loadedOk)); eq(store.getState().version, 8);
     });
 
     test('세이브 v3: 트리티 상태가 틀린 세이브는 거부(상태 값·재보험사 id·중복 행·인내심)', () => {
@@ -1411,7 +1411,7 @@
       startBoard(5); const old = clone(store.getState());
       old.version = 3; for (const t of Object.values(old.treaties)) delete t.verdict_reason;
       const r = store.parseSave(JSON.stringify(old));
-      check(r.ok, JSON.stringify(r)); eq(r.state.version, 7); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
+      check(r.ok, JSON.stringify(r)); eq(r.state.version, 8); eq(r.state.treaties[JR].verdict_reason, null); eq(store.validateState(r.state), []);
     });
 
     test('반제 유효 기간: 반제를 받은 주에는 "이번 주까지"(counter_until = 그 턴), 주를 넘기면 미제안으로 돌아가고 인내심·관계도·AP는 그대로', () => {
@@ -1478,7 +1478,7 @@
       startBoard(5, 20); PL.propose(JR, 're_alpenglow', { share: 0.35, rc: -3 }); PL.propose(JR, 're_kallang', { share: 0.3, rc: 5 });
       const old = clone(store.getState()); old.version = 4; old.turn = 3;
       for (const t of Object.values(old.treaties)) for (const row of t.panel) delete row.counter_until;
-      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r)); eq(r.state.version, 7);
+      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r)); eq(r.state.version, 8);
       const rows = r.state.treaties[JR].panel;
       eq(rows.find((x) => x.re === 're_alpenglow').counter_until, 3);
       eq(rows.filter((x) => x.status !== 'countered').every((x) => x.counter_until === null), true);
@@ -1623,7 +1623,7 @@
     test('store(M6a): v5 세이브를 불러오면 market.band가 지수로 채워지고 나머지는 그대로다', () => {
       fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 5; delete old.market.band; old.market.index = 66.5;
       const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
-      eq([r.state.version, r.state.market], [7, { index: 66.5, band: 'hard' }]); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+      eq([r.state.version, r.state.market], [8, { index: 66.5, band: 'hard' }]); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
     });
 
     test('turn(M6a): 분기 드리프트는 분기 시작 턴에만 적용되고, 프리시즌 동안은 지수가 그대로다', async () => {
@@ -1883,7 +1883,7 @@
       const m = mailsOf(); m[0].body_ko[0] = '[[gl_nope]]'; check(has(validateMails(m, 'mails.json', data.calendar, ids), '없는 용어 id'));
     });
     test('용어집 로더: glossary.json이 없으면 그 파일만 알리고 메일의 용어 표시를 줄줄이 오류로 만들지 않는다', async () => {
-      const files = { 'config.json': data.config, 'calendar.json': data.calendar, 'mails.json': data.mails, 'clients.json': data.clients, 'reinsurers.json': data.reinsurers, 'treaties.json': data.treaties, 'events.json': data.events };
+      const files = { 'config.json': data.config, 'calendar.json': data.calendar, 'mails.json': data.mails, 'clients.json': data.clients, 'reinsurers.json': data.reinsurers, 'treaties.json': data.treaties, 'events.json': data.events, 'brokers.json': data.brokers, 'report.json': data.report };
       const fetchFn = async (url) => {
         const name = String(url).split('/').pop();
         if (name === 'glossary.json') return { ok: false, status: 404, json: async () => null };
@@ -2600,7 +2600,7 @@
       fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 6; delete old.overrides;
       for (const t of Object.values(old.treaties)) { delete t.lr_extra; delete t.big_loss; delete t.gap_applied; }
       const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
-      eq([r.state.version, r.state.overrides], [7, { reinsurers: {}, clients: {} }]); eq(r.state.treaties[JR].lr_extra, 0); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+      eq([r.state.version, r.state.overrides], [8, { reinsurers: {}, clients: {} }]); eq(r.state.treaties[JR].lr_extra, 0); eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
     });
     test('store(M6b): 덮어쓴 값·보정·예약 항목의 모양을 검사하고, 저장했다 불러오면 그대로다', () => {
       const s = begin(); turn.forceEvent('evt_reinsurer_downgrade'); turn.forceEvent('evt_shariah_ruling'); applyEffects(s, [{ op: 'modifier_add', target: `reinsurer:${TQ}`, field: 'capacity', mult: 0.7, duration_weeks: 12 }]);
@@ -2662,6 +2662,303 @@
       turn.forceEvent('evt_mas_inspection');
       const root2 = renderSettings(); document.body.append(root2);
       try { check(root2.querySelector('details').textContent.includes('시험용으로 표시됐어요')); } finally { root2.remove(); }
+    });
+
+    // ---------- M7a: 돈 · 순위 · 성적표 · 해고 ----------
+    const fin = await import('../js/finance.js');
+    const riv = await import('../js/rivals.js');
+    const loaderMod = await import('../js/loader.js');
+    const shellMod = await import('../js/ui/shell.js');
+    const { renderStandings } = await import('../js/ui/standings.js');
+    const { renderReview, pickTips } = await import('../js/ui/review.js');
+    const BOARD_MAILS = data.mails.filter((m) => m.id.startsWith('mail_board_'));
+    // 세 트리티를 모두 확정한 상태로 만든다(RC: 주롱 -3, 스트레이츠 -4, 누산타라 -2).
+    const allPlaced = (s) => {
+      for (const [id, rc] of [[JR, -3], [SP, -4], [NT, -2]]) { s.treaties[id].phase = 'placed'; s.treaties[id].final_rc = rc; s.treaties[id].verdict = 'accept'; }
+    };
+    const runYear = (s) => { for (let g = 0; g < 80 && !s.ending; g++) { answerOpen(s); const r = turn.advance(); if (!r.ok) break; } return s; };
+    const snapOf = (rank, extra = {}) => ({ id: 'q1', turn: 19, rank, prev_rank: null, player: { q: 1, ytd: 1, placed_premium_usd_m: 10, clients: 3, ...extra }, rivals: Object.fromEntries(data.brokers.map((b) => [b.id, { q: b.base_income_usd_m / 4, ytd: b.base_income_usd_m / 4 }])) });
+
+    test('M7a 데이터: 라이벌 7곳은 설계 범위 안이고 이름은 모두 다르며, 성적표 문구는 다섯 항목·다섯 등급이 다 있다', () => {
+      eq(data.brokers.length, 7); eq(new Set(data.brokers.map((b) => b.id)).size, 7); eq(new Set(data.brokers.map((b) => b.name_ko)).size, 7);
+      for (const b of data.brokers) { check(b.base_income_usd_m >= 2.4 && b.base_income_usd_m <= 9.5, b.id); check(b.id.startsWith('brk_')); }
+      for (const id of fin.PART_IDS) for (const k of ['label_ko', 'short_ko', 'good_ko', 'mid_ko', 'weak_ko', 'tip_ko']) check(data.report.components[id][k], `${id}.${k}`);
+      for (const g of ['S', 'A', 'B', 'C', 'D']) check(data.report.grades[g].summary_ko.length > 0 && data.report.grades[g].title_ko, g);
+      eq(data.config.board.targets.brokerage_usd_m, 3.0); eq(data.config.board.fired_below, 20);
+      eq(Object.values(data.config.board.score.weights).reduce((a, b) => a + b, 0), 100);
+    });
+    test('M7a 로더: 점수 비중 합이 100이 아니거나 이사회 메일 id가 없으면 알려 준다', () => {
+      const cfg = clone(data.config); cfg.board.score.weights.revenue = 50;
+      check(has(validateConfig(cfg), '합이 100'), '비중 합');
+      const c2 = clone(data.config); c2.board.grades = c2.board.grades.slice(0, 3);
+      check(has(validateConfig(c2), '다섯 등급') || has(validateConfig(c2), '0점부터'), '등급 누락');
+      const c3 = clone(data.config); c3.board.targets.brokerage_usd_m = 0;
+      check(has(validateConfig(c3), 'brokerage_usd_m'), '목표 0');
+      const c4 = clone(data.config); c4.board.mails.fired = 'mail_nope';
+      check(has(validateCross({ ...data, config: c4 }), '없는 메일 id'), '메일 id');
+      const c5 = clone(data.config); c5.board.mails.rank.top_up = 'mail_kickoff_jurong';
+      check(has(validateCross({ ...data, config: c5 }), '고정 턴'), '고정 도착 메일');
+    });
+    test('M7a 로더: 라이벌·성적표 문구·cash kind 검증', () => {
+      const { validateBrokers, validateReport } = loaderMod; const terms = new Set(data.glossary.map((t) => t.id));
+      eq(validateBrokers(data.brokers), []); eq(validateReport(data.report, 'report.json', terms), []);
+      const b = clone(data.brokers); b[0].commission_rate = 0; b[1].id = b[0].id;
+      check(has(validateBrokers(b), 'commission_rate') && has(validateBrokers(b), '겹쳐요'), '라이벌 오류');
+      const r = clone(data.report); delete r.components.rank; r.grades.S.summary_ko[0] = '[[gl_nope|뭐]]';
+      check(has(validateReport(r, 'report.json', terms), 'components.rank'), '항목 누락');
+      check(has(validateReport(r, 'report.json', terms), '없는 용어'), '용어 id');
+      const m = clone(data.mails); m[0].choices = [{ id: 'x', label_ko: 'x', ap_cost: 0, effects: [{ op: 'cash', value: -1, kind: 'bribe' }], result_ko: 'x' }]; m[0].default_choice = 'x'; m[0].deadline_weeks = 2;
+      check(has(validateMails(m, 'mails.json', data.calendar, true), 'fine만'), 'kind');
+    });
+    test('M7a 재무: 최종 프리미엄·브로커리지 = 만기 프리미엄 × (1+RC) × 수수료율', () => {
+      const t = data.treaties.find((x) => x.id === JR);
+      near(fin.finalPremium(t, -3), 11.64, 1e-9); near(fin.brokerageOf(t, -3), 1.164, 1e-9); near(fin.brokerageOf(t, 5), 1.26, 1e-9);
+      near(data.treaties.reduce((s, x) => s + fin.brokerageOf(x, 0), 0), 3.1, 1e-9, '예상 연간 브로커리지');
+    });
+    test('M7a 재무: 확정한 트리티는 인셉션 턴에 브로커리지가 확정되고, 4주 뒤 입금되며, 고정비는 턴 2부터 낸다', () => {
+      const s = begin(3); allPlaced(s); eq(s.player.cash_usd_m, 1);
+      s.turn = 5; fin.settleWeek(data, s); eq(Object.keys(s.finance.booked).length, 0, '인셉션 전에는 확정하지 않는다');
+      near(s.player.cash_usd_m, 1 - 0.03, 1e-9, '고정비');
+      s.turn = 7; const booked = fin.settleWeek(data, s); eq(booked, [JR]);
+      eq(s.finance.booked[JR], { turn: 7, premium_usd_m: 11.64, brokerage_usd_m: 1.164, due_turn: 11, paid: false });
+      near(s.player.cash_usd_m, 1 - 0.06, 1e-9, '확정만 하고 아직 입금 전');
+      s.turn = 10; fin.settleWeek(data, s); eq(s.finance.booked[JR].paid, false);
+      s.turn = 11; fin.settleWeek(data, s); eq(s.finance.booked[JR].paid, true); near(s.player.cash_usd_m, 1 - 0.12 + 1.164, 1e-9);
+      near(fin.receivableTotal(s.finance), 0, 1e-9); near(fin.bookedTotal(s.finance), 1.164, 1e-9);
+      const g = begin(3); g.turn = 1; fin.settleWeek(data, g); eq(g.player.cash_usd_m, 1, '턴 1은 고정비가 없다');
+    });
+    test('M7a 재무: 인셉션 뒤에 늦게 확정한 트리티는 확정한 다음 정산에서 전액 확정한다', () => {
+      const s = begin(3); s.turn = 9; fin.settleWeek(data, s); eq(Object.keys(s.finance.booked).length, 0);
+      s.treaties[JR].phase = 'placed'; s.treaties[JR].final_rc = 0; s.turn = 10; fin.settleWeek(data, s);
+      eq(s.finance.booked[JR].turn, 10); near(s.finance.booked[JR].brokerage_usd_m, 1.2, 1e-9);
+      fin.settleWeek(data, s); eq(Object.keys(s.finance.booked).length, 1, '한 번만 확정한다');
+    });
+    test('M7a 재무: 한 해를 돌리면 세 트리티가 인셉션 턴(7·20·33)에 확정되고 현금이 4주 뒤 늘어난다', () => {
+      const s = begin(4); allPlaced(s); runYear(s);
+      eq(Object.values(s.finance.booked).map((b) => b.turn).sort((a, b) => a - b), [7, 20, 33]);
+      near(fin.bookedTotal(s.finance), 1.164 + 0.672 + 1.176, 1e-6); eq(fin.receivableTotal(s.finance), 0, '58턴에는 모두 입금됐다');
+      const fine = s.finance.fines.filter((x) => x.kind === 'fine').reduce((a, x) => a + x.usd_m, 0);
+      near(s.player.cash_usd_m, 1 + 3.012 - 57 * 0.03 - fine, 1e-6);
+    });
+    test('M7a 재무: 과태료(cash kind=fine)는 장부에 남고, 공백 벌칙은 금액 0의 gap으로 남는다', () => {
+      const s = begin(5); s.player.compliance = 30; turn.forceEvent('evt_mas_inspection');
+      eq(s.finance.fines, [{ turn: 1, kind: 'fine', usd_m: 0.15 }]); near(s.player.cash_usd_m, 0.85, 1e-9);
+      applyEffects(s, [{ op: 'cash', value: -0.2 }]); eq(s.finance.fines.length, 1, 'kind가 없으면 장부에 오르지 않는다');
+      const g = begin(5); g.turn = 7;
+      while (g.turn < 8) { answerOpen(g); turn.advance(); }
+      eq(g.finance.fines.filter((x) => x.kind === 'gap').map((x) => x.ref), [JR]); near(fin.finesTotal(g.finance), 0, 1e-9); eq(fin.gapCount(g.finance), 1);
+    });
+    test('M7a 분기 결산: 분기 마지막 턴에 결산이 쌓이고, 프리시즌 결산은 순위·메일을 만들지 않는다', () => {
+      const s = begin(6); allPlaced(s); runYear(s);
+      eq(s.finance.quarters.map((q) => q.id), ['q0', 'q1', 'q2', 'q3', 'q4']);
+      eq(s.finance.quarters.map((q) => q.brokerage_usd_m), [0, 1.164, 1.176, 0.672, 0]);
+      near(s.finance.quarters.reduce((a, q) => a + q.overhead_usd_m, 0), 1.71, 1e-6); near(s.finance.overhead_usd_m, 1.71, 1e-9);
+      eq(s.standings.quarters.map((q) => q.id), ['q1', 'q2', 'q3', 'q4']); eq(s.standings.quarters.map((q) => q.turn), [19, 32, 45, 58]);
+      eq(s.standings.quarters[0].prev_rank, null); eq(s.standings.quarters[1].prev_rank, s.standings.quarters[0].rank);
+      eq(s.mails.filter((m) => m.template.startsWith('mail_board_rank_')).length, 3, '순위 메일은 q1~q3 세 통(q4는 성적표 메일)');
+    });
+    test('M7a 현금 규칙: 첫 마이너스 분기는 경고 메일만, 연속 둘째부터 이사회 신뢰 −15와 질책 메일', () => {
+      const s = begin(7); s.turn = 19; s.player.cash_usd_m = -0.5; const c0 = s.player.board_confidence;
+      eq(fin.closeQuarterIfEnd(data, s), 'q1'); eq(s.finance.negative_quarters, 1); eq(s.player.board_confidence, c0);
+      check(s.scheduled.some((q) => q.ref === 'mail_board_cash_warning'));
+      s.scheduled = []; s.turn = 32; fin.closeQuarterIfEnd(data, s);
+      eq(s.finance.negative_quarters, 2); eq(s.player.board_confidence, c0 - 15); check(s.scheduled.some((q) => q.ref === 'mail_board_cash_penalty'));
+      s.scheduled = []; s.player.cash_usd_m = 2; s.turn = 45; fin.closeQuarterIfEnd(data, s);
+      eq(s.finance.negative_quarters, 0); eq(s.player.board_confidence, c0 - 15); check(!s.scheduled.some((q) => q.ref.startsWith('mail_board_cash')));
+    });
+    test('M7a 라이벌: 분기 수익식(시장·변동성·0 하한)과 순위(라이벌이 더 커야 앞선다)', () => {
+      const cfg = data.config.rivals; const def = { base_income_usd_m: 8, volatility: 0.1, market_beta: 1.2 };
+      near(riv.rivalQuarterIncome(def, 50, 0, cfg), 2, 1e-9); near(riv.rivalQuarterIncome(def, 60, 0, cfg), 2 * (1 + 0.004 * 1.2 * 10), 1e-3);
+      near(riv.rivalQuarterIncome(def, 50, 1, cfg), 2.2, 1e-9); eq(riv.rivalQuarterIncome(def, 50, -50, cfg), 0, '음수 수익은 0으로');
+      eq(riv.rankOf(5, [6, 4, 5, 9]), 3, '동률(5)은 플레이어가 앞'); eq(riv.rankOf(10, [1, 2]), 1); eq(riv.rankOf(0, [1, 2, 3]), 4);
+    });
+    test('M7a 라이벌: 난수는 시드·분기·라이벌로만 정해져 플레이어가 무엇을 하든 같고, 시드가 다르면 달라진다', () => {
+      eq(riv.rivalNoise(77, 0, 3), riv.rivalNoise(77, 0, 3)); check(riv.rivalNoise(77, 0, 3) !== riv.rivalNoise(77, 1, 3)); check(riv.rivalNoise(77, 0, 3) !== riv.rivalNoise(77, 0, 4)); check(riv.rivalNoise(77, 0, 3) !== riv.rivalNoise(78, 0, 3));
+      const a = begin(9); a.turn = 19; fin.closeQuarterIfEnd(data, a); const snapA = clone(a.standings.quarters[0]);
+      const b = begin(9); b.turn = 19; b.finance.booked[JR] = { turn: 7, premium_usd_m: 12, brokerage_usd_m: 9, due_turn: 11, paid: true }; b.player.cash_usd_m = 50;
+      fin.closeQuarterIfEnd(data, b);
+      eq(snapA.rivals, b.standings.quarters[0].rivals); check(snapA.rank > b.standings.quarters[0].rank, '더 번 쪽이 순위가 높다');
+      const c = begin(10); c.turn = 19; fin.closeQuarterIfEnd(data, c);
+      check(!same(snapA.rivals, c.standings.quarters[0].rivals), '시드가 다르면 라이벌 성적도 다르다');
+    });
+    test('M7a 라이벌: 난수 상태(rng_state)를 건드리지 않는다', () => {
+      const s = begin(11); s.turn = 19; const r0 = s.rng_state; fin.closeQuarterIfEnd(data, s); eq(s.rng_state, r0);
+    });
+    test('M7a 순위 메일: 구간(선두권·중위권·하위권)과 방향(오르거나 그대로·내려감)으로 고른다', () => {
+      const b = data.config.board; const k = (r, p) => fin.rankMailKey(r, p, b);
+      eq(k(1, null), 'top_up'); eq(k(2, 1), 'top_down'); eq(k(2, 2), 'top_up'); eq(k(3, 5), 'mid_up'); eq(k(5, 4), 'mid_down'); eq(k(6, 6), 'low_up'); eq(k(8, 7), 'low_down');
+      for (const key of Object.values(b.mails.rank)) check(data.mails.some((m) => m.id === key), key);
+    });
+    test('M7a 성적표: 점수 = 수익40+유지20+순위15+컴플라이언스15+평판10, 등급 경계', () => {
+      const g = data.config.board.grades;
+      eq([90, 89.9, 80, 79.9, 65, 64.9, 50, 49.9, 0].map((x) => fin.gradeOf(x, g)), ['S', 'A', 'A', 'B', 'B', 'C', 'C', 'D', 'D']);
+      const s = begin(12); allPlaced(s); runYear(s);
+      s.standings.quarters.at(-1).rank = 1; s.player.compliance = 100; s.player.reputation = 100; s.finance.booked[JR].brokerage_usd_m = 5;
+      const r = fin.computeReport(data, s); eq(r.score, 100); eq(r.grade, 'S'); eq(r.parts.map((p) => p.points), [40, 20, 15, 15, 10]);
+      s.treaties[SP].phase = 'lost'; s.treaties[NT].phase = 'lost'; s.player.reputation = 0; s.player.compliance = 0; s.standings.quarters.at(-1).rank = 8; s.finance.booked = {};
+      const r2 = fin.computeReport(data, s); eq(r2.parts.map((p) => p.points), [0, 6.7, 0, 0, 0]); eq(r2.grade, 'D'); eq(r2.facts.clients_kept, 1);
+    });
+    test('M7a 성적표: 가장 잘한 항목과 가장 아쉬운 항목은 서로 다르고, 순위 결산 전에는 순위 비율이 정해진 값이다', () => {
+      const s = begin(13); const r = fin.computeReport(data, s);
+      eq(r.facts.rank, null); eq(r.parts.find((p) => p.id === 'rank').fraction, data.config.board.score.rank_unknown_fraction);
+      check(r.strong !== r.weak, `${r.strong} ${r.weak}`); eq(r.partial, true);
+      eq(fin.tierOf(0.9, data.config.board.report), 'good'); eq(fin.tierOf(0.7, data.config.board.report), 'mid'); eq(fin.tierOf(0.59, data.config.board.report), 'weak');
+    });
+    test('M7a 연말: 모두 확정한 해를 끝까지 돌리면 성적표·등급·이사회 평가가 나오고 Continue가 멈춘다', () => {
+      const s = begin(14); allPlaced(s); runYear(s);
+      check(s.ending, '끝나지 않았어요'); eq(s.turn, 58); eq(s.ending.kind, 'year_end'); eq(s.ending.report.partial, false);
+      const r = s.ending.report; check(['S', 'A', 'B', 'C', 'D'].includes(r.grade), r.grade);
+      near(r.confidence_after - r.confidence_before, data.config.board.grade_delta[r.grade], 1e-9); eq(r.confidence_after, s.player.board_confidence);
+      check(r.facts.brokerage_usd_m > 3, `수익 ${r.facts.brokerage_usd_m}`); eq(r.facts.clients_kept, 3); eq(r.parts.length, 5);
+      const gm = data.config.board.mails.grade[r.grade]; check(s.mails.some((m) => m.template === gm && m.turn === 58), '성적표 메일');
+      check(turn.continueBlockReason(data, s).includes('성적표')); eq(turn.advance().ok, false);
+      eq(store.validateState(clone(s)), [], '끝난 세이브도 검증을 통과한다');
+    });
+    test('M7a 연말: 아무것도 확정하지 못하면 공백 벌칙이 쌓여 낮은 등급이 나오거나 해고된다', () => {
+      const s = begin(15); runYear(s);
+      check(s.ending, '끝나지 않았어요'); check(s.finance.fines.some((x) => x.kind === 'gap'), '공백');
+      const r = s.ending.report; check(r.grade === 'D' || r.grade === 'C', r.grade); eq(r.facts.brokerage_usd_m, 0); eq(r.parts[0].points, 0);
+    });
+    test('M7a 해고: 이사회 신뢰가 20 아래면 다음 주 전환에서 해고되고 해고 메일이 오며 모든 행동이 막힌다', () => {
+      const s = begin(16); s.player.board_confidence = 19.9; answerOpen(s);
+      const r = turn.advance(); eq(r.ok, true); eq(r.ending, 'fired'); eq(r.stop, 'ending');
+      eq(s.ending.kind, 'fired'); eq(s.ending.report.partial, true); eq(s.turn, 2);
+      check(s.mails.some((m) => m.template === 'mail_board_fired'), '해고 메일'); check(!s.mails.some((m) => m.template.startsWith('mail_board_report_')));
+      check(turn.continueBlockReason(data, s).includes('해고')); check(turn.meetBlockReason(data, s, 'client', 'cli_jurong_crest', TOPICS[0]) !== null);
+      check(turn.answerBlockReason(data, s, s.mails[0].id, 'x') !== null);
+      check(PL.actionBlockReason(data, s, 'ask', JR, 're_alpenglow', { share: 0.1, rc: 0 }) !== null); eq(PL.submitBlockReason(data, s, JR), '게임이 끝나 더는 바꿀 수 없어요');
+      const ok = begin(16); ok.player.board_confidence = 20; answerOpen(ok); turn.advance(); eq(ok.ending, null, '20은 해고가 아니다(미만)');
+    });
+    test('M7a 해고: 연말 평가로 신뢰가 20 아래로 내려가도 해고이고, 등급 성적표는 그대로 남는다', () => {
+      const s = begin(17); s.turn = 57; s.player.board_confidence = 25; s.player.compliance = 10; s.player.reputation = 5; answerOpen(s);
+      turn.advance(); eq(s.turn, 58); check(s.ending, '끝나야 한다'); eq(s.ending.report.grade, 'D'); eq(s.ending.report.partial, false);
+      eq(s.ending.kind, 'fired'); check(s.player.board_confidence < 20); check(s.mails.some((m) => m.template === 'mail_board_fired'));
+    });
+    test('M7a 세이브 v8: v7 세이브를 불러오면 finance·standings·ending이 채워지고 나머지는 그대로다', () => {
+      fresh(); store.newGame({ seed: 8 }); const old = clone(store.getState()); old.version = 7; delete old.finance; delete old.standings; delete old.ending;
+      const r = store.parseSave(JSON.stringify(old)); check(r.ok, JSON.stringify(r));
+      eq([r.state.version, r.state.ending], [8, null]); eq(r.state.finance, { booked: {}, overhead_usd_m: 0, fines: [], negative_quarters: 0, quarters: [] }); eq(r.state.standings, { quarters: [] });
+      eq(r.state.seed, old.seed); eq(store.validateState(r.state), []);
+    });
+    test('M7a 세이브 v8: 잘못된 장부·순위표·끝남 모양은 검증에서 걸린다', () => {
+      const s = begin(18); const ok = clone(s); eq(store.validateState(ok), []);
+      const a = clone(s); a.finance = null; check(store.validateState(a).some((e) => e.startsWith('finance')));
+      const b = clone(s); b.finance.booked.x = { turn: 1 }; check(store.validateState(b).some((e) => e.startsWith('finance.booked.x')));
+      const c = clone(s); c.finance.fines.push({ turn: 1, kind: 'bribe', usd_m: 1 }); check(store.validateState(c).some((e) => e.startsWith('finance.fines')));
+      const d = clone(s); d.standings.quarters.push({ id: 'q1' }); check(store.validateState(d).some((e) => e.startsWith('standings.quarters[0]')));
+      const e = clone(s); e.ending = { kind: 'win', turn: 3, report: {} }; check(store.validateState(e).some((x) => x.startsWith('ending')));
+      const f = clone(s); delete f.ending; check(store.validateState(f).some((x) => x.startsWith('ending')));
+    });
+    test('M7a 안내띠: 끝난 게임은 읽지 않은 메일이 있어도 성적표를 가리키고, 연말이 가까우면 순위표를 권한다', () => {
+      const s = begin(19); s.ending = { kind: 'year_end', turn: 58, report: fin.computeReport(data, s) }; s.turn = 58;
+      let a = act(); eq([a.id, a.route], ['year_end', 'review']); check(a.text.includes('성적표'));
+      s.ending.kind = 'fired'; a = act(); eq([a.id, a.route], ['fired', 'review']); check(a.text.includes('해고'));
+      const t = begin(19); closeAll(t); allPlaced(t); t.turn = 52;
+      a = act(); eq([a.id, a.route], ['year_end_near', 'standings']);
+      t.turn = 51; a = act(); check(a.id !== 'year_end_near', `51턴은 아직 ${a.id}`);
+      const u = begin(19); closeAll(u); u.turn = 58; eq(act(), null, '성적표가 없는 마지막 턴(옛 세이브)');
+    });
+    test('M7a 안내띠: 연말·성적표 문구도 속마음 값을 쓰지 않는다', () => {
+      for (const kind of ['year_end', 'fired']) {
+        const s = begin(20); s.ending = { kind, turn: 58, report: fin.computeReport(data, s) };
+        check(!/보수|민감|충성|conservatism|loyalty/.test(act().text), act().text);
+      }
+    });
+    test('M7a 성적표 화면: 다음 해에 바꿔 볼 곳은 비율이 낮은 순서로 최대 두 개, 순위 결산 전에는 순위 조언을 뺀다', () => {
+      const s = begin(21); const r = fin.computeReport(data, s); const cfg = data.config.board;
+      const tips = pickTips(r, cfg); eq(tips.length, 2); check(tips[0].fraction <= tips[1].fraction); check(!tips.some((p) => p.id === 'rank'));
+      const full = clone(r); for (const p of full.parts) p.fraction = 1; eq(pickTips(full, cfg), []);
+      const ranked = clone(r); ranked.facts.rank = 8; ranked.parts.find((p) => p.id === 'rank').fraction = 0; ranked.parts.find((p) => p.id === 'revenue').fraction = 0.2;
+      eq(pickTips(ranked, cfg).map((p) => p.id), ['rank', 'revenue']);
+    });
+    test('M7a 화면: 순위표 — 첫 결산 전에는 순위 없이 이름만, 결산 뒤에는 8줄과 목표 패널', () => {
+      startScreens(); let root = renderStandings(); document.body.append(root);
+      try {
+        const text = root.textContent; check(text.includes('분기가 끝나면 순위가 처음 공개돼요'), '결산 전 안내');
+        for (const b of data.brokers) check(text.includes(b.name_ko), b.name_ko); check(text.includes('이사회 목표') && text.includes('아직 결산 전'));
+        check(!root.querySelector('caption'), '결산 전에는 리그 표가 없다(목표 표만)');
+      } finally { root.remove(); }
+      const s = store.getState(); allPlaced(s); runYear(s); s.ending = null; s.turn = 45; s.standings.quarters.splice(3);
+      resetTermScope(); root = renderStandings(); document.body.append(root);
+      try {
+        const league = [...root.querySelectorAll('table')][0]; const rows = [...league.querySelectorAll('tbody tr')];
+        check(root.textContent.includes('3분기 결산 기준'), '기준 분기'); eq(rows.length, 8);
+        check(rows.some((r) => r.textContent.includes('우리') && r.classList.contains('is-selected')), '내 줄 강조');
+        for (const b of data.brokers) check(root.textContent.includes(b.name_ko), b.name_ko);
+        check(root.textContent.includes('이사회 신뢰는 지금') && (root.textContent.includes('달성') || root.textContent.includes('아직')));
+      } finally { root.remove(); }
+    });
+    test('M7a 화면: 시즌 리뷰 — 연말 전에는 중간 점검 미리보기, 끝난 뒤에는 성적표·왜·다음 해·새 게임', () => {
+      startScreens(); let root = renderReview(); document.body.append(root);
+      try {
+        const text = root.textContent; check(text.includes('중간 점검') && text.includes('아직 성적표가 아니에요'), '미리보기');
+        check(text.includes('왜 이 등급인가') && text.includes('남은 기간에 챙겨 볼 곳') && !text.includes('새 게임 시작하기'));
+      } finally { root.remove(); }
+      const s = store.getState(); allPlaced(s); runYear(s); resetTermScope();
+      root = renderReview(); document.body.append(root);
+      try {
+        const text = root.textContent; const g = s.ending.report.grade;
+        check(text.includes('연말 성적표') && text.includes(data.report.grades[g].title_ko), '성적표 머리');
+        check(root.querySelector('.grade-letter').textContent === g && root.querySelector('.grade-letter').getAttribute('aria-label') === `${g} 등급`);
+        check(text.includes('왜 이 등급인가') && text.includes('올해 계약 한눈에') && text.includes('돈 요약') && text.includes('새 게임 시작하기'));
+        check(text.includes('가장 잘함') && text.includes('가장 아쉬움'), '배지');
+        check(text.includes('이사회 신뢰:'), '신뢰 변화');
+        for (const p of ['수익', '고객 유지', '순위', '컴플라이언스', '평판']) check(text.includes(p), p);
+      } finally { root.remove(); }
+    });
+    test('M7a 화면: 시즌 리뷰 — 해고 화면은 게임 오버로 표시하고 해고 시점 기준임을 알린다', () => {
+      startScreens(); const s = store.getState(); s.player.board_confidence = 5; answerOpen(s); turn.advance(); resetTermScope();
+      const root = renderReview(); document.body.append(root);
+      try {
+        const text = root.textContent; check(text.includes('게임 오버') && text.includes('해고 통보'), '해고 머리'); check(text.includes('해고 시점까지의 성적'), '기준 안내');
+        check(text.includes('새 게임 시작하기'));
+      } finally { root.remove(); }
+    });
+    test('M7a 화면: 내비의 순위표·시즌 리뷰는 더 이상 준비 중이 아니다', () => {
+      startScreens(); const shell = shellMod.renderShell('standings', document.createElement('div')); document.body.append(shell);
+      try { check(!shell.textContent.includes('준비 중'), '준비 중 표시'); } finally { shell.remove(); }
+    });
+    test('M7a 메일: 이사회 의장 메일은 숫자·속마음 이름이 없고, 성적표 변수가 모두 풀린다', () => {
+      eq(BOARD_MAILS.length, 14);
+      const s = begin(22); allPlaced(s); runYear(s); const vars = turn.mailVars(data, s);
+      for (const id of Object.values(data.config.board.mails.grade)) {
+        const m = data.mails.find((x) => x.id === id); const text = [m.subject_ko, ...m.body_ko].map((t) => mailLib.fillText(t, vars)).join(' ');
+        check(!/\{[a-z.]+\}/.test(text), `풀리지 않은 변수: ${id}`);
+      }
+      const mine = data.mails.find((x) => x.id === data.config.board.mails.grade[s.ending.report.grade]);
+      check(mailLib.fillText(mine.subject_ko, vars).includes(`${s.ending.report.grade} 등급`), '제목에 등급');
+      check(vars['report.strong'] !== '' && vars['report.weak'] !== '' && vars['report.strong'] !== vars['report.weak'], '강점·약점 이름');
+      for (const m of BOARD_MAILS) {
+        const text = [m.subject_ko, ...m.body_ko].join(' ');
+        check(!/\d/.test(text), `${m.id}에 숫자가 있어요`); check(!/보수성|가격 민감|충성도|conservatism|loyalty|price_sensitivity/i.test(text), `${m.id}에 속마음 이름`);
+        check(m.from.kind === 'board' && m.type === 'board' && m.choices.length === 0 && m.schedule === undefined, m.id);
+      }
+      const none = begin(22); eq(turn.mailVars(data, none)['report.grade'], '', '성적표가 없으면 빈 글자');
+    });
+    test('M7a 메일: 성적표·순위 메일은 서로 다른 글이고 이사회 의장의 말투를 쓴다', () => {
+      const ids = [...Object.values(data.config.board.mails.rank), ...Object.values(data.config.board.mails.grade), 'mail_board_fired'];
+      const bodies = ids.map((id) => data.mails.find((m) => m.id === id).body_ko.join('\n'));
+      eq(new Set(bodies).size, ids.length, '문구가 겹쳐요');
+      for (const b of bodies) check(/습니다|세요|주십시오|바랍니다/.test(b) && b.includes('이사회 의장 드림'), '의장 말투/서명');
+      check(bodies.filter((b) => b.includes('커피')).length >= 3, '커피머신 소재가 이어진다');
+    });
+    test('M7a 용어집: 새 용어 셋(브로커리지·플레이스드 프리미엄·컴플라이언스)이 있고 순위표·리뷰에서 만날 수 있다고 적혀 있다', () => {
+      for (const id of ['gl_brokerage', 'gl_placed_premium', 'gl_compliance']) { const t = data.glossary.find((x) => x.id === id); check(t, id); check(t.appears_in.includes('standings') || t.appears_in.includes('review'), id); }
+      check(gl.UI_TERM_IDS.includes('gl_brokerage') && gl.APPEARS_IN.includes('standings') && gl.APPEARS_IN.includes('review'));
+    });
+    test('M7a 효과: cash는 kind=fine일 때만 과태료로 기록하고, 기록할 장부가 없는 옛 상태에서도 오류가 없다', () => {
+      const s = begin(23); applyEffects(s, [{ op: 'cash', value: -0.1, kind: 'fine' }, { op: 'cash', value: 0.3 }]);
+      near(s.player.cash_usd_m, 1.2, 1e-9); eq(s.finance.fines.length, 1);
+      const bare = { player: { cash_usd_m: 1 }, turn: 1 }; applyEffects(bare, [{ op: 'cash', value: -0.1, kind: 'fine' }]); near(bare.player.cash_usd_m, 0.9, 1e-9);
+    });
+    test('M7a 순위표 줄: 전분기 대비와 플레이스드 프리미엄 어림, 동률은 플레이어가 앞선다', () => {
+      const snap = snapOf(5); const prev = { ...snapOf(5), player: { ...snap.player, q: 0.4 } };
+      const rows = riv.tableRows(data.brokers, snap, { firm: '우리', reputation: 50, prev });
+      eq(rows.length, 8); eq(rows.map((r) => r.rank), [1, 2, 3, 4, 5, 6, 7, 8]); const me = rows.find((r) => r.isPlayer); near(me.dq, 0.6, 1e-9);
+      const first = rows[0]; near(first.placed_premium_usd_m, first.ytd / data.brokers.find((b) => b.id === first.id).commission_rate, 1e-3);
+      eq(riv.tableRows(data.brokers, null, { firm: 'x', reputation: 1 }), null);
+      eq(riv.tableRows(data.brokers, snap, { firm: '우리', reputation: 1 }).find((r) => r.isPlayer).dq, null, '첫 분기');
+      const tie = snapOf(1, { ytd: data.brokers[0].base_income_usd_m / 4 }); eq(riv.tableRows(data.brokers, tie, { firm: '우리', reputation: 1 })[0].isPlayer, true);
     });
 
     // ---------- 실행 ----------

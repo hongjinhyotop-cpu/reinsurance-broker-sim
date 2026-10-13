@@ -1,0 +1,86 @@
+[
+  {
+    "id": "brk_orchid_lane",
+    "name": "Orchid Lane Partners",
+    "name_ko": "오키드 레인 파트너스",
+    "tag_ko": "오래된 대형 하우스",
+    "base_income_usd_m": 9.5,
+    "volatility": 0.1,
+    "market_beta": 1.2,
+    "commission_rate": 0.11,
+    "clients": 16,
+    "reputation": 78
+  },
+  {
+    "id": "brk_sentosa_meridian",
+    "name": "Sentosa Meridian Re",
+    "name_ko": "센토사 메리디안 리",
+    "tag_ko": "리테일에 강한 중견",
+    "base_income_usd_m": 7.3,
+    "volatility": 0.14,
+    "market_beta": 1.1,
+    "commission_rate": 0.12,
+    "clients": 12,
+    "reputation": 70
+  },
+  {
+    "id": "brk_tanjong_beacon",
+    "name": "Tanjong Beacon Re",
+    "name_ko": "탄종 비컨 리",
+    "tag_ko": "에너지 전문 부티크",
+    "base_income_usd_m": 5.6,
+    "volatility": 0.15,
+    "market_beta": 1.3,
+    "commission_rate": 0.12,
+    "clients": 9,
+    "reputation": 66
+  },
+  {
+    "id": "brk_clarke_lantern",
+    "name": "Clarke Lantern Brokers",
+    "name_ko": "클라크 랜턴 브로커스",
+    "tag_ko": "해상·무역 쪽 노포",
+    "base_income_usd_m": 4.1,
+    "volatility": 0.12,
+    "market_beta": 0.9,
+    "commission_rate": 0.1,
+    "clients": 7,
+    "reputation": 61
+  },
+  {
+    "id": "brk_telok_harbour",
+    "name": "Telok Harbour Partners",
+    "name_ko": "텔록 하버 파트너스",
+    "tag_ko": "신흥 강자 후보",
+    "base_income_usd_m": 2.9,
+    "volatility": 0.15,
+    "market_beta": 1.0,
+    "commission_rate": 0.11,
+    "clients": 5,
+    "reputation": 55
+  },
+  {
+    "id": "brk_lim_rahman",
+    "name": "Lim & Rahman Re Advisory",
+    "name_ko": "림 앤 라만 리 어드바이저리",
+    "tag_ko": "타카풀 자문 중심",
+    "base_income_usd_m": 2.7,
+    "volatility": 0.1,
+    "market_beta": 0.8,
+    "commission_rate": 0.13,
+    "clients": 4,
+    "reputation": 58
+  },
+  {
+    "id": "brk_pasir_quay",
+    "name": "Pasir Quay Boutique Re",
+    "name_ko": "파시르 키 부티크 리",
+    "tag_ko": "소수 정예 신생사",
+    "base_income_usd_m": 2.4,
+    "volatility": 0.13,
+    "market_beta": 1.0,
+    "commission_rate": 0.12,
+    "clients": 3,
+    "reputation": 50
+  }
+]

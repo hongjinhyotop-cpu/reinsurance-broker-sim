@@ -85,6 +85,7 @@ export function actionBlockReason(data, state, kind, treatyId, reId, form = null
   if (!treaty || !reinsurer || !state.treaties[treatyId]) return '없는 트리티나 재보험사예요';
   const t = state.treaties[treatyId];
   const cfg = data.config.negotiation.board;
+  if (state.ending) return '게임이 끝나 더는 바꿀 수 없어요';
   if (t.phase === 'placed') return '이미 고객이 수락해 확정된 트리티예요';
   if (t.phase === 'lost') return '고객이 경쟁 브로커로 옮겨 가서 더 협상할 수 없어요';
   if (patienceOf(data, state, reId, treatyId) <= 0) return `${reinsurer.name_ko}은(는) 이 트리티에서 더 협상하지 않아요 (인내심이 바닥났어요)`;
@@ -319,6 +320,7 @@ export function setOptions(treatyId, { terms, structureOption }) {
 export function submitBlockReason(data, state, treatyId) {
   const t = state.treaties[treatyId];
   if (!t) return '없는 트리티예요';
+  if (state.ending) return '게임이 끝나 더는 바꿀 수 없어요';
   if (t.phase === 'placed') return '이미 고객이 수락해 확정된 트리티예요';
   if (t.phase === 'lost') return '고객이 경쟁 브로커로 옮겨 갔어요';
   if (state.turn < t.retry_turn) return `고객이 생각할 시간이 필요해요. 턴 ${t.retry_turn}(다음 주)부터 다시 제출할 수 있어요`;
@@ -399,6 +401,7 @@ export function applyGap(data, state) {
     const season = data.calendar.seasons.find((x) => x.id === treaty.season);
     if (!t || t.phase !== 'open' || t.gap_applied || state.turn !== season.inception_turn + 1) continue;
     t.gap_applied = true;
+    state.finance?.fines.push({ turn: state.turn, kind: 'gap', usd_m: 0, ref: treaty.id }); // 성적표가 "공백 N건"을 말하도록 남긴다(§9.1)
     applyEffects(state, [
       { op: 'add', target: `client:${treaty.client}`, field: 'relationship', value: gap.relationship },
       { op: 'add', target: 'player', field: 'reputation', value: gap.reputation },

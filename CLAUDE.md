@@ -22,7 +22,7 @@ js/                   main, loader, store, rng, calendar, market, negotiation, p
 js/ui/                components, shell, start, settings, inbox, database,
                       placement_view, glossary_view, calendar_view, standings, review
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
-                      glossary, brokers  (.json)
+                      glossary, brokers, report  (.json)
 tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연 뒤 /tests/ 접속)
 ```
 
@@ -37,7 +37,7 @@ tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연
 ## 데이터 규칙
 - 회사·인물 이름은 **가상**만. 실존 회사명 금지. 규제 조항 번호·실제 수치 인용 금지.
 - 데이터는 선언만. `eval`·`Function`·표현식 금지. 조건·효과 op는 닫힌 집합(design.md §10.8).
-- id는 `snake_case` + 접두어(`cli_ re_ trt_ evt_ mail_ gl_`). JSON에 주석 금지.
+- id는 `snake_case` + 접두어(`cli_ re_ trt_ evt_ mail_ gl_ brk_`). JSON에 주석 금지.
 - 텍스트 속 용어는 `[[gl_id|표시문구]]` 마크업. 로더가 id 존재를 검증한다.
 - 숨은 속성(`hidden.*`)의 원값을 UI에 직접 출력하지 않는다. 반드시 `reveal.js`를 거친다.
 
