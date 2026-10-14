@@ -7,6 +7,7 @@ import { mailVars, markRead, answer } from '../turn.js';
 import { h, toast } from './components.js';
 import { richText } from './glossary_view.js';
 import { sealFor, senderEntity, senderSealId, reTone } from './seals.js';
+import { portraitEl, mailPortraitId, mailMood } from './portraits.js';
 
 const PRIORITY_LABEL = { urgent: '긴급', normal: '일반', low: '참고' };
 const FROM_KIND_LABEL = { client: '고객', reinsurer: '재보험사', regulator: '규제', market: '시장', board: '이사회', system: '시스템', mentor: '선배' };
@@ -72,6 +73,12 @@ function renderList(rows, state, data) {
 // 편지 머리글: 보낸 쪽마다 다르다. 재보험사·고객·이사회·규제·시장·시스템·선배 모두 인장 + 글자 머리글.
 const LETTER_TITLE = { board: '이사회', regulator: '금융감독당국 · 공문', market: '시장 리포트 데스크', system: '게임 안내', mentor: '선배의 쪽지' };
 
+// 사람이 보낸 메일이면 머리글 오른쪽 끝에 작은 초상(D5). 표정은 메일마다 정한 화면 상수.
+function letterPortrait(template, ent) {
+  const id = mailPortraitId(template, ent);
+  return id ? h('span', { class: 'lh-portrait' }, portraitEl(id, mailMood(template.id), { size: 48 })) : null;
+}
+
 function letterhead(template, data, waiting) {
   const ent = senderEntity(template.from.name_ko, data);
   if (ent) {
@@ -80,7 +87,8 @@ function letterhead(template, data, waiting) {
       h('div', { class: 'lh-text' },
         h('p', { class: 'lh-name' }, ent.name_ko),
         h('p', { class: 'lh-sub' }, `${ent.kind === 'reinsurer' ? '재보험사' : '고객'} · ${ent.hq}`)),
-      ent.kind === 'client' && waiting ? h('span', { class: 'lh-note' }, '회신 요청') : null);
+      ent.kind === 'client' && waiting ? h('span', { class: 'lh-note' }, '회신 요청') : null,
+      letterPortrait(template, ent));
   }
   const kind = template.from.kind;
   const sealId = senderSealId(kind);
@@ -89,7 +97,8 @@ function letterhead(template, data, waiting) {
     h('div', { class: 'lh-text' },
       h('p', { class: 'lh-name' }, LETTER_TITLE[kind] ?? FROM_KIND_LABEL[kind]),
       h('p', { class: 'lh-sub' }, template.from.name_ko.replace(/\s*\(가상\)\s*$/, ''))),
-    kind === 'regulator' ? h('span', { class: 'lh-note' }, '공문') : null);
+    kind === 'regulator' ? h('span', { class: 'lh-note' }, '공문') : null,
+    letterPortrait(template, null));
 }
 
 function renderReader(mail, template, state, data) {
