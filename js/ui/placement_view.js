@@ -296,7 +296,7 @@ function resultLines(data, row, hint) {
 
 // 결과 밑 "다음엔 이렇게" 한 줄(design.md §6.3). 이유·목소리와 달리 화면의 어디를 바꿔 볼지를 말한다.
 function nextLine(text) {
-  return h('p', { class: 'pl-line pl-next' }, h('strong', {}, '다음엔 이렇게 ▸ '), text);
+  return h('p', { class: 'pl-line pl-next' }, h('strong', {}, '다음엔 이렇게 → '), text);
 }
 
 function stepButton(label, delta, ariaLabel, reinsurer, rerender, locked) {
@@ -382,7 +382,7 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
         h('span', { class: 'visually-hidden' }, `인내심 ${patience}/${patienceStart(data, state)}`)),
       h('span', { class: `pl-status pl-status-${status}` }, STATUS_KO[status]),
       deadline ? h('span', { class: 'pl-deadline', title: '주를 넘기면 이 반제는 사라져요. 인내심은 깎이지 않지만 처음부터 다시 제안해야 해요.' },
-        h('span', { 'aria-hidden': 'true' }, '⏳ '), `반제 ${deadline}`) : null,
+        h('span', { 'aria-hidden': 'true' }, '▲ '), `반제 ${deadline}`) : null,
     ),
     h('div', { class: 'pl-row-controls' },
       h('div', { class: 'pl-stepper', role: 'group', 'aria-label': `${reinsurer.name_ko} 지분 조절` },
@@ -607,7 +607,7 @@ export function renderPlacement() {
       : null;
     const urgent = !locked && placement.isUrgent(data, state, trt)
       ? h('div', { class: 'pl-urgent', role: 'status' },
-        h('span', { class: 'pl-urgent-icon', 'aria-hidden': 'true' }, '⏰'),
+        h('span', { class: 'pl-urgent-icon', 'aria-hidden': 'true' }, '▲'),
         h('div', {},
           h('strong', {}, '재보험사들이 서두르고 있어요'),
           h('p', {}, timingNodes(ctx), ' — 마감이 가까워서 반제 폭이 좁아졌고, 반제는 받은 주가 지나면 사라져요.')))

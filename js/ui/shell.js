@@ -10,6 +10,7 @@ import { guideDetail } from '../difficulty.js';
 import { getPrefs, setPref } from '../prefs.js';
 import { h, formatUsdM, toast, navigate } from './components.js';
 import { glossaryLink } from './glossary_view.js';
+import { countUp, flipDate, arriveEnvelope } from './motion.js';
 
 // when: 이 화면이 만들어질 마일스톤(design.md §12)
 export const NAV = [
@@ -31,10 +32,13 @@ export function screenTitle(id) {
   return NAV.find((n) => n.id === id)?.label ?? '';
 }
 
-function stat(label, value, sub, title) {
-  return h('div', { class: 'stat', title },
+// count: { key, to, format }이면 값이 바뀔 때 숫자가 올라간다(motion.js). 끝난 글자는 항상 실제 값이다.
+function stat(label, value, sub, title, { className = '', count = null } = {}) {
+  const valueEl = h('span', { class: 'stat-value' }, value);
+  if (count) countUp(valueEl, count.key, count.to, count.format);
+  return h('div', { class: `stat${className ? ` ${className}` : ''}`, title },
     h('dt', {}, label),
-    h('dd', {}, value, sub ? h('small', {}, sub) : null),
+    h('dd', {}, valueEl, sub ? h('small', {}, sub) : null),
   );
 }
 
@@ -66,6 +70,9 @@ function onContinue() {
   toast(parts.join(' · '), 'ok');
   if (res.ending) navigate('review'); // 끝난 게임은 바로 결과 화면으로 안내한다
   if (res.saveError) toast(`자동 저장을 하지 못했어요 — ${res.saveError}`, 'warn');
+  // 작은 움직임(장식): 달력 장이 넘어가고, 사건이 있으면 봉투가 들어온다. 화면은 위에서 이미 다시 그려졌다.
+  flipDate(document.querySelector('.stat-date dd'));
+  if (res.events.length > 0) arriveEnvelope();
 }
 
 function renderContinue(data, state) {
@@ -90,9 +97,9 @@ function renderTopbar() {
       stat('날짜',
         desc ? turnLabel(desc) : `턴 ${s.turn}`,
         desc ? `${seasonLabel(desc)} · 턴 ${desc.turn}/${desc.totalTurns}` : null,
-        '게임 시간은 1주가 1턴이에요'),
-      stat('현금', formatUsdM(s.player.cash_usd_m), null, 'm은 백만 달러 단위예요'),
-      stat('이사회 신뢰', String(Math.round(s.player.board_confidence)), '0~100', '20 아래로 떨어지면 해고돼요'),
+        '게임 시간은 1주가 1턴이에요', { className: 'stat-date' }),
+      stat('현금', formatUsdM(s.player.cash_usd_m), null, 'm은 백만 달러 단위예요', { count: { key: 'cash', to: s.player.cash_usd_m, format: formatUsdM } }),
+      stat('이사회 신뢰', String(Math.round(s.player.board_confidence)), '0~100', '20 아래로 떨어지면 해고돼요', { count: { key: 'board', to: Math.round(s.player.board_confidence), format: (n) => String(Math.round(n)) } }),
       stat('시장', market.label_ko, `오차 ±${market.error}`, '정확한 시장 지수는 보이지 않고, 라벨과 오차 범위만 보여요'),
       stat(glossaryLink('gl_ap', { label: '행동 점수', scope: new Set() }), `${s.ap}/${config.game.ap_per_week}`, null, '매주 6점이 새로 생기고, 남은 점수는 다음 주로 넘어가지 않아요'),
     ),

@@ -80,22 +80,6 @@
   /* 그림자 */
   --shadow-sheet: 0 1px 0 rgba(22, 36, 61, 0.08), 0 6px 14px -9px rgba(22, 36, 61, 0.45);
   --shadow-lift: 0 2px 0 rgba(22, 36, 61, 0.1), 0 14px 28px -12px rgba(22, 36, 61, 0.55);
-
-  /* 옛 이름 별칭 — 아직 개편하지 않은 화면을 위한 임시 이름이다. 화면을 개편하면서 새 이름으로 바꾸고, 마지막에 지운다. */
-  --bg: var(--paper);
-  --bg-elev: var(--paper-hi);
-  --bg-elev-2: var(--paper-2);
-  --border: var(--rule);
-  --text: var(--ink);
-  --text-dim: var(--ink-2);
-  --accent: var(--stamp);
-  --accent-ink: var(--paper-hi);
-  --danger: var(--stamp);
-  --radius: var(--r-1);
-  --gap: var(--sp-3);
-  --pad: var(--sp-4);
-  --font: var(--font-sans);
-  --mono: var(--font-mono);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -168,7 +152,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .card { /* 시트: 올려놓은 한 장 */
   background: var(--paper-hi); border: 1px solid var(--rule);
   border-radius: var(--r-1); box-shadow: var(--shadow-sheet);
-  padding: var(--pad); margin-bottom: var(--gap);
+  padding: var(--sp-4); margin-bottom: var(--sp-3);
 }
 .card-ledger { /* 장부: 가장 중요한 본문. 위아래 이중선 */
   background: var(--paper-hi); border: 1px solid var(--rule); border-top: 4px double var(--ink); border-bottom: 4px double var(--ink);
@@ -224,7 +208,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .topbar {
   grid-area: top;
   display: flex; align-items: stretch; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4);
-  padding: var(--sp-2) var(--pad);
+  padding: var(--sp-2) var(--sp-4);
   background: var(--paper-2);
   border-bottom: 3px double var(--ink); box-shadow: 0 3px 0 -1px var(--gold);
 }
@@ -238,6 +222,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .stat { padding: 0 var(--sp-4); border-left: 1px solid var(--rule); }
 .stat dt { font-size: var(--fs-xs); color: var(--ink-2); }
 .stat dd { margin: 0; font-weight: 600; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-md); }
+.stat-value { display: inline-block; }
+/* 날짜 칸은 찢는 달력의 한 장처럼: 위쪽 붉은 띠 */
+.stat-date dd { padding: 0 var(--sp-2); background: var(--paper-hi); border-top: 3px solid var(--stamp); }
 .stat small { display: block; font-family: var(--font-sans); font-weight: 400; font-size: var(--fs-xs); color: var(--ink-2); }
 .continue-wrap { margin-left: auto; align-self: center; }
 
@@ -246,7 +233,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .sidenav ul { list-style: none; margin: 0; padding: 0; }
 .nav-link {
   display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
-  padding: 9px var(--pad);
+  padding: 9px var(--sp-4);
   color: var(--ink); text-decoration: none;
   border-left: 4px solid transparent; border-bottom: 1px solid var(--rule);
 }
@@ -272,7 +259,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 /* 안내띠(design.md §6.0.1): 모서리에 붙은 메모지. 색이 아니라 글자로 말한다. */
 .guide-strip {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
-  margin-bottom: var(--gap); padding: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-3); padding: var(--sp-2) var(--sp-3);
   background: var(--paper-2); border: 0; border-left: 3px solid var(--gold); border-radius: var(--r-0);
 }
 .guide-label { font-family: var(--font-serif); font-size: var(--fs-sm); font-weight: 700; color: var(--gold-ink); white-space: nowrap; }
@@ -327,6 +314,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 
 /* ---- 좁은 화면: 내비를 가로 한 줄로 ---- */
 @media (max-width: 760px) {
+  .envelope-fly { top: 120px; right: var(--sp-3); }
   .shell { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "nav" "main"; }
   .topbar { gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); }
   .stat { padding: 0 var(--sp-3) 0 var(--sp-2); }
@@ -336,5 +324,30 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   .nav-link[aria-current="page"] { border-bottom-color: var(--stamp); margin-right: 0; }
   .content { padding: var(--sp-4); }
   .continue-wrap { margin-left: 0; }
-  .btn { min-height: 44px; }
+  .btn { min-height: 44px; white-space: normal; }
+}
+
+/* ---- 작은 움직임 (design.md §6.0.3). 모두 한 번, 짧게. 움직임 줄이기를 켜면 아래 블록이 전부 끈다. ---- */
+.stat-date { perspective: 400px; }
+.stat-date dd.is-flip { transform-origin: 50% 0; animation: leaf-flip 450ms ease-out; }
+@keyframes leaf-flip {
+  0% { transform: rotateX(-90deg); }
+  60% { transform: rotateX(10deg); }
+  100% { transform: rotateX(0); }
+}
+.envelope-fly { position: fixed; top: 72px; right: var(--sp-5); z-index: 55; pointer-events: none; animation: envelope-in 1000ms ease-out both; }
+@keyframes envelope-in {
+  0% { transform: translate(120px, -30px) rotate(8deg); opacity: 0; }
+  25% { opacity: 1; }
+  45% { transform: translate(0, 0) rotate(-3deg); }
+  75% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate(-40px, 24px) scale(0.85); opacity: 0; }
+}
+.envelope-body { fill: var(--paper-hi); stroke: var(--ink); stroke-width: 2; }
+.envelope { color: var(--ink); filter: drop-shadow(0 4px 3px rgba(22, 36, 61, 0.35)); }
+.envelope-seal { fill: var(--stamp); stroke: var(--stamp-deep); stroke-width: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .envelope-fly { display: none; }
 }

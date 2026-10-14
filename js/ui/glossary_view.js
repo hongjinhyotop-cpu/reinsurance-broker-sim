@@ -82,7 +82,7 @@ function record(id, level) {
 
 // ---------- 3단계 카드 ----------
 
-const STEP_BUTTON = { 1: '비유 보기 ▾', 2: '실무 표현 보기 ▾' };
+const STEP_BUTTON = { 1: '비유 보기 ▼', 2: '실무 표현 보기 ▼' };
 let cardDialog = null;
 let titleSeq = 0;
 

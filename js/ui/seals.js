@@ -51,6 +51,20 @@ const FRAMES = {
   ],
 };
 
+// 발신자 인장 틀(D2): 이사회=방패, 규제=팔각, 시장=깃발, 시스템=모서리 깎은 사각, 선배=아치 창. 서로 달라서 색 없이도 구분된다.
+const outline = (outer, inner) => () => [
+  svg('path', { class: 'seal-bg', d: outer }),
+  svg('path', { ...STROKE, 'stroke-width': 2.6, d: outer }),
+  svg('path', { ...STROKE, 'stroke-width': 0.8, d: inner }),
+];
+Object.assign(FRAMES, {
+  shield: outline('M24 2.5 L43 8.5 V25 C43 35 34 42 24 45.5 C14 42 5 35 5 25 V8.5 Z', 'M24 6.6 L39.2 11.4 V25 C39.2 33 32 38.6 24 41.8 C16 38.6 8.8 33 8.8 25 V11.4 Z'),
+  octagon: outline('M15 2.5 H33 L45.5 15 V33 L33 45.5 H15 L2.5 33 V15 Z', 'M16.2 6.4 H31.8 L41.6 16.2 V31.8 L31.8 41.6 H16.2 L6.4 31.8 V16.2 Z'),
+  banner: outline('M6 3.5 H42 V44.5 L24 36.5 L6 44.5 Z', 'M9.8 7.3 H38.2 V38.5 L24 32.2 L9.8 38.5 Z'),
+  chamfer: outline('M11 3 H37 L45 11 V37 L37 45 H11 L3 37 V11 Z', 'M12.6 6.8 H35.4 L41.2 12.6 V35.4 L35.4 41.2 H12.6 L6.8 35.4 V12.6 Z'),
+  arch: outline('M7 45 V22 A17 17 0 0 1 41 22 V45 Z', 'M10.8 41.2 V22 A13.2 13.2 0 0 1 37.2 22 V41.2 Z'),
+});
+
 const path = (d, w = 2.2, extra = {}) => svg('path', { ...STROKE, 'stroke-width': w, d, ...extra });
 const solid = (tag, attrs) => svg(tag, { fill: 'currentColor', stroke: 'none', ...attrs });
 
@@ -76,10 +90,52 @@ const MOTIFS = {
   ],
 };
 
+const polar = (r, deg) => [24 + r * Math.cos(deg * Math.PI / 180), 24 + r * Math.sin(deg * Math.PI / 180)];
+
+Object.assign(MOTIFS, {
+  // 이사회: 둥근 탁자와 둘러앉은 다섯 자리
+  sender_board: () => [
+    svg('circle', { ...STROKE, 'stroke-width': 2.2, cx: 24, cy: 24, r: 5.5 }),
+    ...[0, 1, 2, 3, 4].map((i) => { const [x, y] = polar(12.5, -90 + i * 72); return solid('circle', { cx: x.toFixed(1), cy: y.toFixed(1), r: 2.3 }); }),
+  ],
+  // 규제: 저울
+  sender_regulator: () => [
+    path('M24 11 V35 M17 35 H31 M12 16 H36', 2.2),
+    path('M12 16 L8 27 M12 16 L16 27 M8 27 Q12 31.5 16 27', 1.8),
+    path('M36 16 L32 27 M36 16 L40 27 M32 27 Q36 31.5 40 27', 1.8),
+  ],
+  // 시장: 오르내리는 선과 바닥선
+  sender_market: () => [
+    path('M11 25 L17 18 L23 22 L30 12 L37 17', 2.2),
+    path('M11 29.5 H37', 1.6),
+    solid('circle', { cx: 37, cy: 17, r: 2 }),
+  ],
+  // 시스템: 톱니바퀴
+  sender_system: () => [
+    svg('circle', { ...STROKE, 'stroke-width': 2.2, cx: 24, cy: 24, r: 6.5 }),
+    solid('circle', { cx: 24, cy: 24, r: 2 }),
+    ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => { const [x1, y1] = polar(9.3, i * 45); const [x2, y2] = polar(13, i * 45); return path(`M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`, 3); }),
+  ],
+  // 선배: 만년필 촉
+  sender_mentor: () => [
+    path('M24 11 L31 26 L24 37.5 L17 26 Z', 2.2),
+    path('M24 27.5 V37', 1.6),
+    solid('circle', { cx: 24, cy: 25, r: 1.7 }),
+    path('M20.5 11 H27.5', 2.2),
+  ],
+});
+
 const FRAME_OF = {
   re_alpenglow: 'circle', re_kallang: 'circle', re_thames_quay: 'circle', re_nur: 'circle', re_dunes_crescent: 'circle',
   cli_jurong_crest: 'hexagon', cli_straits_port: 'tablet', cli_nusantara: 'diamond',
+  sender_board: 'shield', sender_regulator: 'octagon', sender_market: 'banner', sender_system: 'chamfer', sender_mentor: 'arch',
 };
+
+// 메일 발신 종류(template.from.kind) → 인장 id. 재보험사·고객은 senderEntity가 따로 찾는다.
+export function senderSealId(kind) {
+  const id = `sender_${kind}`;
+  return id in MOTIFS ? id : null;
+}
 
 export function hasSeal(id) {
   return id in MOTIFS;
@@ -87,7 +143,7 @@ export function hasSeal(id) {
 
 // 인장 SVG. 옆에 이름 글자가 있으므로 기본은 장식(aria-hidden)이다. title을 주면 이미지로 읽힌다.
 export function sealFor(id, { size = 28, title = null } = {}) {
-  const tone = id.startsWith('re_') ? `seal-re-${reTone(id)}` : 'seal-client';
+  const tone = id.startsWith('re_') ? `seal-re-${reTone(id)}` : id.startsWith('sender_') ? `seal-${id.replace('_', '-')}` : 'seal-client';
   const frame = FRAME_OF[id] ?? 'circle';
   const motif = MOTIFS[id] ?? (() => [solid('circle', { cx: 24, cy: 24, r: 6 })]);
   return svg('svg', {
@@ -115,6 +171,7 @@ const STAMPS = {
   renegotiate: { text: '재협상', shape: 'bar-arrows', tone: 'warn' },
   decline: { text: '거절', shape: 'square-slash', tone: 'bad' },
   refuse: { text: '거부', shape: 'square-cross', tone: 'bad' },
+  fired: { text: '해고', shape: 'square-cross', tone: 'bad' },
 };
 
 let stampSeq = 0;
@@ -187,4 +244,28 @@ export function stampEl(kind, { size = 84 } = {}) {
     class: `stamp stamp-${def.tone} stamp-${kind}`, viewBox: `0 0 ${w} ${h}`, width: size, height: Math.round(size * h / w),
     focusable: 'false', 'aria-hidden': 'true',
   }, svg('defs', {}, roughFilter(filterId)), group);
+}
+
+// 등급 도장(D2): 연말 성적표의 등급 글자. 이중 둥근 도장 안에 글자 한 자만 들어 있고, 바깥 요소가 "A 등급"으로 읽힌다.
+const GRADE_TONE = { S: 'ok', A: 'ok', B: 'ink', C: 'warn', D: 'bad' };
+
+export function gradeStampEl(grade, { size = 104 } = {}) {
+  const filterId = `stamp-rough-${++stampSeq}`;
+  const group = svg('g', { filter: `url(#${filterId})` },
+    svg('circle', { ...STROKE, 'stroke-width': 6, cx: 60, cy: 60, r: 53 }),
+    svg('circle', { ...STROKE, 'stroke-width': 2.2, cx: 60, cy: 60, r: 46 }),
+    svg('circle', { ...STROKE, 'stroke-width': 1.2, cx: 60, cy: 60, r: 40 }),
+    label(grade, 66));
+  return svg('svg', {
+    class: `stamp grade-letter grade-${grade.toLowerCase()} stamp-${GRADE_TONE[grade] ?? 'ink'}`, viewBox: '0 0 120 120', width: size, height: size,
+    focusable: 'false', role: 'img', 'aria-label': `${grade} 등급`,
+  }, svg('defs', {}, roughFilter(filterId)), group);
+}
+
+// 사건 메일이 도착할 때 들어오는 봉투(D2, 장식). 붉은 봉인 하나가 찍힌 단순한 봉투다.
+export function envelopeEl({ size = 64 } = {}) {
+  return svg('svg', { class: 'envelope', viewBox: '0 0 64 46', width: size, height: Math.round(size * 46 / 64), focusable: 'false', 'aria-hidden': 'true' },
+    svg('rect', { class: 'envelope-body', x: 2, y: 2, width: 60, height: 42, rx: 2 }),
+    svg('path', { ...STROKE, 'stroke-width': 2, d: 'M2 4 L32 27 L62 4 M2 44 L24 24 M62 44 L40 24' }),
+    svg('circle', { class: 'envelope-seal', cx: 32, cy: 27, r: 5 }));
 }

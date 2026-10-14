@@ -28,13 +28,13 @@ function renderLeague(data, state) {
   const rows = tableRows(data.brokers, snap, { firm: state.player.firm, reputation: Math.round(state.player.reputation), prev });
   const head = h('thead', {},
     h('tr', {},
-      h('th', { scope: 'col' }, '순위'),
+      h('th', { scope: 'col', class: 'num' }, '순위'),
       h('th', { scope: 'col' }, '브로커'),
-      h('th', { scope: 'col' }, glossaryLink('gl_brokerage', { label: '브로커리지 누계' })),
-      h('th', { scope: 'col' }, '전분기 대비'),
-      h('th', { scope: 'col' }, glossaryLink('gl_placed_premium', { label: '플레이스드 프리미엄' })),
-      h('th', { scope: 'col' }, '고객 수'),
-      h('th', { scope: 'col' }, glossaryLink('gl_reputation'))));
+      h('th', { scope: 'col', class: 'num' }, glossaryLink('gl_brokerage', { label: '브로커리지 누계' })),
+      h('th', { scope: 'col', class: 'num' }, '전분기 대비'),
+      h('th', { scope: 'col', class: 'num' }, glossaryLink('gl_placed_premium', { label: '플레이스드 프리미엄' })),
+      h('th', { scope: 'col', class: 'num' }, '고객 수'),
+      h('th', { scope: 'col', class: 'num' }, glossaryLink('gl_reputation'))));
   if (!rows) {
     return h('section', { class: 'card' },
       h('h2', {}, '브로커 리그'),
@@ -42,15 +42,15 @@ function renderLeague(data, state) {
       h('ul', { class: 'plain-list' }, [h('li', {}, `${state.player.firm} (우리)`), ...data.brokers.map((b) => h('li', {}, `${b.name_ko} — ${b.tag_ko}`))]));
   }
   const body = h('tbody', {}, rows.map((r) => h('tr', { class: r.isPlayer ? 'is-selected' : null },
-    h('td', {}, String(r.rank)),
+    h('td', { class: 'num' }, String(r.rank)),
     h('th', { scope: 'row' }, r.name_ko, r.isPlayer ? h('span', { class: 'tag tag-me' }, '우리') : null, r.tag_ko ? h('small', { class: 'dim row-tag' }, r.tag_ko) : null),
-    h('td', {}, formatUsdM(r.ytd),
+    h('td', { class: 'num' }, formatUsdM(r.ytd),
       r.isPlayer && r.flow_ytd > 0 ? h('small', { class: 'dim row-tag' }, `브로커리지 ${formatUsdM(r.brokerage_ytd)} + 평판 효과 ${formatUsdM(r.flow_ytd)}`) : null),
-    h('td', {}, signedUsdM(r.dq)),
-    h('td', {}, formatUsdM(r.placed_premium_usd_m)),
-    h('td', {}, String(r.clients)),
-    h('td', {}, String(r.reputation)))));
-  return h('section', { class: 'card' },
+    h('td', { class: 'num' }, signedUsdM(r.dq)),
+    h('td', { class: 'num' }, formatUsdM(r.placed_premium_usd_m)),
+    h('td', { class: 'num' }, String(r.clients)),
+    h('td', { class: 'num' }, String(r.reputation)))));
+  return h('section', { class: 'card card-ledger' },
     h('h2', {}, '브로커 리그'),
     h('p', { class: 'dim' }, `${QUARTER_KO[snap.id] ?? snap.id} 결산 기준이에요. 순위는 분기가 끝날 때마다 바뀌어요.`),
     h('div', { class: 'table-wrap' }, h('table', { class: 'table' }, h('caption', { class: 'visually-hidden' }, '브로커 리그 순위표'), head, body)),

@@ -14,6 +14,7 @@ import { renderStandings } from './ui/standings.js';
 import { renderReview } from './ui/review.js';
 import { toast } from './ui/components.js';
 import { captureFocus, restoreFocus } from './ui/focus.js';
+import { resetShown } from './ui/motion.js';
 
 const GAME_TITLE = '싱가포르 재보험 브로커 시뮬레이션';
 const app = document.getElementById('app');
@@ -56,6 +57,7 @@ function renderNow({ focusMain = false } = {}) {
   }
   const route = currentRoute();
   const screens = { settings: renderSettings, inbox: renderInbox, calendar: renderCalendar, database: renderDatabase, placement: renderPlacement, codex: renderCodex, standings: renderStandings, review: renderReview };
+  if (route !== 'review') resetShown('review-score'); // 성적표 점수는 화면을 열 때마다 0에서 올라간다
   resetTermScope(); // 화면 하나를 그리는 동안은 같은 용어를 첫 등장만 링크로 만든다
   const content = screens[route] ? screens[route]() : renderPlaceholder(route);
   app.append(renderShell(route, content));
@@ -80,7 +82,10 @@ async function boot() {
 }
 
 // 게임이 새로 시작/교체되거나(game) 진행 중 값이 바뀔 때(state) 전체를 다시 그린다. 슬롯 목록은 각자 갱신한다.
-store.subscribe((type) => { if (type === 'game' || type === 'state') render(); });
+store.subscribe((type) => {
+  if (type === 'game') resetShown(); // 다른 판의 숫자에서 세어 올라가지 않게
+  if (type === 'game' || type === 'state') render();
+});
 window.addEventListener('hashchange', () => render({ focusMain: true }));
 
 // 조용히 멈추는 것보다 알려 주는 편이 낫다(상세는 콘솔).
