@@ -21,7 +21,7 @@ fonts/                로컬 글꼴 woff2 + LICENSES.md (외부 글꼴 주소 �
 js/                   main, loader, store, rng, calendar, market, negotiation, placement, reveal,
                       scouting, glossary, anki, effects, events, mail, turn, finance, rivals, season, guide, prefs, difficulty
 js/ui/                components, shell, focus, start, settings, inbox, database,
-                      placement_view, glossary_view, calendar_view, standings, review, seals, motion,
+                      placement_view, glossary_view, calendar_view, fog_meter, standings, review, seals, motion,
                       ceremony(봉투 열기), sound(Web Audio 효과음)
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
                       glossary, brokers, report  (.json)
