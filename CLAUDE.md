@@ -21,7 +21,8 @@ fonts/                로컬 글꼴 woff2 + LICENSES.md (외부 글꼴 주소 �
 js/                   main, loader, store, rng, calendar, market, negotiation, placement, reveal,
                       scouting, glossary, anki, effects, events, mail, turn, finance, rivals, season, guide, prefs, difficulty
 js/ui/                components, shell, focus, start, settings, inbox, database,
-                      placement_view, glossary_view, calendar_view, standings, review, seals, motion
+                      placement_view, glossary_view, calendar_view, standings, review, seals, motion,
+                      ceremony(봉투 열기), sound(Web Audio 효과음)
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
                       glossary, brokers, report  (.json)
 tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연 뒤 /tests/ 접속)
@@ -32,6 +33,7 @@ tests/balance/        밸런싱 도구(Node: `node tests/balance/sim.mjs 300 nor
 - "종이와 잉크" 한 가지 테마(밝은 크림). 어두운 테마 금지. 색·글꼴·간격·그림자·모서리는 `css/base.css`의 `:root` 토큰에만 두고 다른 CSS는 `var(--…)`만 쓴다.
 - 옛 이름 별칭(`--bg`·`--text`·`--accent` 등)은 없앴다. 새 이름(`--paper`·`--ink`·`--stamp` …)만 쓴다.
 - 작은 움직임(`ui/motion.js`)은 장식이고 한 번만 짧게. `prefers-reduced-motion`이면 전부 꺼진다(design.md §6.0.3).
+- 연출(봉투 열기·도장·동전/토큰)은 표시만 늦춘다 — 규칙은 누른 순간 끝난다(design.md §6.0.3 D3). "연출 줄이기" 기본은 OS를 따르고, 효과음은 기본 꺼짐이며 둘 다 `rbs:prefs:v1`에 저장한다(세이브 아님). 효과음은 Web Audio 합성만, 소리 파일 금지.
 
 ## 코드 규칙
 - 식별자·파일명은 영어, UI 문구·데이터 텍스트·문서·주석은 한국어. 주석은 "왜"만 짧게.
@@ -50,7 +52,7 @@ tests/balance/        밸런싱 도구(Node: `node tests/balance/sim.mjs 300 nor
 - 숨은 속성(`hidden.*`)의 원값을 UI에 직접 출력하지 않는다. 반드시 `reveal.js`를 거친다.
 
 ## 세이브 규칙
-- 키 `rbs:save:v1:<slot>`, 도감은 별도 키 `rbs:codex:v1`(새 게임에도 유지), 화면 설정(안내띠 켜기/끄기)은 별도 키 `rbs:prefs:v1`.
+- 키 `rbs:save:v1:<slot>`, 도감은 별도 키 `rbs:codex:v1`(새 게임에도 유지), 화면 설정(안내띠·효과음·연출 줄이기)은 별도 키 `rbs:prefs:v1`.
 - 세이브에는 동적 상태만 저장하고 정적 콘텐츠는 id로 참조한다.
 - 난이도(`easy`/`normal`)는 세이브의 `difficulty`에 있고 게임 도중 바꾸지 않는다. 난이도별 숫자는 `data/config.json`의 `difficulty.profiles`에만 둔다(보통은 중립값 — 보통의 규칙·숫자는 바꾸지 않는다). 설계는 design.md §9.5.
 - 구조를 바꾸면 `version`을 올리고 `store.js`에 마이그레이션을 추가한다. localStorage 접근은 try/catch로 감싼다.
