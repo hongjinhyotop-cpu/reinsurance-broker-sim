@@ -16,4 +16,6 @@ pyftsubset sansvar.ttf  --text-file=chars_ks.txt   --flavor=woff2 --layout-featu
 pyftsubset "JetBrainsMono[wght].ttf" --unicodes="U+0020-007E,U+00B7,U+00D7,U+2212,U+2013,U+2014,U+25B6" --flavor=woff2 --layout-features='*' --output-file=JetBrainsMono-Variable.subset.woff2
 ```
 
+글자 목록에는 화면에 찍히는 기호(`■ ▲ ▼ ● →` 등)도 들어 있어요. 이모지(⏰ 같은 그림 문자)는 글꼴에 없으므로 화면 문구에 쓰지 않아요.
+
 목록에 없는 글자는 `--font-serif`/`--font-sans`의 다음 글꼴(시스템 글꼴)로 이어서 그려집니다.
