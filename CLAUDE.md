@@ -21,7 +21,7 @@ fonts/                로컬 글꼴 woff2 + LICENSES.md (외부 글꼴 주소 �
 js/                   main, loader, store, rng, calendar, market, negotiation, placement, reveal,
                       scouting, glossary, anki, effects, events, mail, turn, finance, rivals, season, guide, prefs, difficulty
 js/ui/                components, shell, focus, start, settings, inbox, database,
-                      placement_view, glossary_view, calendar_view, standings, review, seals
+                      placement_view, glossary_view, calendar_view, standings, review, seals, motion
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
                       glossary, brokers, report  (.json)
 tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연 뒤 /tests/ 접속)
@@ -30,7 +30,8 @@ tests/balance/        밸런싱 도구(Node: `node tests/balance/sim.mjs 300 nor
 
 ## 디자인 (design.md §6.0.3)
 - "종이와 잉크" 한 가지 테마(밝은 크림). 어두운 테마 금지. 색·글꼴·간격·그림자·모서리는 `css/base.css`의 `:root` 토큰에만 두고 다른 CSS는 `var(--…)`만 쓴다.
-- `--bg`·`--text`·`--accent` 같은 옛 이름은 임시 별칭이다. 화면을 개편할 때 새 이름으로 바꾼다.
+- 옛 이름 별칭(`--bg`·`--text`·`--accent` 등)은 없앴다. 새 이름(`--paper`·`--ink`·`--stamp` …)만 쓴다.
+- 작은 움직임(`ui/motion.js`)은 장식이고 한 번만 짧게. `prefers-reduced-motion`이면 전부 꺼진다(design.md §6.0.3).
 
 ## 코드 규칙
 - 식별자·파일명은 영어, UI 문구·데이터 텍스트·문서·주석은 한국어. 주석은 "왜"만 짧게.
