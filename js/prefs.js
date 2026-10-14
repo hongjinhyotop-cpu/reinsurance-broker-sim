@@ -1,4 +1,4 @@
-// 화면 설정(안내띠 켜기/끄기·효과음·연출 줄이기) 저장: rbs:prefs:v1. design.md §10.9 "화면 설정".
+// 화면 설정(안내띠 켜기/끄기·효과음·연출 줄이기·뉴스 띠) 저장: rbs:prefs:v1. design.md §10.9 "화면 설정".
 // 게임 진행이 아니라 보는 방식이라 세이브와 따로 둔다(새 게임·불러오기와 무관하게 유지). 저장소 접근은 전부 try/catch.
 
 export const PREFS_KEY = 'rbs:prefs:v1';
@@ -24,9 +24,9 @@ function getStorage() {
   }
 }
 
-// 선택 칸(D3): 없으면 기본값으로 읽는다 — sound는 꺼짐, reduce_motion은 기기(OS) 설정을 따름.
+// 선택 칸(D3·D6): 없으면 기본값으로 읽는다 — sound는 꺼짐, reduce_motion은 기기(OS) 설정을 따름, news_ticker는 켜짐.
 // 사용자가 바꾼 칸만 저장해서, 안 바꾼 사람의 저장 값은 예전과 똑같다.
-const OPTIONAL_BOOLEANS = ['sound', 'reduce_motion'];
+const OPTIONAL_BOOLEANS = ['sound', 'reduce_motion', 'news_ticker'];
 
 // 저장소에서 읽은 값을 점검한다. 모양이 틀린 칸은 기본값으로 둔다. 모르는 버전이면 null.
 export function sanitizePrefs(raw) {
@@ -38,6 +38,7 @@ export function sanitizePrefs(raw) {
 }
 
 export const soundOn = () => getPrefs().sound === true;
+export const newsTickerOn = () => getPrefs().news_ticker !== false;
 // true/false는 사용자가 직접 고른 값, null은 아직 고르지 않아 OS 설정을 따른다는 뜻.
 export const reduceMotionChoice = () => (typeof getPrefs().reduce_motion === 'boolean' ? getPrefs().reduce_motion : null);
 

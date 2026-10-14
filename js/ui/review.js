@@ -6,7 +6,8 @@ import { computeReport, tierOf } from '../finance.js';
 import { seasonRows, rankTrend } from '../season.js';
 import { markSeasonReviewsSeen } from '../turn.js';
 import { difficultyLabel } from '../difficulty.js';
-import { h, formatUsdM, confirmDialog } from './components.js';
+import { playStyleOf, shareLine } from '../playstyle.js';
+import { h, formatUsdM, confirmDialog, toast } from './components.js';
 import { glossaryLink, richText } from './glossary_view.js';
 import { sealFor, gradeStampEl, stampEl } from './seals.js';
 import { countUp, hasShown, markShown, reducedMotion } from './motion.js';
@@ -282,6 +283,51 @@ function reportLetterhead(title, state) {
       h('p', { class: 'lh-sub' }, `${state.player.firm} 앞 · 이사회 (가상)`)));
 }
 
+// 플레이 스타일 칭호 띠(D6, §9.7): 등급과 별개인 "올해의 색깔". 판정은 저장된 공개 기록만 읽는다.
+function styleBand(data, style) {
+  const t = data.report.playstyles[style.id];
+  return h('section', { class: 'style-band', 'aria-label': '플레이 스타일 칭호' },
+    h('p', { class: 'style-label' }, '플레이 스타일 · 등급과 따로 매겨요'),
+    h('p', { class: 'style-title' }, t.title_ko),
+    h('p', { class: 'style-line' }, richText(t.line_ko)),
+    h('p', { class: 'style-basis dim' }, `근거: ${t.basis_ko}`));
+}
+
+// 결과 카드(D6): 늘 보이는 선택 가능한 한 줄 + 복사 버튼. 클립보드가 막히면 글자를 선택해 두고 알린다.
+function selectText(el) {
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch { /* 선택도 못 하면 글자는 그대로 화면에 있다 */ }
+}
+
+function shareCard(data, state, report, fired, style) {
+  const line = shareLine({
+    gameTitle: data.report.share.game_title_ko, seed: state.seed, levelLabel: difficultyLabel(data, state),
+    grade: report.grade, fired, styleTitle: data.report.playstyles[style.id].title_ko,
+  });
+  const text = h('p', { class: 'share-text', id: 'share-text' }, line);
+  const blocked = () => { selectText(text); toast('복사가 막혀 있어요 — 선택된 글자를 직접 복사하세요', 'warn'); };
+  const copy = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('no clipboard');
+      await navigator.clipboard.writeText(line);
+      toast('결과를 복사했어요', 'ok');
+    } catch {
+      blocked();
+    }
+  };
+  return h('section', { class: 'share-card', 'aria-labelledby': 'share-title' },
+    h('h3', { id: 'share-title' }, '결과 카드'),
+    h('div', { class: 'share-row' },
+      text,
+      h('button', { class: 'btn', type: 'button', onclick: copy }, '결과 복사')),
+    h('p', { class: 'dim share-note' }, data.report.share.note_ko));
+}
+
 // 성적표·중간 점검 머리에 붙는 난이도 표시(design.md §9.5)
 const levelTag = (data, state) => h('span', { class: 'tag' }, `난이도: ${difficultyLabel(data, state)}`);
 
@@ -310,6 +356,7 @@ export function renderReview() {
 
   const report = ending.report;
   const fired = ending.kind === 'fired';
+  const style = playStyleOf(data, state);
   const text = fired ? data.report.fired : data.report.grades[report.grade];
   return h('div', { class: 'screen screen-wide' },
     h('h1', {}, '시즌 리뷰'),
@@ -318,9 +365,11 @@ export function renderReview() {
       h('p', { class: 'badge-line' }, h('span', { class: `tag ${fired ? 'tag-bad' : 'tag-ok'}` }, fired ? '게임 오버 — 해고' : glossaryLink('gl_report_card')), levelTag(data, state)),
       h('h2', {}, text.title_ko),
       h('div', { class: 'report-stamps' }, gradeBadge(report, fired), fired ? slamIn(stampEl('fired', { size: 116 }), 'review-stamp-fired', FIRED_LAND_MS, ' grade-slam-late') : null),
+      styleBand(data, style),
       text.summary_ko.map((line) => h('p', { class: 'chair-note' }, richText(line))),
       confidenceLine(report, data),
       fired ? h('p', { class: 'dim' }, ending.turn >= data.calendar.turns ? '연말 평가까지 마친 뒤의 결과예요.' : `턴 ${ending.turn}에 이사회가 결정했어요. 위 등급은 그때까지의 성적으로 계산했어요.`) : null,
+      shareCard(data, state, report, fired, style),
       h('p', { class: 'letter-sign' }, '— 이사회 의장')),
     renderSeasonCompare(data, state),
     renderTrend(data, state),

@@ -4,7 +4,7 @@
 import * as store from '../store.js';
 import { getCodex, progressOf, resetCodex } from '../glossary.js';
 import { describeTurn, turnLabel } from '../calendar.js';
-import { getPrefs, setPref, reduceMotionChoice, soundOn } from '../prefs.js';
+import { getPrefs, setPref, reduceMotionChoice, soundOn, newsTickerOn } from '../prefs.js';
 import { forceEvent } from '../turn.js';
 import { difficultyLabel } from '../difficulty.js';
 import { h, toast, confirmDialog, navigate, formatUsdM, formatDateTime } from './components.js';
@@ -200,7 +200,18 @@ function renderDisplaySettings() {
           },
         }),
         ' 효과음'),
-      h('small', { class: 'dim' }, '도장·봉투·주 넘김·사건 알림의 짧고 작은 소리예요. 기본은 꺼져 있어요. 화면 위쪽의 버튼으로도 켜고 끌 수 있어요.')));
+      h('small', { class: 'dim' }, '도장·봉투·주 넘김·사건 알림의 짧고 작은 소리예요. 기본은 꺼져 있어요. 화면 위쪽의 버튼으로도 켜고 끌 수 있어요.')),
+    h('div', { class: 'field' },
+      h('label', { class: 'check', for: 'pref-news' },
+        h('input', {
+          type: 'checkbox', id: 'pref-news', checked: newsTickerOn() ? true : null,
+          onchange: (ev) => {
+            if (!setPref('news_ticker', ev.target.checked).ok) saveFailed();
+            store.refresh();
+          },
+        }),
+        ' 뉴스 띠 보이기'),
+      h('small', { class: 'dim' }, '화면 위쪽 상단 바 아래에 가상의 시장 소식이 한 줄씩 바뀌어요. 연출 줄이기가 켜져 있으면 바뀌지 않는 한 줄이에요.')));
 }
 
 // 사건 시험대(design.md §6.9, §8.3 ⑧): 창구·확률·조건을 건너뛰고 사건을 지금 일으켜 본다. 정식 규칙이 아니라 점검용이다.

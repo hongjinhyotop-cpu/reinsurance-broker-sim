@@ -85,3 +85,23 @@ export function tableRows(defs, snapshot, { firm, reputation, prev = null }) {
   rows.sort((a, b) => (b.ytd - a.ytd) || (a.isPlayer ? -1 : b.isPlayer ? 1 : 0));
   return rows.map((r, i) => ({ ...r, rank: i + 1 }));
 }
+
+// 라이벌 도발 메일(§9.3 D6)의 난수 둘. 게임 난수 흐름(rng_state)과 섞지 않고 시드·분기로 따로 만든다(라이벌 수익과도 다른 섞기 값).
+export function tauntRoll(seed, quarterIndex) {
+  const mixed = (seed ^ Math.imul(quarterIndex + 1, 0x27d4eb2f) ^ 0x5bd1e995) >>> 0;
+  const a = nextFloat(normalizeSeed(mixed));
+  const b = nextFloat(a.state);
+  return [a.value, b.value];
+}
+
+// 이번 분기에 쪽지를 보낼 이웃 라이벌. { rival, side: 'ahead' | 'behind' } 또는 null.
+// rows는 tableRows의 결과(리그 수익 순). ahead = 바로 위, behind = 바로 아래.
+export function pickTaunt(rows, roll, prob) {
+  if (!rows || !(roll[0] < prob)) return null;
+  const i = rows.findIndex((r) => r.isPlayer);
+  const options = [];
+  if (i > 0) options.push({ rival: rows[i - 1].id, side: 'ahead' });
+  if (i >= 0 && i < rows.length - 1) options.push({ rival: rows[i + 1].id, side: 'behind' });
+  if (options.length === 0) return null;
+  return options.length === 1 ? options[0] : options[roll[1] < 0.5 ? 0 : 1];
+}

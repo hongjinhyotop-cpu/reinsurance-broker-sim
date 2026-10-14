@@ -127,6 +127,8 @@
 .letterhead-system { border-bottom: 2px dashed var(--ink-3); }
 .letterhead-mentor { border-bottom: 1px dotted var(--ink-3); }
 .letterhead-mentor .lh-name { font-size: var(--fs-lg); }
+.letterhead-rival { border-bottom: 2px dashed var(--warn); }
+.letterhead-rival .lh-name { font-size: var(--fs-lg); }
 
 .letter-meta { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); text-align: right; }
 .letter-subject { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-2); }
@@ -154,7 +156,7 @@
 .seal-re-3 { color: var(--re-3); } .seal-re-4 { color: var(--re-4); }
 .seal-client { color: var(--ink); }
 .seal-sender-board { color: var(--gold-ink); } .seal-sender-regulator { color: var(--ink); } .seal-sender-market { color: var(--link); }
-.seal-sender-system { color: var(--ink-3); } .seal-sender-mentor { color: var(--ok); }
+.seal-sender-system { color: var(--ink-3); } .seal-sender-mentor { color: var(--ok); } .seal-sender-rival { color: var(--warn); }
 /* 인물 초상(D5): 틀·머리·옷은 인장과 같은 색(currentColor), 얼굴 선은 늘 잉크 */
 .portrait { flex: none; display: block; }
 .portrait .pt-fill { fill: currentColor; stroke: none; }
@@ -518,6 +520,26 @@
 .grade-score { font-family: var(--font-mono); font-size: var(--fs-xl); font-weight: 700; font-variant-numeric: tabular-nums; }
 .chair-note { max-width: 62ch; line-height: 1.85; }
 
+/* 플레이 스타일 칭호 띠(D6): 금색 왼쪽 선의 메모. 등급과 따로라는 걸 라벨 글자로 말한다.
+   칭호는 굵은 고딕 — 명조 부분 글꼴에 없는 글자(지킴이의 "킴" 등)가 있어 섞여 보이지 않게 */
+.style-band { margin: var(--sp-2) 0 var(--sp-4); padding: var(--sp-2) var(--sp-4); background: var(--paper-2); border-left: 4px solid var(--gold); max-width: 62ch; }
+.style-band p { margin: 0; }
+.style-label { font-size: var(--fs-xs); color: var(--gold-ink); font-weight: 600; letter-spacing: 0.05em; }
+.style-band .style-title { font-family: var(--font-sans); font-weight: 700; letter-spacing: 0.02em; font-size: var(--fs-xl); color: var(--ink); margin: 2px 0 var(--sp-1); }
+.style-band .style-basis { margin-top: var(--sp-1); font-size: var(--fs-sm); }
+
+/* 결과 카드(D6): 늘 보이는 한 줄(한 번에 선택) + 복사 버튼 */
+.share-card { margin: var(--sp-4) 0 var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--rule); }
+.share-card h3 { font-size: var(--fs-md); margin-bottom: var(--sp-2); }
+.share-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.share-text {
+  flex: 1 1 280px; min-width: 0; margin: 0; padding: var(--sp-2) var(--sp-3);
+  font-family: var(--font-mono); font-size: var(--fs-sm); overflow-wrap: anywhere;
+  background: var(--paper); border: 1px dashed var(--ink-3); border-radius: var(--r-1);
+  user-select: all; -webkit-user-select: all;
+}
+.share-note { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); }
+
 /* 시즌 중간 리뷰 카드: 책상에 놓인 종이 메모. 위에 금색 테이프 */
 .season-reviews > h2 { margin-bottom: var(--sp-1); }
 .season-card { position: relative; margin-top: var(--sp-5); padding-top: var(--sp-5); border-radius: var(--r-0); }
@@ -539,6 +561,10 @@
 .level-pick { border: 1px solid var(--ink-3); border-radius: var(--r-0); padding: var(--sp-3) var(--sp-4); margin: 0 0 var(--sp-4); display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2) var(--sp-3); }
 .level-pick legend { font-family: var(--font-serif); font-weight: 700; padding: 0 6px; }
 .level-pick > small { grid-column: 1 / -1; }
+/* 게임 번호(시드) 칸(D6): 결과 카드 번호를 넣는 자리라 메모 상자로 눈에 띄게 */
+.seed-field { margin: 0 0 var(--sp-4); padding: var(--sp-3) var(--sp-4); background: var(--paper-2); border-left: 4px solid var(--gold); }
+.seed-field label { font-family: var(--font-serif); font-weight: 700; }
+.seed-field input { font-family: var(--font-mono); max-width: 22rem; }
 .level-option { position: relative; display: flex; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-3); background: var(--paper-hi); border: 1px dashed var(--ink-3); }
 .level-option:has(input:checked) { background: var(--paper-2); border: 1px solid var(--ink); box-shadow: inset 6px 0 0 var(--stamp); padding-left: var(--sp-4); }
 .level-option:has(input:checked) label strong { font-size: var(--fs-lg); }

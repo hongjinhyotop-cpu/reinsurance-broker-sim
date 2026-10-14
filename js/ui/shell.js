@@ -14,6 +14,7 @@ import { countUp, flipDate, arriveEnvelope, trackValue, reducedMotion } from './
 import { viewState } from './ceremony.js';
 import { play, setSoundOn, soundAvailable } from './sound.js';
 import { soundOn } from '../prefs.js';
+import { renderTicker } from './ticker.js';
 
 // when: 이 화면이 만들어질 마일스톤(design.md §12)
 export const NAV = [
@@ -188,6 +189,7 @@ export function renderShell(activeId, content) {
   return h('div', { class: 'shell' },
     renderSkipLink(),
     renderTopbar(),
+    renderTicker(),
     renderNav(activeId),
     h('main', { id: 'main', class: 'content', tabindex: '-1' }, renderGuideStrip(activeId), content),
   );

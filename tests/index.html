@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (연출과 첫인상 · 시즌 리뷰·평판 효과·공백 감액 · 돈·순위·성적표·해고 · 규칙을 바꾸는 사건 · 길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
+  <h1>테스트 (이야깃거리 · 연출과 첫인상 · 시즌 리뷰·평판 효과·공백 감액 · 돈·순위·성적표·해고 · 규칙을 바꾸는 사건 · 길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -222,7 +222,7 @@
         const r = map[name]; if (r instanceof Error) throw r;
         return { ok: r.status === 200, status: r.status, json: async () => JSON.parse(r.body) };
       };
-      const ent = { 'glossary.json': { status: 200, body: JSON.stringify(data.glossary) }, 'clients.json': { status: 200, body: JSON.stringify(data.clients) }, 'reinsurers.json': { status: 200, body: JSON.stringify(data.reinsurers) }, 'treaties.json': { status: 200, body: JSON.stringify(data.treaties) }, 'events.json': { status: 200, body: JSON.stringify(data.events) }, 'brokers.json': { status: 200, body: JSON.stringify(data.brokers) }, 'report.json': { status: 200, body: JSON.stringify(data.report) } };
+      const ent = { 'glossary.json': { status: 200, body: JSON.stringify(data.glossary) }, 'clients.json': { status: 200, body: JSON.stringify(data.clients) }, 'reinsurers.json': { status: 200, body: JSON.stringify(data.reinsurers) }, 'treaties.json': { status: 200, body: JSON.stringify(data.treaties) }, 'events.json': { status: 200, body: JSON.stringify(data.events) }, 'brokers.json': { status: 200, body: JSON.stringify(data.brokers) }, 'report.json': { status: 200, body: JSON.stringify(data.report) }, 'news.json': { status: 200, body: JSON.stringify(data.news) } };
       const res = await loadData({ fetchFn: fake({ ...ent, 'mails.json': { status: 200, body: '[]' }, 'config.json': { status: 404 }, 'calendar.json': { status: 200, body: '{ "turns": ' } }) });
       check(!res.ok); eq(res.errors.length, 2);
       check(res.errors[0].message.includes('config.json') && res.errors[0].message.includes('HTTP 404'), res.errors[0].message);
@@ -1885,7 +1885,7 @@
       const m = mailsOf(); m[0].body_ko[0] = '[[gl_nope]]'; check(has(validateMails(m, 'mails.json', data.calendar, ids), '없는 용어 id'));
     });
     test('용어집 로더: glossary.json이 없으면 그 파일만 알리고 메일의 용어 표시를 줄줄이 오류로 만들지 않는다', async () => {
-      const files = { 'config.json': data.config, 'calendar.json': data.calendar, 'mails.json': data.mails, 'clients.json': data.clients, 'reinsurers.json': data.reinsurers, 'treaties.json': data.treaties, 'events.json': data.events, 'brokers.json': data.brokers, 'report.json': data.report };
+      const files = { 'config.json': data.config, 'calendar.json': data.calendar, 'mails.json': data.mails, 'clients.json': data.clients, 'reinsurers.json': data.reinsurers, 'treaties.json': data.treaties, 'events.json': data.events, 'brokers.json': data.brokers, 'report.json': data.report, 'news.json': data.news };
       const fetchFn = async (url) => {
         const name = String(url).split('/').pop();
         if (name === 'glossary.json') return { ok: false, status: 404, json: async () => null };
@@ -3449,6 +3449,205 @@
         const s = store.getState(); s.player.board_confidence = 0; answerOpen(s); turn.advance(); resetTermScope();
         root = renderReview(); document.body.append(root); try { check(root.textContent.includes(`난이도: ${label}`), '성적표 머리'); } finally { root.remove(); }
       }
+    });
+
+    // ---------- D6: 이야깃거리 (칭호 · 결과 카드 · 라이벌 도발 메일 · 뉴스 띠) ----------
+    const ps = await import('../js/playstyle.js');
+    const rivalsLib = await import('../js/rivals.js');
+    const newsLib = await import('../js/news.js');
+    const { validateNews } = await import('../js/loader.js');
+    const D6_HIDDEN_WORDS = ['보수성', '가격 민감', '충성', 'conservatism', 'loyalty', 'price_sensitivity', 'hidden'];
+    const d6State = (seed = 31) => { fresh(); freshCodex(); store.newGame({ seed }); turn.startGame(); return store.getState(); };
+    const eventMail = (id, template, answered, { auto = false, at = 2 } = {}) => ({ id, template, turn: at, deadline_turn: null, read: true, answered, auto, thread: `t_${id}` });
+
+    test('D6 칭호: 새 게임은 균형 잡힌 실무가, 컴플라이언스를 높이면 신중한 지킴이(§9.7)', () => {
+      const s = clone(d6State());
+      eq(ps.playStyleOf(data, s).id, 'balanced');
+      s.player.compliance = 80; eq(ps.playStyleOf(data, s).id, 'guardian');
+      s.treaties[data.treaties[0].id].gap_applied = true; check(ps.playStyleOf(data, s).id !== 'guardian', '공백이 있으면 지킴이가 아니에요');
+    });
+    test('D6 칭호: 사건 메일에 직접 행동 점수를 쓴 답만 센다(자동 처리·0점 선택은 빼고)', () => {
+      const s = clone(d6State());
+      const n = data.config.playstyle.crisis_event_actions;
+      for (let i = 0; i < n - 1; i++) s.mails.push(eventMail(`m_9${i}`, 'mail_evt_jurong_explosion', 'assist'));
+      s.mails.push(eventMail('m_980', 'mail_evt_jurong_explosion', 'assist', { auto: true }));
+      s.mails.push(eventMail('m_981', 'mail_evt_jurong_explosion', 'notice_only'));
+      eq(ps.playStyleFacts(data, s).event_actions, n - 1); check(ps.playStyleOf(data, s).id !== 'crisis');
+      s.mails.push(eventMail('m_982', 'mail_evt_monsoon_flood_my', 'letters'));
+      eq(ps.playStyleOf(data, s).id, 'crisis');
+    });
+    test('D6 칭호: 최종 RC 평균으로 숫자 승부사 / 고객 편 협상가, 늦은 확정은 벼랑 끝 승부사', () => {
+      const cfg = data.config.playstyle;
+      const base = clone(d6State());
+      const place = (s, rcs) => data.treaties.slice(0, rcs.length).forEach((t, i) => Object.assign(s.treaties[t.id], { phase: 'placed', final_rc: rcs[i] }));
+      let s = clone(base); place(s, [cfg.numbers_avg_rc, cfg.numbers_avg_rc + 1]); eq(ps.playStyleOf(data, s).id, 'numbers');
+      s = clone(base); place(s, [cfg.client_side_avg_rc, cfg.client_side_avg_rc - 1]); eq(ps.playStyleOf(data, s).id, 'client_side');
+      s = clone(base); place(s, [cfg.numbers_avg_rc + 3]); check(ps.playStyleOf(data, s).id !== 'numbers', '확정 한 건만으로는 아니에요');
+      s = clone(base); place(s, [0, 0]); s.treaties[data.treaties[0].id].gap_applied = true; eq(ps.playStyleOf(data, s).id, 'cliffhanger');
+    });
+    test('D6 칭호: 숨은 속성 원값이 바뀌어도 칭호·근거는 그대로(공개 기록만 읽는다)', () => {
+      const s = clone(d6State()); s.player.compliance = 80;
+      const tweaked = clone(data);
+      for (const c of tweaked.clients) for (const k of Object.keys(c.hidden)) c.hidden[k] = 100 - c.hidden[k];
+      for (const r of tweaked.reinsurers) for (const k of Object.keys(r.hidden)) r.hidden[k] = 0;
+      for (const e of Object.values(s.entities.clients)) e.scout = { conservatism: 99, price_sensitivity: 99, loyalty: 99 };
+      eq(ps.playStyleOf(tweaked, s), ps.playStyleOf(data, s));
+    });
+    test('D6 칭호: 판정 순서의 칭호마다 문구가 있고, 문구에 숫자·숨은 성격 이름이 없다', () => {
+      eq(data.config.playstyle.order.length, 8); eq(data.config.playstyle.order.at(-1), 'balanced');
+      for (const id of data.config.playstyle.order) {
+        const t = data.report.playstyles[id]; check(t && t.title_ko && t.line_ko && t.basis_ko, id);
+        for (const text of [t.title_ko, t.line_ko, t.basis_ko]) { check(!/[0-9]/.test(text), `${id}: ${text}`); for (const w of D6_HIDDEN_WORDS) check(!text.includes(w), `${id}: ${text}`); }
+      }
+      const c = clone(data.config); c.playstyle.order = ['crisis', 'balanced', 'nope'];
+      check(has(validateConfig(c), 'playstyle.order'));
+    });
+    test('D6 결과 카드: 한 줄 모양(게임 이름 | 시드 | 난이도 | 등급 | 칭호), 해고면 "해고(등급)"', () => {
+      eq(ps.shareLine({ gameTitle: '마리나 베이 데스크', seed: 1234, levelLabel: '보통', grade: 'A', fired: false, styleTitle: '관계의 장인' }), '마리나 베이 데스크 | 시드 1234 | 보통 | A | 관계의 장인');
+      eq(ps.shareLine({ gameTitle: 'X', seed: 7, levelLabel: '쉬움', grade: 'C', fired: true, styleTitle: 'Y' }), 'X | 시드 7 | 쉬움 | 해고(C) | Y');
+    });
+    test('D6 화면: 연말·해고 성적표에 칭호 띠와 결과 카드, 중간 점검에는 없다. 복사가 막히면 글자를 선택해 둔다', async () => {
+      startScreens(4321); resetTermScope();
+      let root = renderReview(); document.body.append(root);
+      try { check(!root.querySelector('.style-band') && !root.querySelector('.share-card'), '중간 점검에는 없어요'); } finally { root.remove(); }
+      const s = store.getState(); s.player.board_confidence = 0; answerOpen(s); turn.advance(); resetTermScope();
+      check(store.getState().ending?.kind === 'fired', '해고 화면');
+      root = renderReview(); document.body.append(root);
+      const realClip = Object.getOwnPropertyDescriptor(Navigator.prototype, 'clipboard');
+      try {
+        const style = ps.playStyleOf(data, store.getState());
+        const band = root.querySelector('.style-band');
+        check(band, '칭호 띠'); check(band.textContent.includes(data.report.playstyles[style.id].title_ko) && band.textContent.includes('등급과 따로'), band.textContent);
+        const line = root.querySelector('.share-text').textContent;
+        eq(line, `마리나 베이 데스크 | 시드 4321 | 보통 | 해고(${store.getState().ending.report.grade}) | ${data.report.playstyles[style.id].title_ko}`);
+        const btn = [...root.querySelectorAll('.share-card button')].find((b) => b.textContent === '결과 복사');
+        check(btn && btn.type === 'button', '복사 버튼');
+        const withToastsAsync = async (fn) => { const host = document.createElement('div'); host.id = 'toasts'; document.body.prepend(host); try { return await fn(host); } finally { host.remove(); } };
+        Object.defineProperty(Navigator.prototype, 'clipboard', { configurable: true, get: () => ({ writeText: () => Promise.reject(new Error('blocked')) }) });
+        await withToastsAsync(async (host) => {
+          btn.click(); await new Promise((r) => setTimeout(r, 0));
+          check(host.textContent.includes('복사가 막혀 있어요'), host.textContent);
+          eq(String(window.getSelection()).trim(), line, '글자가 선택돼 있어요');
+        });
+        let copied = null;
+        Object.defineProperty(Navigator.prototype, 'clipboard', { configurable: true, get: () => ({ writeText: (t) => { copied = t; return Promise.resolve(); } }) });
+        await withToastsAsync(async (host) => { btn.click(); await new Promise((r) => setTimeout(r, 0)); eq(copied, line); check(host.textContent.includes('복사했어요'), host.textContent); });
+      } finally {
+        if (realClip) Object.defineProperty(Navigator.prototype, 'clipboard', realClip); else delete Navigator.prototype.clipboard;
+        window.getSelection().removeAllRanges(); root.remove();
+      }
+    });
+    test('D6 시작 화면: 게임 번호(시드) 칸이 눈에 띄는 이름과 도움말로 있다(같은 id)', async () => {
+      fresh(); store.quitToStart(); const { renderStart } = await import('../js/ui/start.js');
+      const start = renderStart(); document.body.append(start);
+      try {
+        const input = start.querySelector('#seed-input'); check(input, '시드 칸');
+        const label = start.querySelector('label[for="seed-input"]'); check(label.textContent.includes('게임 번호(시드)'));
+        eq(input.getAttribute('aria-describedby'), 'seed-help'); check(start.querySelector('#seed-help').textContent.includes('같은 게임'));
+        check(input.closest('.seed-field'));
+      } finally { start.remove(); }
+    });
+    test('D6 라이벌: 이웃 고르기(1위면 아래, 꼴찌면 위, 확률 밖이면 없음)와 따로 된 난수', () => {
+      const rows = (pos) => { const r = ['a', 'b', 'c'].map((id) => ({ id, isPlayer: false })); r.splice(pos, 0, { id: 'player', isPlayer: true }); return r; };
+      eq(rivalsLib.pickTaunt(rows(0), [0.1, 0.1], 0.5), { rival: 'a', side: 'behind' });
+      eq(rivalsLib.pickTaunt(rows(3), [0.1, 0.9], 0.5), { rival: 'c', side: 'ahead' });
+      eq(rivalsLib.pickTaunt(rows(1), [0.1, 0.2], 0.5), { rival: 'a', side: 'ahead' });
+      eq(rivalsLib.pickTaunt(rows(1), [0.1, 0.7], 0.5), { rival: 'b', side: 'behind' });
+      eq(rivalsLib.pickTaunt(rows(1), [0.5, 0.2], 0.5), null);
+      eq(rivalsLib.tauntRoll(99, 0), rivalsLib.tauntRoll(99, 0)); check(!same(rivalsLib.tauntRoll(99, 0), rivalsLib.tauntRoll(99, 1)));
+    });
+    test('D6 라이벌: 분기 결산에 최대 1통, 이웃 라이벌이 보내고, 게임 난수·사건·순위는 그대로', async () => {
+      const run = (prob) => withData({ config: { ...data.config, rivals: { ...data.config.rivals, taunt: { ...data.config.rivals.taunt, prob } } } }, () => {
+        fresh(); freshCodex(); store.newGame({ seed: 77 }); turn.startGame(); playTo(store.getState(), 33); return clone(store.getState());
+      });
+      const on = await run(1); const off = await run(0);
+      eq(on.rng_state, off.rng_state, '게임 난수 흐름이 같아요'); eq(on.fired_events, off.fired_events); eq(on.standings, off.standings);
+      const rivalTemplates = new Set(data.mails.filter((m) => m.type === 'rival').map((m) => m.id));
+      const taunts = on.mails.filter((m) => rivalTemplates.has(m.template));
+      eq(off.mails.filter((m) => rivalTemplates.has(m.template)).length, 0);
+      eq(taunts.map((m) => m.turn), [19, 32], '분기 결산(q1·q2)마다 한 통');
+      for (const m of taunts) {
+        const snap = on.standings.quarters.find((q) => q.turn === m.turn);
+        const rows = rivalsLib.tableRows(data.brokers, snap, { firm: on.player.firm, reputation: 0, prev: null });
+        const i = rows.findIndex((r) => r.isPlayer);
+        const t = mailLib.findTemplate(data.mails, m.template);
+        check([rows[i - 1]?.id, rows[i + 1]?.id].includes(t.from.id), `${t.from.id}는 이웃이어야 해요`);
+        eq(t.choices.length, 0); eq(t.blocking, false);
+      }
+    });
+    test('D6 라이벌 메일: 라이벌마다 위·아래 두 통, 숫자·숨은 성격 이름 없음, 로더가 짝과 보낸 쪽을 본다', () => {
+      const pairs = data.config.rivals.taunt.mails;
+      eq(Object.keys(pairs).sort(), data.brokers.map((b) => b.id).sort());
+      const names = new Set();
+      for (const [brk, pair] of Object.entries(pairs)) for (const side of ['ahead', 'behind']) {
+        const t = mailLib.findTemplate(data.mails, pair[side]); check(t, pair[side]);
+        eq(t.from.kind, 'rival'); eq(t.from.id, brk); eq(t.schedule, undefined); names.add(t.from.name_ko);
+        for (const text of [t.subject_ko, ...t.body_ko]) { check(!/[0-9]/.test(text), text); for (const w of D6_HIDDEN_WORDS) check(!text.includes(w), text); }
+      }
+      eq(names.size, data.brokers.length, '인물마다 한 사람');
+      const c = clone(data.config); delete c.rivals.taunt.mails.brk_pasir_quay;
+      check(has(validateCross({ config: c, calendar: data.calendar, mails: data.mails, brokers: data.brokers }), 'brk_pasir_quay'));
+      const m = clone(data.mails); m.find((x) => x.type === 'rival').from.id = 'brk_nope';
+      check(has(validateCross({ config: data.config, calendar: data.calendar, mails: m, brokers: data.brokers }), 'brk_nope'));
+      check(mailLib.MAIL_FILTERS.some((f) => f.id === 'rival'));
+    });
+    test('D6 인박스: 라이벌 쪽지는 경쟁 브로커 머리글과 인장, 초상 없음, 경쟁사 필터에 보인다', () => {
+      startScreens(); const s = store.getState();
+      s.mails.push({ id: 'm_0990', template: 'mail_rival_telok_ahead', turn: s.turn, deadline_turn: null, read: false, answered: null, auto: false, thread: 't_0990' });
+      const root = renderInbox(); document.body.append(root);
+      try {
+        const row = [...root.querySelectorAll('.mail-row')].find((b) => b.textContent.includes('한 골 앞')); check(row); row.click();
+        const view = renderInbox(); document.body.append(view);
+        try {
+          const lh = view.querySelector('.letterhead-rival'); check(lh && lh.textContent.includes('경쟁 브로커'));
+          check(lh.querySelector('svg.seal-sender-rival')); check(!lh.querySelector('.lh-portrait'));
+          const filter = [...view.querySelectorAll('button')].find((b) => b.textContent.startsWith('경쟁사')); check(filter, '경쟁사 필터');
+        } finally { view.remove(); }
+      } finally { root.remove(); }
+    });
+    test('D6 뉴스: 최근 도착한 사건이 맨 앞, 오래되거나 아직 안 온 사건은 없고, 분위기에 맞는 것만 고른다', () => {
+      const s = clone(d6State(5)); s.turn = 30; s.market.band = 'hard';
+      const textOf = (id) => data.news.headlines.find((n) => n.id === id).text_ko;
+      let list = newsLib.pickHeadlines(data, s);
+      check(!list.includes(textOf('news_evt_jurong_explosion')));
+      check(list.includes(textOf('news_hard_price_up')) && !list.includes(textOf('news_soft_price_cut')) && list.includes(textOf('news_any_port')));
+      s.mails.push(eventMail('m_0901', 'mail_evt_jurong_explosion', null, { at: 27 }));
+      s.mails.push(eventMail('m_0902', 'mail_evt_global_cat_hardening', null, { at: 24 }));
+      s.mails.push(eventMail('m_0903', 'mail_evt_malacca_collision', null, { at: 31 })); // 아직 안 온 주(미래)는 보이지 않는다
+      s.mails.push(eventMail('m_0904', 'mail_evt_shariah_ruling', null, { at: 30 - data.news.recent_weeks })); // 기간 밖
+      list = newsLib.pickHeadlines(data, s);
+      eq(list.slice(0, 2), [textOf('news_evt_jurong_explosion'), textOf('news_evt_global_cat_hardening')]);
+      check(!list.includes(textOf('news_evt_malacca_collision')) && !list.includes(textOf('news_evt_shariah_ruling')));
+      eq(newsLib.pickHeadlines(data, s), list, '같은 세이브·주면 같은 순서(Math.random 없음)');
+      const before = s.rng_state; newsLib.pickHeadlines(data, s); eq(s.rng_state, before);
+    });
+    test('D6 뉴스 데이터: 20~30개, 숫자·숨은 성격 이름·용어 표시 없음, 로더 검사', () => {
+      const hs = data.news.headlines; check(hs.length >= 20 && hs.length <= 30, `${hs.length}개`);
+      for (const band of ['soft', 'neutral', 'hard']) check(hs.filter((n) => n.bands?.includes(band)).length >= 4, band);
+      for (const n of hs) { check(!/[0-9]/.test(n.text_ko) && !n.text_ko.includes('[['), n.text_ko); for (const w of D6_HIDDEN_WORDS) check(!n.text_ko.includes(w), n.text_ko); }
+      const bad = clone(data.news); bad.headlines[0].text_ko = '지수 70 돌파'; bad.headlines[1].bands = ['spicy']; bad.headlines[2].event = 'evt_mas_inspection';
+      const errs = validateNews(bad); check(has(errs, '숫자') && has(errs, 'spicy') && has(errs, 'bands와 event'));
+      const n2 = clone(data.news); n2.headlines.find((n) => n.event).event = 'evt_nope';
+      check(has(validateCross({ config: data.config, calendar: data.calendar, events: data.events, mails: data.mails, news: n2 }), 'evt_nope'));
+    });
+    test('D6 뉴스 띠: 상단 바 아래에 이름 붙은 한 줄, 끄기 버튼과 설정 체크로 끄고 켠다(rbs:prefs:v1)', () => {
+      startScreens(); const st = memoryStorage(); prefs.usePrefsStorage(st);
+      try {
+        let shell = renderShell('inbox', document.createElement('div')); document.body.append(shell);
+        const bar = shell.querySelector('.news-ticker');
+        check(bar && bar.getAttribute('aria-label') === '시장 소식' && !bar.hasAttribute('aria-live'));
+        check(shell.querySelector('.topbar').nextElementSibling === bar, '상단 바 바로 다음');
+        check(bar.querySelector('.news-text').textContent.length > 0);
+        const off = [...bar.querySelectorAll('button')].find((b) => b.textContent === '소식 끄기'); check(off && off.type === 'button');
+        withToasts(() => off.click()); shell.remove();
+        eq(JSON.parse(st.map.get('rbs:prefs:v1')).news_ticker, false);
+        check(!renderShell('inbox', document.createElement('div')).querySelector('.news-ticker'), '끄면 띠가 없어요');
+        const settings = renderSettings(); document.body.append(settings);
+        try { const box = settings.querySelector('#pref-news'); check(box && !box.checked); box.click(); } finally { settings.remove(); }
+        eq(prefs.newsTickerOn(), true);
+        check(renderShell('inbox', document.createElement('div')).querySelector('.news-ticker'), '다시 켜면 나와요');
+        eq(prefs.sanitizePrefs({ version: 1, guide_strip: true, news_ticker: 'yes' }), { version: 1, guide_strip: true }, '틀린 모양은 기본값(켜짐)');
+      } finally { prefs.usePrefsStorage(memoryStorage()); }
     });
 
     // ---------- 실행 ----------
