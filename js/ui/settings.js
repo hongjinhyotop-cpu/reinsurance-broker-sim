@@ -4,11 +4,13 @@
 import * as store from '../store.js';
 import { getCodex, progressOf, resetCodex } from '../glossary.js';
 import { describeTurn, turnLabel } from '../calendar.js';
-import { getPrefs, setPref } from '../prefs.js';
+import { getPrefs, setPref, reduceMotionChoice, soundOn } from '../prefs.js';
 import { forceEvent } from '../turn.js';
 import { difficultyLabel } from '../difficulty.js';
 import { h, toast, confirmDialog, navigate, formatUsdM, formatDateTime } from './components.js';
 import { glossaryLink } from './glossary_view.js';
+import { reducedMotion, syncMotionAttr } from './motion.js';
+import { setSoundOn, soundAvailable } from './sound.js';
 
 const SLOT_NAMES = { auto: '자동 저장', 1: '슬롯 1', 2: '슬롯 2', 3: '슬롯 3' };
 const slotName = (slot) => SLOT_NAMES[slot];
@@ -158,6 +160,49 @@ function renderGuideSetting() {
   );
 }
 
+// 연출 줄이기·효과음(design.md §6.0.3 D3). 둘 다 세이브가 아니라 rbs:prefs:v1에 저장돼 새 게임에도 유지된다.
+function renderDisplaySettings() {
+  const followsDevice = reduceMotionChoice() === null;
+  const saveFailed = () => toast('저장하지 못했어요. 이번에 켜 둔 동안만 적용돼요', 'warn');
+  return h('section', { class: 'card' },
+    h('h2', {}, '화면과 소리'),
+    h('p', { class: 'dim' }, '이 설정은 세이브와 따로 저장돼서 새 게임을 시작해도 남아요.'),
+    h('div', { class: 'field' },
+      h('label', { class: 'check', for: 'pref-reduce-motion' },
+        h('input', {
+          type: 'checkbox', id: 'pref-reduce-motion', checked: reducedMotion() ? true : null,
+          onchange: (ev) => {
+            if (!setPref('reduce_motion', ev.target.checked).ok) saveFailed();
+            syncMotionAttr();
+            store.refresh();
+          },
+        }),
+        ' 연출 줄이기'),
+      h('small', { class: 'dim' }, followsDevice
+        ? '봉투 열기, 도장 찍힘, 뒤집힘 같은 움직임을 줄여요. 지금은 기기(OS)의 "움직임 줄이기" 설정을 따르고 있어요. 체크를 바꾸면 그 선택이 우선해요.'
+        : '봉투 열기, 도장 찍힘, 뒤집힘 같은 움직임을 줄여요. 직접 고른 값을 쓰고 있어요.'),
+      followsDevice ? null : h('button', {
+        class: 'btn', type: 'button',
+        onclick: () => {
+          if (!setPref('reduce_motion', null).ok) saveFailed();
+          syncMotionAttr();
+          store.refresh();
+        },
+      }, '기기 설정 따르기')),
+    h('div', { class: 'field' },
+      h('label', { class: 'check', for: 'pref-sound' },
+        h('input', {
+          type: 'checkbox', id: 'pref-sound', checked: soundOn() ? true : null,
+          onchange: (ev) => {
+            if (ev.target.checked && !soundAvailable()) { toast('이 브라우저에서는 소리를 낼 수 없어요', 'warn'); store.refresh(); return; }
+            if (!setSoundOn(ev.target.checked).ok) saveFailed();
+            store.refresh();
+          },
+        }),
+        ' 효과음'),
+      h('small', { class: 'dim' }, '도장·봉투·주 넘김·사건 알림의 짧고 작은 소리예요. 기본은 꺼져 있어요. 화면 위쪽의 버튼으로도 켜고 끌 수 있어요.')));
+}
+
 // 사건 시험대(design.md §6.9, §8.3 ⑧): 창구·확률·조건을 건너뛰고 사건을 지금 일으켜 본다. 정식 규칙이 아니라 점검용이다.
 const LAB_EVENTS = [
   { id: 'evt_mas_inspection', label: 'MAS 점검 (컴플라이언스 점수로 통과/경고/과태료)', opts: {} },
@@ -239,6 +284,7 @@ export function renderSettings() {
       h('p', { class: 'dim' }, '같은 시드로 새 게임을 시작하면 같은 난수 흐름으로 시작해요.'),
     ),
     renderGuideSetting(),
+    renderDisplaySettings(),
     renderCodexReset(),
     renderEventLab(),
     h('section', { class: 'card' },

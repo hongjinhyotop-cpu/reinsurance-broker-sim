@@ -269,3 +269,67 @@ export function envelopeEl({ size = 64 } = {}) {
     svg('path', { ...STROKE, 'stroke-width': 2, d: 'M2 4 L32 27 L62 4 M2 44 L24 24 M62 44 L40 24' }),
     svg('circle', { class: 'envelope-seal', cx: 32, cy: 27, r: 5 }));
 }
+
+// ---------- 봉투 열기 / 표지 (D3, 장식) ----------
+
+// 결과를 기다리는 동안 보이는 봉투: 닫힌 봉투의 덮개가 열리고 안에서 종이가 올라온다(CSS 애니메이션 .env-open-*).
+export function openingEnvelopeEl({ size = 96 } = {}) {
+  return svg('svg', { class: 'envelope envelope-opening', viewBox: '0 -4 64 54', width: size, height: Math.round(size * 54 / 64), focusable: 'false', 'aria-hidden': 'true' },
+    svg('rect', { class: 'env-open-paper', x: 10, y: 21, width: 44, height: 24, rx: 1 }),
+    svg('path', { ...STROKE, class: 'env-open-lines', 'stroke-width': 1.6, d: 'M16 28 H48 M16 34 H48 M16 40 H38' }),
+    svg('rect', { class: 'envelope-body', x: 2, y: 18, width: 60, height: 30, rx: 2 }),
+    svg('path', { ...STROKE, 'stroke-width': 2, d: 'M2 46 L24 33 M62 46 L40 33' }),
+    svg('path', { class: 'env-open-flap', d: 'M2 18 H62 L32 38 Z' }),
+    svg('circle', { class: 'envelope-seal env-open-seal', cx: 32, cy: 30, r: 4.5 }));
+}
+
+// 시작 화면 표지의 마리나 베이 스카이라인. 실제 건물을 옮겨 그린 것이 아니라 새로 그린 단순한 실루엣이다
+// (세 기둥 위의 긴 갑판, 둥근 지붕, 사무용 건물 몇 채, 관람차의 둥근 테). 어떤 회사·기관의 로고나 글자도 없다.
+export function skylineEl() {
+  const fill = (cls, d) => svg('path', { class: cls, d });
+  const waves = [0, 1, 2].map((row) => {
+    let d = `M0 ${152 + row * 8}`;
+    for (let x = 0; x < 640; x += 40) d += ` q10 -5 20 0 t20 0`;
+    return svg('path', { ...STROKE, class: 'sky-water', 'stroke-width': 2, d });
+  });
+  const spokes = [0, 1, 2, 3, 4, 5].map((i) => {
+    const a = i * 30 * Math.PI / 180;
+    const [dx, dy] = [Math.cos(a) * 36, Math.sin(a) * 36];
+    return svg('path', { ...STROKE, class: 'sky-far-line', 'stroke-width': 1.2, d: `M${(96 - dx).toFixed(1)} ${(88 - dy).toFixed(1)} L${(96 + dx).toFixed(1)} ${(88 + dy).toFixed(1)}` });
+  });
+  return svg('svg', { class: 'skyline', viewBox: '0 0 640 170', preserveAspectRatio: 'xMidYMax meet', focusable: 'false', 'aria-hidden': 'true' },
+    svg('circle', { class: 'sky-sun', cx: 548, cy: 40, r: 16 }),
+    // 관람차: 둥근 테 + 살 + 받침
+    svg('circle', { ...STROKE, class: 'sky-far-line', 'stroke-width': 2.4, cx: 96, cy: 88, r: 38 }),
+    ...spokes,
+    svg('path', { ...STROKE, class: 'sky-far-line', 'stroke-width': 2.4, d: 'M96 88 L74 150 M96 88 L118 150' }),
+    // 멀리 있는 건물(옅게)
+    fill('sky-far', 'M150 150 V92 H176 V150 Z M180 150 V72 H200 V150 Z M204 150 V104 H228 V150 Z'),
+    fill('sky-far', 'M470 150 V96 H486 V150 Z M590 150 V86 H612 V150 Z'),
+    // 세 기둥 + 긴 갑판 (가운데)
+    fill('sky-near', 'M234 152 L246 68 H268 L276 152 Z'),
+    fill('sky-near', 'M298 152 L304 68 H326 L330 152 Z'),
+    fill('sky-near', 'M352 152 L360 68 H382 L396 152 Z'),
+    fill('sky-near', 'M204 60 H398 Q426 60 448 42 Q430 70 398 70 H204 Z'),
+    // 연꽃 모양 둥근 지붕
+    fill('sky-near', 'M478 152 V132 Q478 108 508 108 Q538 108 538 132 V152 Z'),
+    svg('path', { ...STROKE, class: 'sky-gap', 'stroke-width': 1.4, d: 'M508 108 V152 M494 112 L490 152 M522 112 L526 152' }),
+    // 사무용 건물
+    fill('sky-near', 'M556 152 V84 H580 V152 Z M584 152 V108 H602 V152 Z M606 152 V70 L620 62 L634 70 V152 Z'),
+    fill('sky-near', 'M22 152 V112 H48 V152 Z M52 152 V94 H70 V152 Z'),
+    ...waves);
+}
+
+// 표지 인장: 이중 둥근 도장 + 물결 세 줄 + MB. 붉은 잉크가 번진 질감은 결과 도장과 같은 필터다.
+export function coverSealEl({ size = 92 } = {}) {
+  const filterId = `stamp-rough-${++stampSeq}`;
+  const waves = [0, 1].map((row) => line(3.2, { d: `M30 ${80 + row * 10} q7.5 -7 15 0 t15 0 t15 0 t15 0` }));
+  const group = svg('g', { filter: `url(#${filterId})` },
+    svg('circle', { ...STROKE, 'stroke-width': 6, cx: 60, cy: 60, r: 53 }),
+    svg('circle', { ...STROKE, 'stroke-width': 2, cx: 60, cy: 60, r: 46 }),
+    svg('circle', { ...STROKE, 'stroke-width': 1.2, cx: 60, cy: 60, r: 40 }),
+    label('MB', 44, 60, 50),
+    ...waves);
+  return svg('svg', { class: 'stamp stamp-bad cover-seal', viewBox: '0 0 120 120', width: size, height: size, focusable: 'false', 'aria-hidden': 'true' },
+    svg('defs', {}, roughFilter(filterId)), group);
+}

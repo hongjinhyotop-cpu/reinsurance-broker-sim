@@ -5,6 +5,13 @@ import { newSeed, seedFromText } from '../rng.js';
 import { startGame } from '../turn.js';
 import { h, toast, navigate } from './components.js';
 import { renderSlotList, renderImportControl } from './settings.js';
+import { skylineEl, coverSealEl } from './seals.js';
+
+function cover() {
+  const sky = skylineEl();
+  sky.classList.add('cover-skyline');
+  return sky;
+}
 
 export function renderStart() {
   const seedInput = h('input', {
@@ -29,9 +36,12 @@ export function renderStart() {
   };
 
   return h('main', { class: 'start', id: 'main' },
+    // 게임 박스 표지(design.md §6.0.3 D3): 스카이라인 실루엣 · 인장 · 제목. 그림은 모두 장식이고 제목과 소개 글이 내용을 말한다.
     h('header', { class: 'cover' },
-      h('span', { class: 'cover-mark', 'aria-hidden': 'true' }, 'MB'),
-      h('h1', {}, '싱가포르 재보험 브로커 시뮬레이션'),
+      cover(),
+      h('div', { class: 'cover-seal-wrap' }, coverSealEl({ size: 92 })),
+      h('h1', { class: 'cover-title' }, '마리나 베이 데스크'),
+      h('p', { class: 'cover-sub' }, '싱가포르 재보험 브로커 시뮬레이션'),
       h('p', { class: 'lead' }, '작은 중개회사의 책임자가 되어, 58주 동안 보험회사와 재보험사 사이를 이어 주는 게임이에요.')),
     h('p', { class: 'dim' }, '메일에 답하고, 상대를 알아 가고, 재보험사들과 가격을 맞춰 계약을 확정해요. 해가 끝나면 이사회가 성적표를 줘요.'),
     !store.storageAvailable()

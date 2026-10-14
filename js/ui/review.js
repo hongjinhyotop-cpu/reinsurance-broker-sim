@@ -9,7 +9,8 @@ import { difficultyLabel } from '../difficulty.js';
 import { h, formatUsdM, confirmDialog } from './components.js';
 import { glossaryLink, richText } from './glossary_view.js';
 import { sealFor, gradeStampEl, stampEl } from './seals.js';
-import { countUp, hasShown } from './motion.js';
+import { countUp, hasShown, markShown, reducedMotion } from './motion.js';
+import { play } from './sound.js';
 
 const PART_ORDER = ['revenue', 'retention', 'rank', 'compliance', 'reputation'];
 
@@ -241,12 +242,25 @@ function newGameButton() {
   }, '새 게임 시작하기');
 }
 
+// 큰 도장이 위에서 눌려 찍힌다(D3): 점수 세기가 끝날 즈음 등급 도장, 그 뒤에 해고 도장. 화면을 열 때 한 번만 한다.
+// 찍힌 것으로 치는 때는 "착지 시점에 이 요소가 아직 화면에 있을 때"라서, 그 전에 다시 그려지면 처음부터 다시 찍는다.
+// 연출 줄이기면 처음부터 찍혀 있고 소리만 난다. 도장 모양과 읽는 글(role="img")은 그대로다.
+const GRADE_LAND_MS = 950;
+const FIRED_LAND_MS = 1450;
+function slamIn(node, key, landMs, extraClass = '') {
+  if (hasShown(key)) return node;
+  if (reducedMotion()) { markShown(key); play('stamp'); return node; }
+  setTimeout(() => { if (node.isConnected) { markShown(key); play('stamp'); } }, landMs);
+  return h('div', { class: `grade-slam${extraClass}` }, node);
+}
+
 // 등급은 도장으로 찍힌다(§6.0.3). 점수는 화면을 열 때 0에서 올라간다(motion.js, 끝난 글자는 실제 값).
-function gradeBadge(report, fired) {
+// final=false(연말 전 중간 점검 미리보기)는 성적표가 아니므로 도장 연출 없이 지금처럼 보인다.
+function gradeBadge(report, fired, final = true) {
   const scoreNum = h('span', { class: 'grade-score-num' });
   countUp(scoreNum, 'review-score', report.score, (n) => String(Math.round(n)), { from: hasShown('review-score') ? undefined : 0 });
   return h('div', { class: 'grade-box' },
-    gradeStampEl(report.grade, { size: 104 }),
+    final ? slamIn(gradeStampEl(report.grade, { size: 132 }), 'review-stamp', GRADE_LAND_MS) : gradeStampEl(report.grade, { size: 104 }),
     h('div', {},
       h('div', { class: 'grade-score' }, scoreNum, '점 / 100점'),
       fired ? h('div', { class: 'dim' }, '해고 시점까지의 성적으로 매긴 등급이에요') : null));
@@ -286,7 +300,7 @@ export function renderReview() {
         h('p', { class: 'badge-line' }, h('span', { class: 'tag tag-warn' }, '아직 성적표가 아니에요'), levelTag(data, state)),
         h('h2', {}, '중간 점검 — 지금 이대로 끝난다면'),
         h('p', {}, richText(data.report.preview_note_ko)),
-        gradeBadge(report, false)),
+        gradeBadge(report, false, false)),
       renderSeasonCards(data, state),
       renderBreakdown(data, report),
       renderTips(data, report, true),
@@ -303,7 +317,7 @@ export function renderReview() {
       reportLetterhead('이사회 연간 보고서', state),
       h('p', { class: 'badge-line' }, h('span', { class: `tag ${fired ? 'tag-bad' : 'tag-ok'}` }, fired ? '게임 오버 — 해고' : glossaryLink('gl_report_card')), levelTag(data, state)),
       h('h2', {}, text.title_ko),
-      h('div', { class: 'report-stamps' }, gradeBadge(report, fired), fired ? stampEl('fired', { size: 92 }) : null),
+      h('div', { class: 'report-stamps' }, gradeBadge(report, fired), fired ? slamIn(stampEl('fired', { size: 116 }), 'review-stamp-fired', FIRED_LAND_MS, ' grade-slam-late') : null),
       text.summary_ko.map((line) => h('p', { class: 'chair-note' }, richText(line))),
       confidenceLine(report, data),
       fired ? h('p', { class: 'dim' }, ending.turn >= data.calendar.turns ? '연말 평가까지 마친 뒤의 결과예요.' : `턴 ${ending.turn}에 이사회가 결정했어요. 위 등급은 그때까지의 성적으로 계산했어요.`) : null,

@@ -10,7 +10,10 @@ import { guideDetail } from '../difficulty.js';
 import { getPrefs, setPref } from '../prefs.js';
 import { h, formatUsdM, toast, navigate } from './components.js';
 import { glossaryLink } from './glossary_view.js';
-import { countUp, flipDate, arriveEnvelope } from './motion.js';
+import { countUp, flipDate, arriveEnvelope, trackValue, reducedMotion } from './motion.js';
+import { viewState } from './ceremony.js';
+import { play, setSoundOn, soundAvailable } from './sound.js';
+import { soundOn } from '../prefs.js';
 
 // when: 이 화면이 만들어질 마일스톤(design.md §12)
 export const NAV = [
@@ -40,6 +43,22 @@ function stat(label, value, sub, title, { className = '', count = null } = {}) {
     h('dt', {}, label),
     h('dd', {}, valueEl, sub ? h('small', {}, sub) : null),
   );
+}
+
+// 행동 점수 토큰(D3): 남은 만큼 꽉 찬 토큰, 쓴 만큼 점선 빈 칸. 쓰면 오른쪽 토큰부터 뒤집히고 새 주에 채워지면 다시 뒤집혀 돌아온다.
+// 그림은 장식이고, 묶음 전체가 "행동 점수 4점 남음 (6점 중)"으로 읽힌다. 읽을 수 있는 숫자는 바로 옆에 따로 있다.
+const FLIP_STAGGER_MS = 40;
+function apTokens(ap, max) {
+  const prev = trackValue('ap', ap);
+  const animate = prev !== undefined && prev !== ap && !reducedMotion();
+  const tokens = Array.from({ length: max }, (_, i) => {
+    let anim = null;
+    let delay = 0;
+    if (animate && ap < prev && i >= ap && i < prev) { anim = 'is-spending'; delay = (prev - 1 - i) * FLIP_STAGGER_MS; }
+    else if (animate && ap > prev && i >= prev && i < ap) { anim = 'is-refilling'; delay = (i - prev) * FLIP_STAGGER_MS; }
+    return h('span', { class: `piece piece-token${i >= ap ? ' is-spent' : ''}${anim ? ` ${anim}` : ''}`, style: anim ? { animationDelay: `${delay}ms` } : null });
+  });
+  return h('span', { class: 'pieces', role: 'img', 'aria-label': `행동 점수 ${ap}점 남음 (${max}점 중)` }, tokens);
 }
 
 const STOP_TEXT = {
@@ -72,7 +91,20 @@ function onContinue() {
   if (res.saveError) toast(`자동 저장을 하지 못했어요 — ${res.saveError}`, 'warn');
   // 작은 움직임(장식): 달력 장이 넘어가고, 사건이 있으면 봉투가 들어온다. 화면은 위에서 이미 다시 그려졌다.
   flipDate(document.querySelector('.stat-date dd'));
-  if (res.events.length > 0) arriveEnvelope();
+  play('page');
+  if (res.events.length > 0) {
+    arriveEnvelope();
+    play('envelope');
+    play('alert', { delay: 0.28 }); // 봉투 소리 바로 뒤에 사건 알림
+  }
+}
+
+// 효과음 켜기/끄기(D3). 기본은 꺼짐이고 저장되어 새 게임에도 유지된다(rbs:prefs:v1).
+function onToggleSound() {
+  if (!soundOn() && !soundAvailable()) { toast('이 브라우저에서는 소리를 낼 수 없어요', 'warn'); return; }
+  const res = setSoundOn(!soundOn());
+  if (!res.ok) toast('저장하지 못했어요. 이번에 켜 둔 동안만 적용돼요', 'warn');
+  store.refresh();
 }
 
 function renderContinue(data, state) {
@@ -93,6 +125,7 @@ function renderTopbar() {
 
   return h('header', { class: 'topbar' },
     h('div', { class: 'brand' }, h('span', { class: 'brand-mark', 'aria-hidden': 'true' }, 'MB'), h('span', { class: 'brand-name' }, s.player.firm)),
+    h('button', { class: 'btn sound-toggle', type: 'button', title: '도장·봉투·주 넘김·사건 알림의 짧은 소리예요. 기본은 꺼져 있어요', onclick: onToggleSound }, soundOn() ? '효과음 끄기' : '효과음 켜기'),
     h('dl', { class: 'stats' },
       stat('날짜',
         desc ? turnLabel(desc) : `턴 ${s.turn}`,
@@ -101,7 +134,7 @@ function renderTopbar() {
       stat('현금', formatUsdM(s.player.cash_usd_m), null, 'm은 백만 달러 단위예요', { count: { key: 'cash', to: s.player.cash_usd_m, format: formatUsdM } }),
       stat('이사회 신뢰', String(Math.round(s.player.board_confidence)), '0~100', '20 아래로 떨어지면 해고돼요', { count: { key: 'board', to: Math.round(s.player.board_confidence), format: (n) => String(Math.round(n)) } }),
       stat('시장', market.label_ko, `오차 ±${market.error}`, '정확한 시장 지수는 보이지 않고, 라벨과 오차 범위만 보여요'),
-      stat(glossaryLink('gl_ap', { label: '행동 점수', scope: new Set() }), `${s.ap}/${config.game.ap_per_week}`, null, '매주 6점이 새로 생기고, 남은 점수는 다음 주로 넘어가지 않아요'),
+      stat(glossaryLink('gl_ap', { label: '행동 점수', scope: new Set() }), [apTokens(s.ap, config.game.ap_per_week), `${s.ap}/${config.game.ap_per_week}`], null, '매주 6점이 새로 생기고, 남은 점수는 다음 주로 넘어가지 않아요', { className: 'stat-ap' }),
     ),
     renderContinue(data, s),
   );
@@ -125,7 +158,7 @@ function renderNav(activeId) {
 function renderGuideStrip(activeId) {
   if (!getPrefs().guide_strip) return null;
   const data = store.getData();
-  const state = store.getState();
+  const state = viewState(store.getState()); // 봉투를 여는 동안은 누르기 직전의 상태(결과를 미리 말하지 않는다)
   const act = nextAction(data, state, { detail: guideDetail(data, state) });
   if (!act) return null;
   return h('aside', { class: 'guide-strip', 'aria-label': '지금 할 일' },

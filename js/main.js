@@ -14,9 +14,11 @@ import { renderStandings } from './ui/standings.js';
 import { renderReview } from './ui/review.js';
 import { toast } from './ui/components.js';
 import { captureFocus, restoreFocus } from './ui/focus.js';
-import { resetShown } from './ui/motion.js';
+import { resetShown, syncMotionAttr } from './ui/motion.js';
+import { busy as ceremonyBusy, lockControls, reset as resetCeremony } from './ui/ceremony.js';
 
-const GAME_TITLE = '싱가포르 재보험 브로커 시뮬레이션';
+const GAME_TITLE = '마리나 베이 데스크';
+const GAME_SUBTITLE = '싱가포르 재보험 브로커 시뮬레이션';
 const app = document.getElementById('app');
 const screenIds = NAV.map((n) => n.id);
 
@@ -51,16 +53,17 @@ function renderNow({ focusMain = false } = {}) {
   app.replaceChildren();
   if (!store.hasGame()) {
     app.append(renderStart());
-    document.title = GAME_TITLE;
+    document.title = `${GAME_TITLE} · ${GAME_SUBTITLE}`;
     restoreFocus(app, keepFocus);
     return;
   }
   const route = currentRoute();
   const screens = { settings: renderSettings, inbox: renderInbox, calendar: renderCalendar, database: renderDatabase, placement: renderPlacement, codex: renderCodex, standings: renderStandings, review: renderReview };
-  if (route !== 'review') resetShown('review-score'); // 성적표 점수는 화면을 열 때마다 0에서 올라간다
+  if (route !== 'review') { resetShown('review-score'); resetShown('review-stamp'); resetShown('review-stamp-fired'); } // 성적표 점수·등급 도장은 화면을 열 때마다 처음부터
   resetTermScope(); // 화면 하나를 그리는 동안은 같은 용어를 첫 등장만 링크로 만든다
   const content = screens[route] ? screens[route]() : renderPlaceholder(route);
   app.append(renderShell(route, content));
+  if (ceremonyBusy()) lockControls(app); // 봉투를 여는 동안은 모든 조작이 잠긴다(ceremony.js)
   document.title = `${screenTitle(route)} · ${GAME_TITLE}`;
   if (focusMain) document.getElementById('main')?.focus();
   else {
@@ -77,13 +80,14 @@ async function boot() {
     return;
   }
   for (const w of result.warnings ?? []) console.warn(w); // 콘텐츠 점검용(게임은 그대로 시작)
+  syncMotionAttr(); // 저장된 "연출 줄이기" 선택을 CSS에 알린다
   store.configure(result.data);
   render();
 }
 
 // 게임이 새로 시작/교체되거나(game) 진행 중 값이 바뀔 때(state) 전체를 다시 그린다. 슬롯 목록은 각자 갱신한다.
 store.subscribe((type) => {
-  if (type === 'game') resetShown(); // 다른 판의 숫자에서 세어 올라가지 않게
+  if (type === 'game') { resetShown(); resetCeremony(); } // 다른 판의 숫자에서 세어 올라가지 않게, 열리던 봉투도 버린다
   if (type === 'game' || type === 'state') render();
 });
 window.addEventListener('hashchange', () => render({ focusMain: true }));

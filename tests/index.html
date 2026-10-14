@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>테스트 (시즌 리뷰·평판 효과·공백 감액 · 돈·순위·성적표·해고 · 규칙을 바꾸는 사건 · 길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
+  <h1>테스트 (연출과 첫인상 · 시즌 리뷰·평판 효과·공백 감액 · 돈·순위·성적표·해고 · 규칙을 바꾸는 사건 · 길잡이 · 용어집·도감 · 시장 사이클·이벤트 · 구조 옵션 감점·이유·목소리 · 보드 제출·반영 · 라인 구성 보드 · rng · calendar · market · loader · store · mail · effects · turn · reveal · scouting · 스카우트 데이터 · negotiation · 트리티 데이터 · 미팅 반응)</h1>
   <p>서버로 연 뒤(<code>http://localhost:8000/tests/</code>) 이 페이지를 열면 자동으로 실행돼요. 아래가 전부 ✓이면 통과예요.</p>
   <div id="summary">실행 중…</div>
   <ul id="results"></ul>
@@ -3518,6 +3518,177 @@
       check(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(scr), 'screens.css에 색 숫자');
       check(/prefers-reduced-motion:\s*reduce/.test(base) && /animation:\s*none\s*!important/.test(base), '움직임 줄이기 규칙');
       check(!/prefers-color-scheme:\s*dark/.test(base + scr), '어두운 테마 금지');
+    });
+
+    // ---------- D3: 연출과 첫인상 — 봉투 열기 · 도장 · 표지 · 동전/토큰 · 효과음 · 연출 줄이기 ----------
+    const ceremony = await import('../js/ui/ceremony.js');
+    const soundMod = await import('../js/ui/sound.js');
+    const { renderStart } = await import('../js/ui/start.js');
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    test('D3 prefs: 효과음은 기본 꺼짐, 연출 줄이기는 기본 "기기 설정 따름" — 바꾼 칸만 저장하고 새 게임에도 유지, null로 되돌리면 칸이 사라진다', () => {
+      const st = memoryStorage(); prefs.usePrefsStorage(st);
+      eq(prefs.soundOn(), false); eq(prefs.reduceMotionChoice(), null);
+      eq(prefs.setPref('guide_strip', true).ok, true); eq(JSON.parse(st.map.get('rbs:prefs:v1')), { version: 1, guide_strip: true }, '안 바꾼 칸은 저장하지 않아요');
+      check(prefs.setPref('sound', true).ok); check(prefs.setPref('reduce_motion', false).ok);
+      eq(JSON.parse(st.map.get('rbs:prefs:v1')), { version: 1, guide_strip: true, sound: true, reduce_motion: false });
+      prefs.usePrefsStorage(st); eq(prefs.soundOn(), true); eq(prefs.reduceMotionChoice(), false);
+      store.newGame({ seed: 3 }); eq(prefs.soundOn(), true, '새 게임에도 유지');
+      check(prefs.setPref('reduce_motion', null).ok); eq(prefs.reduceMotionChoice(), null);
+      eq('reduce_motion' in JSON.parse(st.map.get('rbs:prefs:v1')), false, 'null이면 칸이 사라져요');
+      check(!prefs.setPref('sound', 'yes').ok && !prefs.setPref('sound', null).ok && !prefs.setPref('guide_strip', null).ok, '틀린 값은 거부');
+      const st2 = memoryStorage(); st2.setItem('rbs:prefs:v1', JSON.stringify({ version: 1, guide_strip: false, sound: 'loud', reduce_motion: 1 }));
+      prefs.usePrefsStorage(st2); eq(prefs.getPrefs().guide_strip, false); eq(prefs.soundOn(), false, '깨진 칸은 기본값'); eq(prefs.reduceMotionChoice(), null);
+      prefs.usePrefsStorage(memoryStorage());
+    });
+    test('D3 연출 줄이기: 직접 고른 값이 OS 설정보다 우선하고, 고르지 않았으면 OS를 따르며, <html>에 알린다', async () => {
+      prefs.usePrefsStorage(memoryStorage());
+      try {
+        await withMedia(true, () => { eq(motionMod.reducedMotion(), true, 'OS가 켜면 켜짐'); prefs.setPref('reduce_motion', false); eq(motionMod.reducedMotion(), false, '직접 끄면 이김'); });
+        prefs.usePrefsStorage(memoryStorage());
+        await withMedia(false, () => { eq(motionMod.reducedMotion(), false); prefs.setPref('reduce_motion', true); eq(motionMod.reducedMotion(), true, '직접 켜면 이김'); });
+        motionMod.syncMotionAttr(); eq(document.documentElement.getAttribute('data-reduce-motion'), 'true');
+        prefs.setPref('reduce_motion', null); motionMod.syncMotionAttr(); eq(document.documentElement.getAttribute('data-reduce-motion'), null, '고르지 않으면 속성이 없다');
+      } finally { prefs.usePrefsStorage(memoryStorage()); document.documentElement.removeAttribute('data-reduce-motion'); }
+    });
+    test('D3 효과음: 꺼져 있으면 아무 소리도 만들지 않고, 켜면 네 가지가 오류 없이 나며, 켜고 끈 값이 저장된다 · 외부 파일·Math.random 없음', async () => {
+      const st = memoryStorage(); prefs.usePrefsStorage(st);
+      eq(soundMod.SOUND_NAMES, ['stamp', 'envelope', 'page', 'alert']);
+      for (const n of soundMod.SOUND_NAMES) eq(soundMod.play(n), false, `꺼짐: ${n}`);
+      check(soundMod.setSoundOn(true).ok); eq(JSON.parse(st.map.get('rbs:prefs:v1')).sound, true);
+      for (const n of soundMod.SOUND_NAMES) eq(soundMod.play(n, { delay: 0.01 }), soundMod.soundAvailable(), `켜짐: ${n}`);
+      eq(soundMod.play('없는 소리'), false);
+      check(soundMod.setSoundOn(false).ok); eq(prefs.soundOn(), false); eq(soundMod.play('stamp'), false, '끄면 다시 조용');
+      const src = await fetch('../js/ui/sound.js').then((r) => r.text());
+      check(!/Math\.random|fetch\(|https?:|\.(mp3|wav|ogg|m4a)\b|new Audio\(|<audio/.test(src), '외부 파일·주소·Math.random이 없어요');
+      prefs.usePrefsStorage(memoryStorage());
+    });
+    test('D3 봉투 열기: 연출 줄이기면 곧바로 실행하고 잠그지 않는다', async () => {
+      startScreens(); ceremony.reset(); prefs.usePrefsStorage(memoryStorage());
+      await withMedia(true, () => {
+        let doneWith = null;
+        const res = ceremony.run('k', 5000, () => ({ ok: true, v: 1 }), (r) => { doneWith = r; });
+        eq(res, { ok: true, v: 1 }); eq(doneWith, { ok: true, v: 1 }, '곧바로 알림'); eq(ceremony.busy(), false); eq(ceremony.takeFresh('k'), false, '연출이 없으니 찍히는 모습도 없다');
+      });
+    });
+    test('D3 봉투 열기: 연출 동안 누르기 직전 상태를 보여 주고, 잠기고, 아무 키로 건너뛰면 알림이 한 번 나가고 도장이 한 번 찍히는 모습이 된다', async () => {
+      startScreens(); ceremony.reset(); prefs.usePrefsStorage(memoryStorage());
+      await withMedia(false, async () => {
+        const cash0 = store.getState().player.cash_usd_m;
+        let calls = 0; let doneWith = null;
+        const res = ceremony.run('row:x', 5000, () => { store.commit((s) => { s.player.cash_usd_m += 5; }); return { ok: true }; }, (r) => { calls += 1; doneWith = r; });
+        eq(res, { ok: true });
+        check(ceremony.busy() && ceremony.isOpening('row:x') && !ceremony.isOpening('row:y'));
+        eq(ceremony.viewState(store.getState()).player.cash_usd_m, cash0, '연출 중 화면은 직전 상태');
+        eq(store.getState().player.cash_usd_m, cash0 + 5, '규칙은 이미 실행됐다');
+        eq(calls, 0, '알림은 아직');
+        const box = document.createElement('div'); let clicked = 0;
+        const btn = document.createElement('button'); btn.textContent = 'x'; btn.addEventListener('click', () => { clicked += 1; });
+        const inp = document.createElement('input'); const link = document.createElement('a'); link.href = '#/inbox'; link.textContent = 'l';
+        box.append(btn, inp, link); document.body.append(box);
+        ceremony.lockControls(box);
+        check(btn.getAttribute('aria-disabled') === 'true' && btn.hasAttribute('data-locked') && inp.disabled && link.getAttribute('aria-disabled') === 'true', '모두 잠김');
+        const ev = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        document.body.dispatchEvent(ev);
+        eq(ceremony.busy(), false, 'Esc로 건너뜀'); check(ev.defaultPrevented, '그 키의 원래 동작은 일어나지 않는다');
+        eq(calls, 1); eq(doneWith, { ok: true });
+        eq(ceremony.viewState(store.getState()).player.cash_usd_m, cash0 + 5, '끝나면 진짜 상태');
+        eq(ceremony.takeFresh('row:x'), true); eq(ceremony.takeFresh('row:x'), false, '한 번만');
+        btn.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); eq(clicked, 1, '끝난 뒤의 마우스 클릭은 막지 않는다'); box.remove();
+      });
+    });
+    test('D3 봉투 열기: 아무 키 아무 곳 클릭으로도 건너뛰고, 제때 끝나고, 실패한 행동은 연출하지 않으며, 새 게임이면 버린다', async () => {
+      startScreens(); ceremony.reset(); prefs.usePrefsStorage(memoryStorage());
+      await withMedia(false, async () => {
+        let n = 0;
+        ceremony.run('a', 5000, () => ({ ok: true }), () => { n += 1; });
+        const b = document.createElement('button'); document.body.append(b); let bClicks = 0; b.addEventListener('click', () => { bClicks += 1; });
+        b.click(); eq(ceremony.busy(), false, '화면을 눌러도 건너뜀'); eq(bClicks, 0, '잠긴 것은 눌려도 실행되지 않는다'); eq(n, 1); b.remove();
+        ceremony.run('b', 40, () => ({ ok: true }), () => { n += 1; }); check(ceremony.busy()); await sleep(140);
+        eq(ceremony.busy(), false, '길이가 지나면 저절로 끝난다'); eq(n, 2);
+        let failedDone = 0; const r = ceremony.run('c', 5000, () => null, () => { failedDone += 1; });
+        eq(r, null); eq(ceremony.busy(), false, '실패한 행동은 연출하지 않는다'); eq(failedDone, 0);
+        ceremony.run('d', 5000, () => ({ ok: true }), () => { n += 1; }); ceremony.reset(); eq(ceremony.busy(), false); eq(ceremony.isOpening('d'), false);
+        eq(ceremony.OPEN_MS.reinsurer >= 500 && ceremony.OPEN_MS.client <= 1000 && ceremony.OPEN_MS.reinsurer < ceremony.OPEN_MS.client, true, '0.5~1초');
+      });
+    });
+    test('D3 표지: 인장·스카이라인·표지 SVG는 장식이고 글자·외부 주소·그림 파일이 없다', () => {
+      for (const el of [sealsMod.skylineEl(), sealsMod.openingEnvelopeEl(), sealsMod.coverSealEl()]) {
+        eq(el.getAttribute('aria-hidden'), 'true'); check(!el.querySelector('image, use, foreignObject, a'), '외부 참조 없음'); check(!/href|http/.test(el.outerHTML.replace(/xmlns="[^"]*"/g, '')), '주소 없음');
+      }
+      eq(sealsMod.skylineEl().textContent, '', '스카이라인에는 글자가 없다(로고·상표·간판 없음)');
+      eq(sealsMod.coverSealEl().textContent, 'MB');
+    });
+    test('D3 시작 화면: 제목 "마리나 베이 데스크"·스카이라인·인장·보통/쉬움 두 장 표(키보드로 고르는 라디오)', () => {
+      const root = renderStart();
+      eq(root.querySelector('h1').textContent, '마리나 베이 데스크');
+      check(root.querySelector('.cover-skyline') && root.querySelector('.cover-seal'), '스카이라인과 인장');
+      check(root.querySelector('.cover-sub').textContent.includes('재보험 브로커 시뮬레이션'));
+      const radios = [...root.querySelectorAll('input[name="difficulty"]')];
+      eq(radios.map((r) => r.value), ['normal', 'easy']); eq(radios.filter((r) => r.checked).map((r) => r.value), ['normal']);
+      for (const r of radios) check(root.querySelector(`label[for="${r.id}"]`)?.textContent.trim(), '이름이 있는 라디오');
+      eq(root.querySelectorAll('.level-option').length, 2);
+    });
+    test('D3 상단 바: 행동 점수 토큰은 ap_per_week개이고 남은 만큼 꽉 차며 "행동 점수 N점 남음"으로 읽히고, 효과음 버튼은 기본 "켜기"', () => {
+      startScreens(); prefs.usePrefsStorage(memoryStorage()); motionMod.resetShown();
+      const max = data.config.game.ap_per_week;
+      let shell = renderShell('inbox', document.createElement('div'));
+      let img = shell.querySelector('.stat-ap .pieces');
+      eq(img.getAttribute('role'), 'img'); eq(img.getAttribute('aria-label'), `행동 점수 ${max}점 남음 (${max}점 중)`);
+      eq(img.querySelectorAll('.piece-token').length, max); eq(img.querySelectorAll('.is-spent').length, 0);
+      check(shell.querySelector('.stat-ap').textContent.includes(`${max}/${max}`), '숫자도 함께');
+      eq(shell.querySelector('.sound-toggle').textContent, '효과음 켜기');
+      store.getState().ap = 4;
+      shell = renderShell('inbox', document.createElement('div')); img = shell.querySelector('.stat-ap .pieces');
+      eq(img.getAttribute('aria-label'), `행동 점수 4점 남음 (${max}점 중)`); eq(img.querySelectorAll('.is-spent').length, max - 4);
+      check(shell.querySelector('.stat-ap').textContent.includes(`4/${max}`));
+      prefs.setPref('sound', true); shell = renderShell('inbox', document.createElement('div')); eq(shell.querySelector('.sound-toggle').textContent, '효과음 끄기'); prefs.usePrefsStorage(memoryStorage());
+    });
+    test('D3 보드: 인내심 동전은 시작 값만큼 놓이고 남은 만큼 꽉 차며 "인내심 N점 남음"으로 읽힌다 · 숫자도 같이 보인다', () => {
+      startScreens(); motionMod.resetShown();
+      const start = data.config.negotiation.board.patience_start ?? data.config.negotiation.patience_start; const t0 = data.treaties[0].id;
+      store.getState().entities.reinsurers.re_alpenglow.patience[t0] = 1;
+      const root = renderPlacement(); document.body.append(root);
+      try {
+        const rows = [...root.querySelectorAll('.pl-row')]; check(rows.length >= 3);
+        const mine = rows.find((r) => r.querySelector('.pl-name').textContent.includes('알펜글로우'));
+        const img = mine.querySelector('.pieces'); eq(img.getAttribute('role'), 'img'); eq(img.getAttribute('aria-label'), `인내심 1점 남음 (${start}점 중)`);
+        eq(img.querySelectorAll('.piece-coin').length, start); eq(img.querySelectorAll('.piece-coin.is-spent').length, start - 1);
+        check(mine.textContent.includes(`1/${start}`), '숫자도 함께');
+        const other = rows.find((r) => !r.querySelector('.pl-name').textContent.includes('알펜글로우'));
+        eq(other.querySelector('.pieces').querySelectorAll('.is-spent').length, 0);
+        check(!root.textContent.includes('●'), '옛 점 표시는 없다');
+      } finally { root.remove(); }
+    });
+    test('D3 성적표: 해고 화면은 등급 도장과 해고 도장이 위에서 찍히고, 한 번 찍힌 뒤 다시 그리면 그대로 있다 · 연출 줄이기면 찍혀 있다', async () => {
+      prefs.usePrefsStorage(memoryStorage());
+      const open = async () => { startScreens(); const s = store.getState(); s.player.board_confidence = 5; answerOpen(s); turn.advance(); resetTermScope(); motionMod.resetShown(); };
+      await open();
+      await withMedia(true, () => {
+        const root = renderReview(); document.body.append(root);
+        try { eq(root.querySelectorAll('.grade-slam').length, 0, '연출 줄이기면 처음부터 찍혀 있다'); check(root.querySelector('.grade-letter') && root.querySelector('.stamp-fired')); } finally { root.remove(); }
+      });
+      motionMod.resetShown();
+      await withMedia(false, async () => {
+        let root = renderReview(); document.body.append(root);
+        try {
+          eq(root.querySelectorAll('.grade-slam').length, 2, '등급 도장과 해고 도장');
+          check(root.querySelector('.grade-slam-late .stamp-fired'), '해고 도장이 더 늦게');
+          eq(root.querySelector('.grade-letter').getAttribute('role'), 'img'); check(root.querySelector('.grade-letter').getAttribute('aria-label').endsWith('등급'));
+          await sleep(1650);
+          root.remove(); root = renderReview(); document.body.append(root);
+          eq(root.querySelectorAll('.grade-slam').length, 0, '이미 찍힌 뒤에는 그대로 보인다');
+          check(root.querySelector('.grade-letter') && root.querySelector('.stamp-fired'));
+        } finally { root.remove(); }
+      });
+      motionMod.resetShown();
+    });
+    test('D3 CSS: 연출은 토큰만 쓰고, 직접 고른 연출 줄이기가 OS 설정보다 우선하며, 모든 새 애니메이션이 줄이기 규칙 아래에 있다', async () => {
+      const [base, scr] = await Promise.all(['../css/base.css', '../css/screens.css'].map((u) => fetch(u).then((r) => r.text())));
+      check(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(scr), 'screens.css에 색 숫자');
+      check(/:root\[data-reduce-motion="true"\][^{]*\{[^}]*animation:\s*none\s*!important/.test(base), '직접 켠 연출 줄이기');
+      check(/:root:not\(\[data-reduce-motion="false"\]\)/.test(base), '직접 끄면 OS 설정을 무시');
+      for (const k of ['stamp-slam', 'stamp-slam-big', 'env-flap', 'piece-spend', 'piece-refill']) check((base + scr).includes(`@keyframes ${k}`), k);
+      check(!/animation[^;]*\binfinite\b/.test(base + scr), '반복 애니메이션 금지');
     });
 
     const failures = [];

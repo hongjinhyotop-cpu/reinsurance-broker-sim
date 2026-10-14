@@ -11,7 +11,9 @@ import { responseHint, verdictHint } from '../guide.js';
 import { patienceStart, rejectPenalty, guideDetail } from '../difficulty.js';
 import { h, toast, confirmDialog } from './components.js';
 import { glossaryLink, resetTermScope } from './glossary_view.js';
-import { sealFor, stampEl, reTone } from './seals.js';
+import { sealFor, stampEl, reTone, openingEnvelopeEl } from './seals.js';
+import { run as runCeremony, OPEN_MS, isOpening, viewState, takeFresh } from './ceremony.js';
+import { trackValue, reducedMotion } from './motion.js';
 
 const TERMS_KO = { strict: '엄격', standard: '표준', broad: '넓음' };
 const LINE_KO = { property_energy: '재산·에너지', marine_cargo: '해상화물', takaful_general: '일반 타카풀' };
@@ -163,13 +165,25 @@ function onAsk(data, reinsurer, rerender) {
 function onPropose(data, reinsurer, rerender) {
   const id = reinsurer.id;
   const cfg = data.config.negotiation.board;
-  const res = runAction(() => placement.propose(board.treatyId, id, formOf(id)), `${id}:propose`, rerender);
-  if (!res) return;
-  const l = res.last;
-  if (res.status === 'accepted') { toast(`${reinsurer.name_ko}이(가) 수락했어요 — ${share(l.share)} 확정 (행동 점수 −${cfg.propose_ap})`, 'ok'); }
-  else if (res.status === 'countered') toast(`${reinsurer.name_ko}이(가) 반제했어요 — RC ${pct(l.rc)}라면 ${share(l.share)} (행동 점수 −${cfg.propose_ap})`, 'info');
-  else if (res.penalty) toast(`${reinsurer.name_ko}이(가) 거절했어요 — 인내심 ${res.penalty.patience}, 관계도 ${res.penalty.relationship} (행동 점수 −${cfg.propose_ap})`, 'warn');
-  else toast(`${reinsurer.name_ko}: ${l.reason ? REASON_KO[l.reason] : '거절'} (행동 점수 −${cfg.propose_ap})`, 'warn');
+  // 규칙은 곧바로 실행·저장되고, 봉투를 여는 동안 화면과 알림만 결과를 미룬다(ceremony.js, design.md §6.0.3).
+  runCeremony(rowKey(id), OPEN_MS.reinsurer, () => runAction(() => placement.propose(board.treatyId, id, formOf(id)), `${id}:propose`, rerender), (res) => {
+    const l = res.last;
+    if (res.status === 'accepted') { toast(`${reinsurer.name_ko}이(가) 수락했어요 — ${share(l.share)} 확정 (행동 점수 −${cfg.propose_ap})`, 'ok'); }
+    else if (res.status === 'countered') toast(`${reinsurer.name_ko}이(가) 반제했어요 — RC ${pct(l.rc)}라면 ${share(l.share)} (행동 점수 −${cfg.propose_ap})`, 'info');
+    else if (res.penalty) toast(`${reinsurer.name_ko}이(가) 거절했어요 — 인내심 ${res.penalty.patience}, 관계도 ${res.penalty.relationship} (행동 점수 −${cfg.propose_ap})`, 'warn');
+    else toast(`${reinsurer.name_ko}: ${l.reason ? REASON_KO[l.reason] : '거절'} (행동 점수 −${cfg.propose_ap})`, 'warn');
+  });
+}
+
+// 결과 자리의 이름. 트리티가 달라도 겹치지 않게 트리티 id를 넣는다.
+const rowKey = (reId) => `row:${board.treatyId}:${reId}`;
+const verdictKey = () => `verdict:${board.treatyId}`;
+
+// 결과를 기다리는 동안 도장 자리에 보이는 열리는 봉투(장식)와 건너뛰기 안내(role="status").
+function openingBlock(kind) {
+  return h('div', { class: `opening opening-${kind}` },
+    openingEnvelopeEl({ size: 84 }),
+    h('p', { class: 'opening-text', role: 'status' }, `${kind === 'client' ? '고객이 보낸 봉투를' : '봉투를'} 여는 중이에요 — 아무 키나 누르면 건너뛰어요`));
 }
 
 function onAcceptCounter(reinsurer, rerender) {
@@ -186,9 +200,11 @@ async function onSubmit(data, ctx) {
   });
   if (!ok) return;
   focusKey = 'submit';
-  const res = placement.submit(board.treatyId);
-  if (!res.ok) { toast(res.error, 'warn'); store.refresh(); return; }
-  toast(`고객 반응: ${VERDICT_KO[res.verdict]}`, res.placed ? 'ok' : 'warn');
+  runCeremony(verdictKey(), OPEN_MS.client, () => {
+    const res = placement.submit(board.treatyId);
+    if (!res.ok) { toast(res.error, 'warn'); store.refresh(); return null; }
+    return res;
+  }, (res) => toast(`고객 반응: ${VERDICT_KO[res.verdict]}`, res.placed ? 'ok' : 'warn'));
 }
 
 // ---------- 그리기 ----------
@@ -206,8 +222,13 @@ function counterDeadline(row, turn) {
   return left === 1 ? '이번 주까지' : `${left}주 남음`;
 }
 
-function patienceDots(left, start) {
-  return `${'●'.repeat(Math.min(left, start))}${'○'.repeat(Math.max(0, start - left))}`;
+// 인내심 동전(D3): 남은 만큼 금색 동전, 거절당해 쓴 만큼 점선 빈 칸. 줄어든 순간 맨 뒤 동전이 뒤집힌다. 그림은 장식이고 묶음이 "인내심 2점 남음 (3점 중)"으로 읽힌다.
+function patienceCoins(left, start, key) {
+  const have = Math.min(left, start);
+  const prev = trackValue(`patience:${key}`, have);
+  const animate = prev !== undefined && prev > have && !reducedMotion();
+  const coins = Array.from({ length: start }, (_, i) => h('span', { class: `piece piece-coin${i >= have ? ' is-spent' : ''}${animate && i >= have && i < prev ? ' is-spending' : ''}` }));
+  return h('span', { class: 'pieces', role: 'img', 'aria-label': `인내심 ${have}점 남음 (${start}점 중)` }, coins);
 }
 
 // 막대 조각 안쪽: 인장(좁으면 생략) + 이름 + 지분. 폭이 좁은 화면에서는 이름을 CSS로 숨기고 숫자만 남긴다(표에 같은 내용이 있다).
@@ -273,7 +294,7 @@ export function hintErrWords(errPp, cfg) {
 // 제안 응답을 도장으로 찍는다(수락·반제·거절). 의견 묻기에는 찍지 않는다.
 const RESPONSE_STAMP = { accept: 'accept', counter: 'counter', reject: 'decline', decline: 'decline' };
 
-function resultLines(data, row, hint) {
+function resultLines(data, row, hint, fresh = false) {
   const l = row?.last;
   if (!l) return null;
   const lines = [];
@@ -291,7 +312,7 @@ function resultLines(data, row, hint) {
   if (hint) lines.push(nextLine(hint));
   const stampKind = l.mode === 'ask' ? null : l.mode === 'counter_accept' ? 'accept' : RESPONSE_STAMP[l.kind];
   const stamp = stampKind ? stampEl(stampKind, { size: stampKind === 'counter' ? 84 : 66 }) : null;
-  return stamp ? h('div', { class: 'pl-result' }, h('div', { class: 'pl-result-lines' }, lines), h('div', { class: 'pl-result-stamp' }, stamp)) : lines;
+  return stamp ? h('div', { class: 'pl-result' }, h('div', { class: 'pl-result-lines' }, lines), h('div', { class: `pl-result-stamp${fresh ? ' is-fresh' : ''}` }, stamp)) : lines;
 }
 
 // 결과 밑 "다음엔 이렇게" 한 줄(design.md §6.3). 이유·목소리와 달리 화면의 어디를 바꿔 볼지를 말한다.
@@ -378,8 +399,9 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
       h('span', { class: 'dim pl-cap' }, `${cap.exact ? '확인된 상한' : '이론 상한'} ${cap.exact ? '' : '~'}${share(cap.value)}`),
       expiringShare > 0 ? h('span', { class: 'dim pl-cap' }, `만기 ${share(expiringShare)}`) : null,
       h('span', { class: 'dim pl-cap', title: '거절당할 때마다 줄어들어요. 0이 되면 이 트리티에서는 더 협상하지 않아요.' },
-        h('span', { 'aria-hidden': 'true' }, `인내심 ${patienceDots(patience, patienceStart(data, state))}`),
-        h('span', { class: 'visually-hidden' }, `인내심 ${patience}/${patienceStart(data, state)}`)),
+        h('span', { 'aria-hidden': 'true' }, '인내심 '),
+        patienceCoins(patience, patienceStart(data, state), `${ctx.treaty.id}:${id}`),
+        h('span', { 'aria-hidden': 'true' }, `${Math.min(patience, patienceStart(data, state))}/${patienceStart(data, state)}`)),
       h('span', { class: `pl-status pl-status-${status}` }, STATUS_KO[status]),
       deadline ? h('span', { class: 'pl-deadline', title: '주를 넘기면 이 반제는 사라져요. 인내심은 깎이지 않지만 처음부터 다시 제안해야 해요.' },
         h('span', { 'aria-hidden': 'true' }, '▲ '), `반제 ${deadline}`) : null,
@@ -409,7 +431,7 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
     ),
     shownWhy ? h('p', { class: 'pl-line dim pl-small' }, shownWhy) : null,
     chips.length > 0 ? h('div', { class: 'pl-chips' }, chips) : null,
-    resultLines(data, row, locked ? null : responseHint(row, { signedTotal: ctx.signedTotal, patience, start: patienceStart(data, state), detail: guideDetail(data, state) }, data.config.guide)),
+    isOpening(rowKey(id)) ? openingBlock('reinsurer') : resultLines(data, row, locked ? null : responseHint(row, { signedTotal: ctx.signedTotal, patience, start: patienceStart(data, state), detail: guideDetail(data, state) }, data.config.guide), takeFresh(rowKey(id))),
   );
 }
 
@@ -472,9 +494,9 @@ function verdictText(data, ctx) {
 }
 
 // 고객 반응 문장 옆에 도장을 찍는다(매우 만족·수락·재협상·거부).
-function verdictBlock(textNode, verdict) {
+function verdictBlock(textNode, verdict, fresh = false) {
   const stamp = stampEl(VERDICT_STAMP[verdict], { size: verdict === 'renegotiate' ? 108 : 92 });
-  return stamp ? h('div', { class: 'pl-verdict' }, textNode, h('div', { class: 'pl-result-stamp' }, stamp)) : textNode;
+  return stamp ? h('div', { class: 'pl-verdict' }, textNode, h('div', { class: `pl-result-stamp${fresh ? ' is-fresh' : ''}` }, stamp)) : textNode;
 }
 
 // 협상 로그: 모든 행의 기록을 행동 순서대로, 최근 것이 위로.
@@ -499,7 +521,7 @@ function logEntries(data, ctx) {
 
 export function renderPlacement() {
   const data = store.getData();
-  const state = store.getState();
+  const state = viewState(store.getState()); // 봉투를 여는 동안은 누르기 직전의 상태로 그려 결과가 미리 새지 않게 한다
   if (uiGeneration !== store.getGeneration() || !board) {
     uiGeneration = store.getGeneration();
     initBoard(data, state, data.treaties[0].id);
@@ -620,17 +642,18 @@ export function renderPlacement() {
     const submitWhy = placement.submitBlockReason(data, state, trt.id);
     const blockText = signed.blockers.map((b) => BLOCK_KO[b]);
     const verdict = verdictText(data, ctx);
+    const verdictFresh = takeFresh(verdictKey());
     const nextText = verdict ? verdictHint(data, state, ctx.t, { detail: guideDetail(data, state) }) : null;
-    const submitChildren = [h('h2', {}, '고객에게 제출')];
+    const submitChildren = [h('h2', {}, '고객에게 제출'), isOpening(verdictKey()) ? openingBlock('client') : null];
     if (ctx.lost) {
       submitChildren.push(h('p', { class: 'pl-resp pl-resp-reject', role: 'status' }, '고객이 다른 브로커로 옮겨 가서 제출할 수 없어요.'));
     } else if (locked) {
       submitChildren.push(
-        verdictBlock(h('p', { class: 'pl-resp pl-resp-accept', role: 'status' }, verdict), ctx.t.verdict),
+        verdictBlock(h('p', { class: 'pl-resp pl-resp-accept', role: 'status' }, verdict), ctx.t.verdict, verdictFresh),
         nextText ? nextLine(nextText) : null,
         h('p', {}, `최종 평균 RC ${pct(ctx.t.final_rc, 2)} · 확정 패널 ${ctx.t.panel.filter((r) => r.status === 'accepted').map((r) => `${data.reinsurers.find((x) => x.id === r.re).name_ko} ${share(r.share_signed)}`).join(' · ')}`));
     } else {
-      if (verdict) submitChildren.push(verdictBlock(h('p', { class: `pl-resp pl-resp-${ctx.t.verdict === 'renegotiate' ? 'counter' : 'reject'}`, role: 'status' }, verdict), ctx.t.verdict));
+      if (verdict) submitChildren.push(verdictBlock(h('p', { class: `pl-resp pl-resp-${ctx.t.verdict === 'renegotiate' ? 'counter' : 'reject'}`, role: 'status' }, verdict), ctx.t.verdict, verdictFresh));
       if (nextText) submitChildren.push(nextLine(nextText));
       submitChildren.push(
         blockText.length > 0
