@@ -10,7 +10,7 @@ import { sealFor, senderEntity, senderSealId, reTone } from './seals.js';
 import { portraitEl, mailPortraitId, mailMood } from './portraits.js';
 
 const PRIORITY_LABEL = { urgent: '긴급', normal: '일반', low: '참고' };
-const FROM_KIND_LABEL = { client: '고객', reinsurer: '재보험사', regulator: '규제', market: '시장', board: '이사회', system: '시스템', mentor: '선배' };
+const FROM_KIND_LABEL = { client: '고객', reinsurer: '재보험사', regulator: '규제', market: '시장', board: '이사회', system: '시스템', mentor: '선배', rival: '경쟁 브로커' };
 
 // 화면이 다시 그려져도 고른 메일·필터가 남도록 모듈에 둔다. 게임이 바뀌면(generation) 비운다.
 let uiGeneration = -1;
@@ -71,7 +71,7 @@ function renderList(rows, state, data) {
 }
 
 // 편지 머리글: 보낸 쪽마다 다르다. 재보험사·고객·이사회·규제·시장·시스템·선배 모두 인장 + 글자 머리글.
-const LETTER_TITLE = { board: '이사회', regulator: '금융감독당국 · 공문', market: '시장 리포트 데스크', system: '게임 안내', mentor: '선배의 쪽지' };
+const LETTER_TITLE = { board: '이사회', regulator: '금융감독당국 · 공문', market: '시장 리포트 데스크', system: '게임 안내', mentor: '선배의 쪽지', rival: '경쟁 브로커 · 사적인 쪽지' };
 
 // 사람이 보낸 메일이면 머리글 오른쪽 끝에 작은 초상(D5). 표정은 메일마다 정한 화면 상수.
 function letterPortrait(template, ent) {

@@ -63,6 +63,7 @@ Object.assign(FRAMES, {
   banner: outline('M6 3.5 H42 V44.5 L24 36.5 L6 44.5 Z', 'M9.8 7.3 H38.2 V38.5 L24 32.2 L9.8 38.5 Z'),
   chamfer: outline('M11 3 H37 L45 11 V37 L37 45 H11 L3 37 V11 Z', 'M12.6 6.8 H35.4 L41.2 12.6 V35.4 L35.4 41.2 H12.6 L6.8 35.4 V12.6 Z'),
   arch: outline('M7 45 V22 A17 17 0 0 1 41 22 V45 Z', 'M10.8 41.2 V22 A13.2 13.2 0 0 1 37.2 22 V41.2 Z'),
+  pentagon: outline('M5 4 H43 V30 L24 45 L5 30 Z', 'M8.8 7.8 H39.2 V28.2 L24 40.2 L8.8 28.2 Z'),
 });
 
 const path = (d, w = 2.2, extra = {}) => svg('path', { ...STROKE, 'stroke-width': w, d, ...extra });
@@ -123,12 +124,17 @@ Object.assign(MOTIFS, {
     solid('circle', { cx: 24, cy: 25, r: 1.7 }),
     path('M20.5 11 H27.5', 2.2),
   ],
+  // 경쟁 브로커(D6): 엇갈린 두 화살표
+  sender_rival: () => [
+    path('M13 33 L33 13 M26 13 H33 V20', 2.4),
+    path('M35 33 L15 13 M15 20 V13 H22', 2.4),
+  ],
 });
 
 const FRAME_OF = {
   re_alpenglow: 'circle', re_kallang: 'circle', re_thames_quay: 'circle', re_nur: 'circle', re_dunes_crescent: 'circle',
   cli_jurong_crest: 'hexagon', cli_straits_port: 'tablet', cli_nusantara: 'diamond',
-  sender_board: 'shield', sender_regulator: 'octagon', sender_market: 'banner', sender_system: 'chamfer', sender_mentor: 'arch',
+  sender_board: 'shield', sender_regulator: 'octagon', sender_market: 'banner', sender_system: 'chamfer', sender_mentor: 'arch', sender_rival: 'pentagon',
 };
 
 // 메일 발신 종류(template.from.kind) → 인장 id. 재보험사·고객은 senderEntity가 따로 찾는다.

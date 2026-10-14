@@ -3,7 +3,7 @@
 
 import { applyEffects } from './effects.js';
 import { gapCutCfg, firedBelow as firedBelowOf } from './difficulty.js';
-import { buildSnapshot } from './rivals.js';
+import { buildSnapshot, tableRows, tauntRoll, pickTaunt } from './rivals.js';
 
 const round6 = (x) => Math.round(x * 1e6) / 1e6;
 const round1 = (x) => Math.round(x * 10) / 10;
@@ -210,9 +210,22 @@ export function closeQuarterIfEnd(data, state) {
       sendMail(state, flow.mail);
     }
     // 마지막 분기는 순위 메일 대신 연말 성적표 메일이 간다.
-    if (state.turn < data.calendar.turns) sendMail(state, board.mails.rank[rankMailKey(snap.rank, snap.prev_rank, board)]);
+    if (state.turn < data.calendar.turns) {
+      sendMail(state, board.mails.rank[rankMailKey(snap.rank, snap.prev_rank, board)]);
+      sendTaunt(data, state, snap, prev, rivalQuarters.indexOf(quarter.id));
+    }
   }
   return quarter.id;
+}
+
+// 라이벌 도발 메일(§9.3 D6): 바로 위·아래 라이벌이 가끔 쪽지 한 통. 효과·선택지가 없고 게임 난수 흐름을 쓰지 않는다.
+function sendTaunt(data, state, snap, prev, quarterIndex) {
+  const cfg = data.config.rivals.taunt;
+  if (!cfg) return;
+  const rows = tableRows(data.brokers, snap, { firm: state.player.firm, reputation: state.player.reputation, prev });
+  const pick = pickTaunt(rows, tauntRoll(state.seed, quarterIndex), cfg.prob);
+  const ref = pick ? cfg.mails[pick.rival]?.[pick.side] : null;
+  if (ref) sendMail(state, ref);
 }
 
 // 연말(턴 58)이거나 이사회 신뢰가 해고선 아래면 게임을 끝낸다(§9.2). 끝났으면 ending을, 아니면 null을 돌려준다.

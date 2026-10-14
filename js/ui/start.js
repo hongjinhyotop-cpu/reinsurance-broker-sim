@@ -16,7 +16,7 @@ function cover() {
 export function renderStart() {
   const seedInput = h('input', {
     id: 'seed-input', type: 'text', maxlength: '30', autocomplete: 'off',
-    placeholder: '비워 두면 무작위',
+    placeholder: '예: 1234 (비워 두면 새 번호)', 'aria-describedby': 'seed-help', inputmode: 'text',
   });
 
   // 난이도(design.md §9.5): 시작할 때 한 번 고르고 도중에는 바꾸지 않는다.
@@ -55,10 +55,11 @@ export function renderStart() {
           levelRadios[i],
           h('label', { for: `level-${id}` }, h('strong', {}, profiles[id].label_ko), h('span', { class: 'dim' }, ` — ${profiles[id].summary_ko}`)))),
         h('small', { class: 'dim' }, '시작할 때 한 번 고르면 게임 도중에는 바꿀 수 없어요. 바꾸려면 새 게임을 시작하세요.')),
-      h('div', { class: 'field' },
-        h('label', { for: 'seed-input' }, '시드(선택)'),
+      // 게임 번호(시드) 칸(D6): 결과 카드의 번호를 받아 같은 게임으로 시작한다. 눈에 띄게 메모 상자로 감싼다.
+      h('div', { class: 'field seed-field' },
+        h('label', { for: 'seed-input' }, '게임 번호(시드)', h('span', { class: 'dim' }, ' — 선택')),
         seedInput,
-        h('small', { class: 'dim' }, '숫자나 단어를 넣으면 같은 난수 흐름으로 다시 시작할 수 있어요.'),
+        h('small', { id: 'seed-help', class: 'dim' }, '친구가 알려 준 번호를 넣으면 같은 게임으로 시작해요. 비워 두면 새 번호가 정해져요. 단어를 넣어도 돼요.'),
       ),
       h('button', { class: 'btn btn-primary btn-large', type: 'button', onclick: startNewGame }, '새 게임 시작'),
     ),

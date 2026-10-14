@@ -13,6 +13,7 @@ import * as PL from '../../js/placement.js';
 import * as gl from '../../js/glossary.js';
 import { findTemplate } from '../../js/mail.js';
 import { liveReinsurers } from '../../js/live.js';
+import { playStyleOf } from '../../js/playstyle.js';
 
 const mem = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
 
@@ -233,6 +234,7 @@ export function playYear(data, { seed, difficulty, scenario, hook = null }) {
     cash: s.player.cash_usd_m, firedTurn: ending?.kind === 'fired' ? s.turn : null,
     parts: Object.fromEntries((rep?.parts ?? []).map((x) => [x.id, x.points])),
     seasonDeltas: Object.values(s.seasons).map((x) => x.review?.eval?.delta ?? null),
+    style: playStyleOf(data, s).id, // D6 칭호(§9.7) — 문턱값이 한쪽에 몰리지 않는지 본다
   };
 }
 
@@ -249,7 +251,9 @@ function summarize(rows) {
   const ranks = {};
   for (const r of rows) ranks[r.rank] = (ranks[r.rank] ?? 0) + 1;
   const top = rows.map((r) => r.score).sort((a, b) => b - a).slice(0, 5);
-  return { n, top, parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, +v.toFixed(1)])), ranks, grades, fired: cnt((r) => r.kind === 'fired'), mean_score: +mean('score').toFixed(1), mean_conf: +mean('conf').toFixed(1), mean_rep: +mean('rep').toFixed(1), mean_comp: +mean('comp').toFixed(1), mean_placed: +mean('placed').toFixed(2), mean_gaps: +mean('gaps').toFixed(2), mean_brokerage: +mean('brokerage').toFixed(2), deltas };
+  const styles = {};
+  for (const r of rows) styles[r.style] = (styles[r.style] ?? 0) + 1;
+  return { n, top, parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, +v.toFixed(1)])), ranks, grades, fired: cnt((r) => r.kind === 'fired'), mean_score: +mean('score').toFixed(1), mean_conf: +mean('conf').toFixed(1), mean_rep: +mean('rep').toFixed(1), mean_comp: +mean('comp').toFixed(1), mean_placed: +mean('placed').toFixed(2), mean_gaps: +mean('gaps').toFixed(2), mean_brokerage: +mean('brokerage').toFixed(2), deltas, styles };
 }
 
 // 점 표기 경로로 값을 잠시 바꿔 끼운다. 접두어가 없으면 config이고, events./reinsurers./treaties./clients. 로 시작하면 그 데이터다.

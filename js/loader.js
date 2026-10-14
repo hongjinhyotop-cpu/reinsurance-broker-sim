@@ -3,6 +3,7 @@
 
 import { REASONS_GOOD, REASONS_BAD } from './negotiation.js';
 import { parseMarkup, termIdsIn, CATEGORIES, APPEARS_IN, UI_TERM_IDS } from './glossary.js';
+import { PLAYSTYLE_IDS } from './playstyle.js';
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
@@ -194,6 +195,28 @@ function validateFinanceConfig(c, cfg) {
       c.num(rf.notice_min_usd_m, 'rivals.reputation_flow.notice_min_usd_m', 0, 100);
       c.str(rf.mail, 'rivals.reputation_flow.mail', 80);
     }
+    // 라이벌 도발 메일(D6, §9.3). 라이벌·메일 id의 존재는 validateCross가 본다.
+    const tt = cfg.rivals.taunt;
+    if (c.object(tt, 'rivals.taunt')) {
+      c.num(tt.prob, 'rivals.taunt.prob', 0, 1);
+      if (c.object(tt.mails, 'rivals.taunt.mails')) {
+        for (const [id, pair] of Object.entries(tt.mails)) {
+          if (!c.object(pair, `rivals.taunt.mails.${id}`)) continue;
+          for (const side of ['ahead', 'behind']) c.str(pair[side], `rivals.taunt.mails.${id}.${side}`, 80);
+        }
+      }
+    }
+  }
+  // 플레이 스타일 칭호(D6, §9.7). 판정 순서는 아는 칭호만, 마지막은 조건 없는 balanced.
+  if (c.object(cfg.playstyle, 'playstyle')) {
+    const ps = cfg.playstyle;
+    if (c.array(ps.order, 'playstyle.order', 1)) {
+      if (ps.order.some((id) => !PLAYSTYLE_IDS.includes(id)) || new Set(ps.order).size !== ps.order.length) c.fail('playstyle.order', `${PLAYSTYLE_IDS.join(' / ')} 중에서 겹치지 않게 골라야 해요`, ps.order);
+      if (ps.order[ps.order.length - 1] !== 'balanced') c.fail('playstyle.order', '마지막은 조건 없는 balanced여야 해요', ps.order);
+    }
+    for (const k of ['crisis_event_actions', 'relationship_meetings', 'numbers_min_placed', 'tenacious_pushbacks', 'cliffhanger_late']) c.int(ps[k], `playstyle.${k}`, 0, 999);
+    for (const k of ['relationship_client_rel', 'guardian_compliance']) c.num(ps[k], `playstyle.${k}`, 0, 100);
+    for (const k of ['numbers_avg_rc', 'client_side_avg_rc']) c.num(ps[k], `playstyle.${k}`, -100, 100);
   }
   // 난이도 프로필(design.md §9.5). 보통은 중립값, 쉬움은 그 위의 보정이다.
   if (c.object(cfg.difficulty, 'difficulty')) {
@@ -417,8 +440,8 @@ export function validateCalendar(cal, file = 'calendar.json') {
 
 // ---------- 메일 (design.md §10.5, §10.8) ----------
 
-export const MAIL_TYPES = ['client_request', 'reinsurer_response', 'event', 'regulatory', 'market_report', 'board', 'system', 'mentor'];
-export const MAIL_FROM_KINDS = ['client', 'reinsurer', 'regulator', 'market', 'board', 'system', 'mentor'];
+export const MAIL_TYPES = ['client_request', 'reinsurer_response', 'event', 'regulatory', 'market_report', 'board', 'system', 'mentor', 'rival'];
+export const MAIL_FROM_KINDS = ['client', 'reinsurer', 'regulator', 'market', 'board', 'system', 'mentor', 'rival'];
 export const MAIL_PRIORITIES = ['urgent', 'normal', 'low'];
 // M1에서 쓸 수 있는 치환 변수. {client.*} 등은 해당 데이터가 생기는 마일스톤에서 추가한다.
 export const MAIL_VARS = ['market.label', 'turn.label', 'player.firm', 'report.grade', 'report.strong', 'report.weak'];
@@ -1147,11 +1170,59 @@ export function validateReport(rep, file = 'report.json', terms = true) {
   }
   text(rep.keep_going_ko, 'keep_going_ko', 300);
   text(rep.preview_note_ko, 'preview_note_ko', 300);
+  // D6: 칭호 문구(§9.7)와 결과 카드
+  if (c.object(rep.playstyles, 'playstyles')) {
+    for (const id of PLAYSTYLE_IDS) {
+      const p = `playstyles.${id}`;
+      if (!c.object(rep.playstyles[id], p)) continue;
+      if (c.str(rep.playstyles[id].title_ko, `${p}.title_ko`, 20)) validateText(c, rep.playstyles[id].title_ko, `${p}.title_ko`);
+      text(rep.playstyles[id].line_ko, `${p}.line_ko`, 200);
+      if (c.str(rep.playstyles[id].basis_ko, `${p}.basis_ko`, 200)) validateText(c, rep.playstyles[id].basis_ko, `${p}.basis_ko`);
+    }
+  }
+  if (c.object(rep.share, 'share')) {
+    if (c.str(rep.share.game_title_ko, 'share.game_title_ko', 40)) validateText(c, rep.share.game_title_ko, 'share.game_title_ko');
+    if (c.str(rep.share.note_ko, 'share.note_ko', 300)) validateText(c, rep.share.note_ko, 'share.note_ko');
+  }
+  return errors;
+}
+
+// ---------- 뉴스 띠 (design.md §6.0.3 D6, §10.7 news.json) ----------
+
+export const NEWS_BANDS = ['soft', 'neutral', 'hard'];
+
+export function validateNews(news, file = 'news.json') {
+  const errors = [];
+  const c = checker(file, errors);
+  if (!c.object(news, '(최상위)')) return errors;
+  c.int(news.rotate_seconds, 'rotate_seconds', 3, 60);
+  c.int(news.recent_weeks, 'recent_weeks', 1, 58);
+  if (!c.array(news.headlines, 'headlines', 1)) return errors;
+  const seen = new Set();
+  news.headlines.forEach((n, i) => {
+    const p = `headlines[${i}]`;
+    if (!c.object(n, p)) return;
+    const label = typeof n.id === 'string' ? `${p}(${n.id})` : p;
+    if (c.str(n.id, `${label}.id`, 80)) {
+      if (!/^news_[a-z0-9_]+$/.test(n.id)) c.fail(`${label}.id`, 'news_ 로 시작하는 snake_case여야 해요', n.id);
+      if (seen.has(n.id)) c.fail(`${label}.id`, '다른 헤드라인과 id가 겹쳐요', n.id);
+      seen.add(n.id);
+    }
+    if (c.str(n.text_ko, `${label}.text_ko`, 90)) {
+      validateText(c, n.text_ko, `${label}.text_ko`); // 움직이는 한 줄이라 용어 표시는 쓰지 않는다
+      if (/[0-9]/.test(n.text_ko)) c.fail(`${label}.text_ko`, '헤드라인에는 숫자를 쓰지 않아요(§6.0.3 D6)', n.text_ko);
+    }
+    if (n.bands !== undefined && n.event !== undefined) c.fail(label, 'bands와 event를 함께 쓰지 않아요', n.id);
+    if (n.bands !== undefined && c.array(n.bands, `${label}.bands`, 1)) {
+      n.bands.forEach((b, j) => { if (!NEWS_BANDS.includes(b)) c.fail(`${label}.bands[${j}]`, `${NEWS_BANDS.join(' / ')} 중 하나여야 해요`, b); });
+    }
+    if (n.event !== undefined) c.str(n.event, `${label}.event`, 80); // 존재 여부는 validateCross가 본다
+  });
   return errors;
 }
 
 // 파일 사이의 약속(서로 다른 파일이 같은 값을 말해야 하는 것).
-export function validateCross({ config, calendar, clients, reinsurers, treaties, events, mails }) {
+export function validateCross({ config, calendar, clients, reinsurers, treaties, events, mails, brokers, news }) {
   const errors = [];
   const c = checker('config.json', errors);
   if (config.game.total_turns !== calendar.turns) {
@@ -1163,6 +1234,45 @@ export function validateCross({ config, calendar, clients, reinsurers, treaties,
   if (treaties && clients && reinsurers) errors.push(...validateTreatyLinks({ treaties, clients, reinsurers, calendar }));
   if (events && mails && config.market?.family) errors.push(...validateEventLinks({ config, events, mails, clients, reinsurers, treaties }));
   errors.push(...validateBoardLinks({ config, calendar, mails }));
+  errors.push(...validateStoryLinks({ config, mails, brokers, events, news }));
+  return errors;
+}
+
+// D6: 라이벌 도발 메일이 라이벌마다 있고 mails.json에 있는지, 라이벌 메일의 보낸 쪽, 뉴스의 사건 id.
+function validateStoryLinks({ config, mails, brokers, events, news }) {
+  const errors = [];
+  const c = checker('config.json', errors);
+  const taunt = config?.rivals?.taunt;
+  const brokerIds = Array.isArray(brokers) ? new Set(brokers.filter(isObj).map((b) => b.id)) : null;
+  if (isObj(taunt) && isObj(taunt.mails) && Array.isArray(mails)) {
+    const mailById = new Map(mails.filter(isObj).map((m) => [m.id, m]));
+    if (brokerIds) {
+      for (const id of brokerIds) if (!isObj(taunt.mails[id])) c.fail(`rivals.taunt.mails.${id}`, '라이벌마다 ahead·behind 메일이 있어야 해요', undefined);
+      for (const id of Object.keys(taunt.mails)) if (!brokerIds.has(id)) c.fail(`rivals.taunt.mails.${id}`, 'brokers.json에 없는 라이벌 id예요', id);
+    }
+    for (const [id, pair] of Object.entries(taunt.mails)) {
+      for (const side of ['ahead', 'behind']) {
+        const ref = pair?.[side];
+        if (typeof ref !== 'string') continue;
+        const mail = mailById.get(ref);
+        if (!mail) c.fail(`rivals.taunt.mails.${id}.${side}`, 'mails.json에 없는 메일 id예요', ref);
+        else if (mail.schedule !== undefined) c.fail(`rivals.taunt.mails.${id}.${side}`, '도발 메일은 고정 턴(schedule)에 도착하면 안 돼요', ref);
+      }
+    }
+  }
+  if (Array.isArray(mails) && brokerIds) {
+    const m = checker('mails.json', errors);
+    mails.filter((x) => isObj(x) && isObj(x.from) && x.from.kind === 'rival').forEach((x) => {
+      if (!brokerIds.has(x.from.id)) m.fail(`${x.id}.from.id`, 'brokers.json에 없는 라이벌 id예요', x.from.id);
+    });
+  }
+  if (isObj(news) && Array.isArray(news.headlines) && Array.isArray(events)) {
+    const n = checker('news.json', errors);
+    const eventIds = new Set(events.filter(isObj).map((e) => e.id));
+    news.headlines.filter((x) => isObj(x) && typeof x.event === 'string').forEach((x) => {
+      if (!eventIds.has(x.event)) n.fail(`${x.id}.event`, 'events.json에 없는 사건 id예요', x.event);
+    });
+  }
   return errors;
 }
 
@@ -1206,6 +1316,7 @@ export const DATA_FILES = [
   { key: 'events', file: 'events.json', validate: validateEvents },
   { key: 'brokers', file: 'brokers.json', validate: validateBrokers },
   { key: 'report', file: 'report.json', validate: (rep, file, raw) => validateReport(rep, file, termSet(raw)) },
+  { key: 'news', file: 'news.json', validate: validateNews },
 ];
 
 // 정적 콘텐츠를 실수로 고치는 코드를 바로 잡아내려고 통째로 얼린다.

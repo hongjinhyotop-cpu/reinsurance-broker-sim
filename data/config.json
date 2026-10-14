@@ -248,7 +248,31 @@
       "max_rate": 0.04,
       "notice_min_usd_m": 0.01,
       "mail": "mail_board_reputation_flow"
+    },
+    "taunt": {
+      "prob": 0.5,
+      "mails": {
+        "brk_orchid_lane": { "ahead": "mail_rival_orchid_ahead", "behind": "mail_rival_orchid_behind" },
+        "brk_sentosa_meridian": { "ahead": "mail_rival_sentosa_ahead", "behind": "mail_rival_sentosa_behind" },
+        "brk_tanjong_beacon": { "ahead": "mail_rival_tanjong_ahead", "behind": "mail_rival_tanjong_behind" },
+        "brk_clarke_lantern": { "ahead": "mail_rival_clarke_ahead", "behind": "mail_rival_clarke_behind" },
+        "brk_telok_harbour": { "ahead": "mail_rival_telok_ahead", "behind": "mail_rival_telok_behind" },
+        "brk_lim_rahman": { "ahead": "mail_rival_limrahman_ahead", "behind": "mail_rival_limrahman_behind" },
+        "brk_pasir_quay": { "ahead": "mail_rival_pasir_ahead", "behind": "mail_rival_pasir_behind" }
+      }
     }
+  },
+  "playstyle": {
+    "order": ["crisis", "relationship", "numbers", "client_side", "cliffhanger", "tenacious", "guardian", "balanced"],
+    "crisis_event_actions": 5,
+    "relationship_meetings": 28,
+    "relationship_client_rel": 50,
+    "numbers_min_placed": 2,
+    "numbers_avg_rc": 1.0,
+    "client_side_avg_rc": -1.0,
+    "tenacious_pushbacks": 14,
+    "cliffhanger_late": 1,
+    "guardian_compliance": 75
   },
   "board": {
     "targets": {

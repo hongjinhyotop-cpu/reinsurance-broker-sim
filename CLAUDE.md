@@ -19,12 +19,13 @@ docs/design.md        설계 문서
 css/                  base.css(디자인 토큰·공통 컴포넌트·셸), screens.css
 fonts/                로컬 글꼴 woff2 + LICENSES.md (외부 글꼴 주소 금지, CSP font-src 'self')
 js/                   main, loader, store, rng, calendar, market, negotiation, placement, reveal,
-                      scouting, glossary, anki, effects, events, mail, turn, finance, rivals, season, guide, prefs, difficulty
+                      scouting, glossary, anki, effects, events, mail, turn, finance, rivals, season, guide, prefs, difficulty,
+                      playstyle(칭호), news(뉴스 띠 고르기)
 js/ui/                components, shell, focus, start, settings, inbox, database,
                       placement_view, glossary_view, calendar_view, fog_meter, portraits, standings, review, seals, motion,
-                      ceremony(봉투 열기), sound(Web Audio 효과음)
+                      ceremony(봉투 열기), sound(Web Audio 효과음), ticker(뉴스 띠)
 data/                 config, calendar, clients, reinsurers, treaties, events, mails,
-                      glossary, brokers, report  (.json)
+                      glossary, brokers, report, news  (.json)
 tests/index.html      브라우저 실행 간이 테스트 러너 (서버로 연 뒤 /tests/ 접속)
 tests/balance/        밸런싱 도구(Node: `node tests/balance/sim.mjs 300 normal,easy`). 게임 실행에는 쓰이지 않는다 — design.md §9.6
 ```
@@ -47,12 +48,12 @@ tests/balance/        밸런싱 도구(Node: `node tests/balance/sim.mjs 300 nor
 ## 데이터 규칙
 - 회사·인물 이름은 **가상**만. 실존 회사명 금지. 규제 조항 번호·실제 수치 인용 금지.
 - 데이터는 선언만. `eval`·`Function`·표현식 금지. 조건·효과 op는 닫힌 집합(design.md §10.8).
-- id는 `snake_case` + 접두어(`cli_ re_ trt_ evt_ mail_ gl_ brk_`). JSON에 주석 금지.
+- id는 `snake_case` + 접두어(`cli_ re_ trt_ evt_ mail_ gl_ brk_ news_`). JSON에 주석 금지.
 - 텍스트 속 용어는 `[[gl_id|표시문구]]` 마크업. 로더가 id 존재를 검증한다.
 - 숨은 속성(`hidden.*`)의 원값을 UI에 직접 출력하지 않는다. 반드시 `reveal.js`를 거친다.
 
 ## 세이브 규칙
-- 키 `rbs:save:v1:<slot>`, 도감은 별도 키 `rbs:codex:v1`(새 게임에도 유지), 화면 설정(안내띠·효과음·연출 줄이기)은 별도 키 `rbs:prefs:v1`.
+- 키 `rbs:save:v1:<slot>`, 도감은 별도 키 `rbs:codex:v1`(새 게임에도 유지), 화면 설정(안내띠·효과음·연출 줄이기·뉴스 띠)은 별도 키 `rbs:prefs:v1`.
 - 세이브에는 동적 상태만 저장하고 정적 콘텐츠는 id로 참조한다.
 - 난이도(`easy`/`normal`)는 세이브의 `difficulty`에 있고 게임 도중 바꾸지 않는다. 난이도별 숫자는 `data/config.json`의 `difficulty.profiles`에만 둔다(보통은 중립값 — 보통의 규칙·숫자는 바꾸지 않는다). 설계는 design.md §9.5.
 - 구조를 바꾸면 `version`을 올리고 `store.js`에 마이그레이션을 추가한다. localStorage 접근은 try/catch로 감싼다.
