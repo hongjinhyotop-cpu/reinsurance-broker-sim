@@ -7,6 +7,7 @@ import { liveClients, liveReinsurers } from '../live.js';
 import { meet, meetBlockReason } from '../turn.js';
 import { h, toast, rangeBar, gauge } from './components.js';
 import { richText, glossaryLink } from './glossary_view.js';
+import { sealFor } from './seals.js';
 
 const ATTR_LABEL = { conservatism: '보수성', price_sensitivity: '가격 민감도', loyalty: '관계 충성도' };
 const ATTR_HELP = {
@@ -66,18 +67,20 @@ function renderTable(rows, kind) {
   return h('table', { class: 'table db-table' },
     h('caption', { class: 'visually-hidden' }, `${GROUP_KO[kind]} 목록`),
     h('thead', {}, h('tr', {},
-      ['이름', glossaryLink('gl_rating', { label: '등급', gloss: true }), kind === 'client' ? '규모' : glossaryLink('gl_capacity', { label: '용량', gloss: true }), '관계도', '파악도', '미팅'].map((t) => h('th', { scope: 'col' }, t)))),
+      ['이름', glossaryLink('gl_rating', { label: '등급', gloss: true }), kind === 'client' ? '규모' : glossaryLink('gl_capacity', { label: '용량', gloss: true }), '관계도', '파악도', '미팅'].map((t, i) => h('th', { scope: 'col', class: i >= 3 ? 'num' : null }, t)))),
     h('tbody', {}, rows.map(({ def, dyn }) => h('tr', { class: def.id === selectedId ? 'is-selected' : null },
       h('th', { scope: 'row' },
-        h('button', {
-          type: 'button', class: 'link-btn', 'aria-current': def.id === selectedId ? 'true' : null,
-          onclick: () => { selectedId = def.id; lastMeeting = null; store.refresh(); },
-        }, def.name_ko)),
+        h('span', { class: 'db-name' },
+          sealFor(def.id, { size: 24 }),
+          h('button', {
+            type: 'button', class: 'link-btn', 'aria-current': def.id === selectedId ? 'true' : null,
+            onclick: () => { selectedId = def.id; lastMeeting = null; store.refresh(); },
+          }, def.name_ko))),
       h('td', {}, ratingOf(def)),
       h('td', {}, scaleText(def)),
-      h('td', {}, String(Math.round(dyn.relationship))),
-      h('td', {}, `${awareness(dyn.scout)}%`),
-      h('td', {}, `${dyn.meetings}회`)))));
+      h('td', { class: 'num' }, String(Math.round(dyn.relationship))),
+      h('td', { class: 'num' }, `${awareness(dyn.scout)}%`),
+      h('td', { class: 'num' }, `${dyn.meetings}회`)))));
 }
 
 function renderProfile(def, dyn, kind) {
@@ -159,7 +162,7 @@ function onMeet(kind, def) {
 function renderMeetingBox(def, kind, state, data) {
   const cost = data.config.scouting.meeting_ap;
   const reason = meetBlockReason(data, state, kind, def.id, topic);
-  return h('div', { class: 'meet-box' },
+  return h('div', { class: 'meet-box card-memo' },
     h('label', { for: 'meet-topic' }, '미팅 주제'),
     h('select', {
       id: 'meet-topic',
@@ -219,8 +222,10 @@ export function renderDatabase() {
   const detail = current
     ? h('section', { class: 'db-detail card', 'aria-label': `${current.def.name_ko} 상세` },
       h('header', { class: 'db-detail-head' },
-        h('h2', {}, current.def.name_ko),
-        h('p', { class: 'dim' }, `${KIND_KO[current.def.kind]} · 파악도 ${awareness(current.dyn.scout)}%`)),
+        sealFor(current.def.id, { size: 48 }),
+        h('div', {},
+          h('h2', {}, current.def.name_ko),
+          h('p', { class: 'dim' }, `${KIND_KO[current.def.kind]} · 파악도 ${awareness(current.dyn.scout)}%`))),
       h('div', { class: 'filters', role: 'group', 'aria-label': '상세 탭' },
         [['report', '스카우트 리포트'], ['profile', '프로필']].map(([id, label]) => h('button', {
           type: 'button', class: `chip${detailTab === id ? ' is-active' : ''}`, 'aria-pressed': detailTab === id ? 'true' : 'false',
@@ -238,6 +243,6 @@ export function renderDatabase() {
         onclick: () => { group = k; selectedId = null; topic = 'general'; lastMeeting = null; store.refresh(); },
       }, `${GROUP_KO[k]} ${(k === 'client' ? data.clients : data.reinsurers).length}`))),
     h('div', { class: 'db' },
-      h('section', { class: 'db-list card', 'aria-label': `${GROUP_KO[group]} 목록` }, table),
+      h('section', { class: 'db-list card card-ledger', 'aria-label': `${GROUP_KO[group]} 목록` }, table),
       detail));
 }

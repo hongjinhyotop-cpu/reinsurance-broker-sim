@@ -29,13 +29,15 @@ export function renderStart() {
   };
 
   return h('main', { class: 'start', id: 'main' },
-    h('h1', {}, '싱가포르 재보험 브로커 시뮬레이션'),
-    h('p', { class: 'lead' }, '작은 중개회사의 책임자가 되어, 58주 동안 보험회사와 재보험사 사이를 이어 주는 게임이에요.'),
+    h('header', { class: 'cover' },
+      h('span', { class: 'cover-mark', 'aria-hidden': 'true' }, 'MB'),
+      h('h1', {}, '싱가포르 재보험 브로커 시뮬레이션'),
+      h('p', { class: 'lead' }, '작은 중개회사의 책임자가 되어, 58주 동안 보험회사와 재보험사 사이를 이어 주는 게임이에요.')),
     h('p', { class: 'dim' }, '메일에 답하고, 상대를 알아 가고, 재보험사들과 가격을 맞춰 계약을 확정해요. 해가 끝나면 이사회가 성적표를 줘요.'),
     !store.storageAvailable()
       ? h('p', { class: 'notice notice-warn', role: 'alert' }, '이 브라우저에서는 저장소를 쓸 수 없어요(개인정보 보호 모드일 수 있어요). 게임은 시작할 수 있지만 저장·불러오기는 되지 않아요.')
       : null,
-    h('section', { class: 'card' },
+    h('section', { class: 'card card-ledger' },
       h('h2', {}, '새 게임'),
       h('fieldset', { class: 'level-pick' },
         h('legend', {}, '난이도'),

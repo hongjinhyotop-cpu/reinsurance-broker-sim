@@ -6,7 +6,7 @@ import { fillText, findTemplate, needsReply, matchesFilter, choiceBlockReason, M
 import { mailVars, markRead, answer } from '../turn.js';
 import { h, toast } from './components.js';
 import { richText } from './glossary_view.js';
-import { sealFor, senderEntity, reTone } from './seals.js';
+import { sealFor, senderEntity, senderSealId, reTone } from './seals.js';
 
 const PRIORITY_LABEL = { urgent: '긴급', normal: '일반', low: '참고' };
 const FROM_KIND_LABEL = { client: '고객', reinsurer: '재보험사', regulator: '규제', market: '시장', board: '이사회', system: '시스템', mentor: '선배' };
@@ -34,7 +34,7 @@ function senderCell(template, data) {
   const ent = senderEntity(template.from.name_ko, data);
   return h('td', { class: 'mail-from-cell' },
     h('div', { class: 'mail-from-wrap' },
-      ent ? sealFor(ent.id, { size: 24 }) : h('span', { class: `seal-dot seal-dot-${template.from.kind}`, 'aria-hidden': 'true' }),
+      sealFor(ent ? ent.id : senderSealId(template.from.kind) ?? 'sender_system', { size: 24 }),
       h('span', { class: 'mail-from' }, template.from.name_ko)));
 }
 
@@ -69,7 +69,7 @@ function renderList(rows, state, data) {
     })));
 }
 
-// 편지 머리글: 보낸 쪽마다 다르다. 재보험사·고객은 인장 + 이름, 그 밖은 글자 머리글(인장은 이번 범위 밖).
+// 편지 머리글: 보낸 쪽마다 다르다. 재보험사·고객·이사회·규제·시장·시스템·선배 모두 인장 + 글자 머리글.
 const LETTER_TITLE = { board: '이사회', regulator: '금융감독당국 · 공문', market: '시장 리포트 데스크', system: '게임 안내', mentor: '선배의 쪽지' };
 
 function letterhead(template, data, waiting) {
@@ -83,7 +83,9 @@ function letterhead(template, data, waiting) {
       ent.kind === 'client' && waiting ? h('span', { class: 'lh-note' }, '회신 요청') : null);
   }
   const kind = template.from.kind;
+  const sealId = senderSealId(kind);
   return h('div', { class: `letterhead letterhead-${kind}` },
+    sealId ? sealFor(sealId, { size: 56 }) : null,
     h('div', { class: 'lh-text' },
       h('p', { class: 'lh-name' }, LETTER_TITLE[kind] ?? FROM_KIND_LABEL[kind]),
       h('p', { class: 'lh-sub' }, template.from.name_ko.replace(/\s*\(가상\)\s*$/, ''))),

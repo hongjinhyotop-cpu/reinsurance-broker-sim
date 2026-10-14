@@ -1931,10 +1931,10 @@
           check(!dlg.textContent.includes(data.glossary.find((t) => t.id === 'gl_line').level2_ko), '2단계는 아직 숨김');
           check(host.textContent.includes(`새 용어 수집! (1/${data.glossary.length})`), host.textContent);
           eq(gl.getCodex().entries.gl_line.levels, 1);
-          const step = () => [...dlg.querySelectorAll('button')].find((b) => /보기 ▾$/.test(b.textContent));
-          eq(step().textContent, '비유 보기 ▾'); step().click();
+          const step = () => [...dlg.querySelectorAll('button')].find((b) => /보기 ▼$/.test(b.textContent));
+          eq(step().textContent, '비유 보기 ▼'); step().click();
           eq([dlg.querySelectorAll('.term-level').length, gl.getCodex().entries.gl_line.levels], [2, 2]);
-          eq(step().textContent, '실무 표현 보기 ▾'); step().click();
+          eq(step().textContent, '실무 표현 보기 ▼'); step().click();
           eq([dlg.querySelectorAll('.term-level').length, gl.getCodex().entries.gl_line.levels, step()], [3, 3, undefined]);
           check(dlg.querySelector('.term-en-list li'), '영어 예문');
           check(dlg.textContent.includes('게임 속 예시'), '게임 속 예시');
@@ -2270,7 +2270,7 @@
       try {
         for (const row of root.querySelectorAll('.pl-row')) {
           if (!row.querySelector('.pl-resp')) continue;
-          const next = row.querySelector('.pl-next'); check(next && next.textContent.startsWith('다음엔 이렇게 ▸'), '응답 밑 한 줄');
+          const next = row.querySelector('.pl-next'); check(next && next.textContent.startsWith('다음엔 이렇게 →'), '응답 밑 한 줄');
           check(row.querySelector('.pl-resp').compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING, '응답 아래에 있어요');
         }
         const submit = root.querySelector('section[aria-label="제출"]');
@@ -3437,6 +3437,87 @@
       check(find('mail_evt_shariah_ruling').includes('gl_shariah_board'), '샤리아 위원회 메일');
       check(find('mail_evt_malacca_collision').includes('gl_accumulation'), '집적 메일');
       check(find('mail_gap_notice').includes('gl_cover_gap') && find('mail_board_report_a').includes('gl_report_card'), '공백·성적표 메일');
+    });
+
+    // ---------- D2: 나머지 화면의 디자인 · 발신자 인장 · 작은 움직임 ----------
+    const sealsMod = await import('../js/ui/seals.js');
+    const motionMod = await import('../js/ui/motion.js');
+    const withMedia = async (reduce, fn) => {
+      const orig = window.matchMedia;
+      window.matchMedia = (q) => ({ matches: /reduce/.test(q) ? reduce : false, media: q, addEventListener() {}, removeEventListener() {} });
+      try { return await fn(); } finally { window.matchMedia = orig; }
+    };
+    test('D2 인장: 이사회·규제·시장·시스템·선배 인장은 모두 다른 모양이고 장식(aria-hidden)이다', () => {
+      const kinds = ['board', 'regulator', 'market', 'system', 'mentor'];
+      const shapes = new Set();
+      for (const k of kinds) {
+        const id = sealsMod.senderSealId(k); check(id === `sender_${k}`, k);
+        const el = sealsMod.sealFor(id, { size: 56 });
+        eq(el.getAttribute('aria-hidden'), 'true'); check(el.classList.contains(`seal-sender-${k}`), `${k} 색 클래스`);
+        shapes.add(el.outerHTML);
+      }
+      eq(shapes.size, 5, '인장마다 모양이 달라요');
+      eq(sealsMod.senderSealId('client'), null); eq(sealsMod.senderSealId('reinsurer'), null);
+    });
+    test('D2 인박스: 모든 보낸 쪽의 편지 머리글에 인장이 붙는다', async () => {
+      const { renderInbox } = await import('../js/ui/inbox.js');
+      startScreens();
+      const s = store.getState();
+      const seen = new Set(s.mails.map((m) => mailLib.findTemplate(data.mails, m.template).from.kind));
+      const wanted = ['board', 'regulator', 'market', 'system', 'mentor'].filter((k) => !seen.has(k));
+      for (const k of wanted) { const t = data.mails.find((m) => m.from.kind === k); s.mails.push({ id: `mail_d2_${k}`, template: t.id, turn: s.turn, read: false, answered: null, auto: false, deadline_turn: null, vars: {} }); }
+      const root = renderInbox(); document.body.append(root);
+      try {
+        for (const k of ['board', 'regulator', 'market', 'system', 'mentor']) {
+          const idx = [...root.querySelectorAll('.mail-tr')].length; check(idx > 0);
+          const row = [...root.querySelectorAll('.mail-tr')].find((tr) => tr.querySelector('.seal-sender-' + k));
+          check(row, `목록에 ${k} 인장`);
+        }
+        check(root.querySelector('.letterhead .seal'), '편지 머리글 인장');
+        check(!root.querySelector('.seal-dot'), '옛 점 표시가 남아 있지 않아요');
+      } finally { root.remove(); }
+    });
+    test('D2 도장: 등급 도장은 글자 한 자만 담고 "A 등급"으로 읽힌다 · 해고 도장', () => {
+      for (const g of ['S', 'A', 'B', 'C', 'D']) {
+        const el = sealsMod.gradeStampEl(g);
+        eq(el.textContent, g); eq(el.getAttribute('aria-label'), `${g} 등급`); eq(el.getAttribute('role'), 'img');
+        check(el.classList.contains('grade-letter') && el.classList.contains('stamp'), g);
+      }
+      const f = sealsMod.stampEl('fired'); check(f && f.textContent === '해고' && f.getAttribute('aria-hidden') === 'true');
+    });
+    test('D2 움직임: 움직임 줄이기가 켜지면 숫자는 곧바로 최종 값, 봉투·달력 장 넘김은 없다', async () => {
+      await withMedia(true, async () => {
+        eq(motionMod.reducedMotion(), true);
+        const el = document.createElement('span'); motionMod.resetShown('t1');
+        motionMod.countUp(el, 't1', 10, (n) => `$${Math.round(n)}`); motionMod.countUp(el, 't1', 90, (n) => `$${Math.round(n)}`);
+        eq(el.textContent, '$90', '즉시 최종 값');
+        eq(motionMod.arriveEnvelope(), null); eq(document.querySelector('.envelope-fly'), null);
+        const d = document.createElement('dd'); motionMod.flipDate(d); check(!d.classList.contains('is-flip'));
+      });
+    });
+    test('D2 움직임: 켜져 있으면 숫자는 이전 값에서 세어 올라가 실제 값에서 끝나고, 봉투는 aria-hidden으로 나타났다 사라진다', async () => {
+      await withMedia(false, async () => {
+        const el = document.createElement('span'); document.body.append(el); motionMod.resetShown('t2');
+        try {
+          motionMod.countUp(el, 't2', 10, (n) => String(Math.round(n))); eq(el.textContent, '10', '처음은 움직이지 않아요');
+          motionMod.countUp(el, 't2', 50, (n) => String(Math.round(n))); check(Number(el.textContent) < 50, `시작은 이전 값 근처 ${el.textContent}`);
+          await new Promise((r) => setTimeout(r, 900)); eq(el.textContent, '50', '끝난 값은 실제 값');
+          motionMod.countUp(el, 't2', 50, (n) => String(Math.round(n))); eq(el.textContent, '50', '같은 값이면 그대로');
+          motionMod.countUp(el, 't2', 77, String, { from: 0 }); await new Promise((r) => setTimeout(r, 900)); eq(el.textContent, '77', 'from을 주면 거기서 센다');
+        } finally { el.remove(); }
+        const env = motionMod.arriveEnvelope(); check(env && env.getAttribute('aria-hidden') === 'true' && env.querySelector('svg.envelope'), '봉투');
+        env.remove();
+        const d = document.createElement('dd'); motionMod.flipDate(d); check(d.classList.contains('is-flip'));
+      });
+    });
+    test('D2 CSS: 옛 이름 별칭이 없고, 화면 CSS에 색 숫자가 없으며, 움직임 줄이기 규칙이 있다', async () => {
+      const [base, scr] = await Promise.all(['../css/base.css', '../css/screens.css'].map((u) => fetch(u).then((r) => r.text())));
+      const old = /var\(--(bg|bg-elev|bg-elev-2|border|text|text-dim|accent|accent-ink|danger|radius|gap|pad|font|mono)\)/;
+      check(!old.test(base) && !old.test(scr), '옛 이름을 쓰는 곳이 남아 있어요');
+      check(!/--(bg|bg-elev|bg-elev-2|border|text|text-dim|accent|accent-ink|danger|radius|gap|pad|font|mono)\s*:/.test(base), '별칭 정의가 남아 있어요');
+      check(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(scr), 'screens.css에 색 숫자');
+      check(/prefers-reduced-motion:\s*reduce/.test(base) && /animation:\s*none\s*!important/.test(base), '움직임 줄이기 규칙');
+      check(!/prefers-color-scheme:\s*dark/.test(base + scr), '어두운 테마 금지');
     });
 
     const failures = [];

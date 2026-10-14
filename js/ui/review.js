@@ -8,6 +8,8 @@ import { markSeasonReviewsSeen } from '../turn.js';
 import { difficultyLabel } from '../difficulty.js';
 import { h, formatUsdM, confirmDialog } from './components.js';
 import { glossaryLink, richText } from './glossary_view.js';
+import { sealFor, gradeStampEl, stampEl } from './seals.js';
+import { countUp, hasShown } from './motion.js';
 
 const PART_ORDER = ['revenue', 'retention', 'rank', 'compliance', 'reputation'];
 
@@ -34,7 +36,7 @@ export function pickTips(report, board) {
 function renderBreakdown(data, report) {
   const texts = data.report.components;
   const cfg = data.config.board;
-  return h('section', { class: 'card' },
+  return h('section', { class: 'card card-ledger' },
     h('h2', {}, '왜 이 등급인가'),
     h('div', { class: 'table-wrap' },
       h('table', { class: 'table table-wrap-text' },
@@ -54,7 +56,7 @@ function renderBreakdown(data, report) {
 
 function renderTips(data, report, preview) {
   const tips = pickTips(report, data.config.board);
-  return h('section', { class: 'card' },
+  return h('section', { class: 'card card-memo' },
     h('h2', {}, preview ? '남은 기간에 챙겨 볼 곳' : '다음 해에 바꿔 볼 곳'),
     tips.length === 0
       ? h('p', {}, richText(data.report.keep_going_ko))
@@ -143,7 +145,7 @@ function renderSeasonCompare(data, state) {
   const sum = (pick) => rows.reduce((s, r) => s + (r.review && pick(r.review) !== null ? pick(r.review) : 0), 0);
   const note = richText(texts.compare_note_ko); // 화면 위쪽 글이 용어 첫 등장을 먼저 가져가도록 표 머리보다 먼저 만든다
   const heads = ['시즌 · 고객', '결과', ['최종 ', glossaryLink('gl_rate_change', { label: 'RC' })], ['확정 ', glossaryLink('gl_brokerage', { label: '브로커리지' })], [glossaryLink('gl_expiring', { label: '만기' }), ' 대비'], '고객 반응', '관계 변화(고객)', '스카우팅 진전', '새 용어', '이사회 평가'];
-  return h('section', { class: 'card' },
+  return h('section', { class: 'card card-ledger' },
     h('h2', {}, texts.compare_title_ko),
     h('p', { class: 'dim' }, note),
     h('div', { class: 'table-wrap' },
@@ -153,21 +155,21 @@ function renderSeasonCompare(data, state) {
         h('tbody', {}, rows.map((r) => h('tr', {},
           h('th', { scope: 'row' }, `${r.season.label} · ${r.client.name_ko}`),
           h('td', {}, STATUS_KO[r.phase]),
-          h('td', {}, rcText(r.final_rc)),
-          h('td', {}, r.booked ? formatUsdM(r.booked.brokerage_usd_m) : '—'),
-          h('td', {}, pctText(r.ratio)),
+          h('td', { class: 'num' }, rcText(r.final_rc)),
+          h('td', { class: 'num' }, r.booked ? formatUsdM(r.booked.brokerage_usd_m) : '—'),
+          h('td', { class: 'num' }, pctText(r.ratio)),
           h('td', {}, VERDICT_KO[r.verdict] ?? '—'),
-          h('td', {}, r.review ? signedText(r.review.rel_client_delta) : '—'),
-          h('td', {}, r.review && r.review.scout_gain !== null ? `${r.review.scout_gain}단계` : '—'),
-          h('td', {}, r.review && r.review.codex_gain !== null ? `${r.review.codex_gain}개` : '—'),
-          h('td', {}, r.review ? signedText(r.review.board_after - r.review.board_before) : '—')))),
+          h('td', { class: 'num' }, r.review ? signedText(r.review.rel_client_delta) : '—'),
+          h('td', { class: 'num' }, r.review && r.review.scout_gain !== null ? `${r.review.scout_gain}단계` : '—'),
+          h('td', { class: 'num' }, r.review && r.review.codex_gain !== null ? `${r.review.codex_gain}개` : '—'),
+          h('td', { class: 'num' }, r.review ? signedText(r.review.board_after - r.review.board_before) : '—')))),
         h('tfoot', {}, h('tr', {},
           h('th', { scope: 'row' }, '합계'),
           h('td', {}), h('td', {}),
-          h('td', {}, formatUsdM(rows.reduce((s, r) => s + (r.booked?.brokerage_usd_m ?? 0), 0))),
+          h('td', { class: 'num' }, formatUsdM(rows.reduce((s, r) => s + (r.booked?.brokerage_usd_m ?? 0), 0))),
           h('td', {}), h('td', {}), h('td', {}), h('td', {}),
-          h('td', {}, `${sum((v) => v.codex_gain)}개`),
-          h('td', {}, signedText(sum((v) => v.board_after - v.board_before))))))));
+          h('td', { class: 'num' }, `${sum((v) => v.codex_gain)}개`),
+          h('td', { class: 'num' }, signedText(sum((v) => v.board_after - v.board_before))))))));
 }
 
 const QUARTER_KO = { q1: '1분기', q2: '2분기', q3: '3분기', q4: '4분기' };
@@ -178,7 +180,7 @@ function renderTrend(data, state) {
   if (rows.length === 0) return null;
   const texts = data.report.season;
   const heads = ['분기', '내 순위', '내 리그 수익(누계)', '가장 강한 라이벌', '라이벌 누계', '라이벌과의 차이', '평판 효과(그 분기)'];
-  return h('section', { class: 'card' },
+  return h('section', { class: 'card card-plain' },
     h('h2', {}, texts.trend_title_ko),
     h('div', { class: 'table-wrap' },
       h('table', { class: 'table' },
@@ -186,18 +188,18 @@ function renderTrend(data, state) {
         h('thead', {}, h('tr', {}, heads.map((t) => h('th', { scope: 'col' }, t)))),
         h('tbody', {}, rows.map((r) => h('tr', {},
           h('th', { scope: 'row' }, QUARTER_KO[r.id] ?? r.id),
-          h('td', {}, `${r.rank}위`),
-          h('td', {}, formatUsdM(r.mine)),
+          h('td', { class: 'num' }, `${r.rank}위`),
+          h('td', { class: 'num' }, formatUsdM(r.mine)),
           h('td', {}, r.rival_name_ko),
-          h('td', {}, formatUsdM(r.rival_ytd)),
-          h('td', {}, r.gap >= 0 ? `+${formatUsdM(r.gap)} 앞서요` : `${formatUsdM(-r.gap)} 뒤져요`),
-          h('td', {}, r.flow_q > 0 ? `+${formatUsdM(r.flow_q)}` : '—')))))),
+          h('td', { class: 'num' }, formatUsdM(r.rival_ytd)),
+          h('td', { class: 'num' }, r.gap >= 0 ? `+${formatUsdM(r.gap)} 앞서요` : `${formatUsdM(-r.gap)} 뒤져요`),
+          h('td', { class: 'num' }, r.flow_q > 0 ? `+${formatUsdM(r.flow_q)}` : '—')))))),
     h('p', { class: 'dim' }, richText(texts.flow_note_ko)));
 }
 
 // 딜 복기가 아닌 한 줄 요약: 트리티마다 결과만 보여 준다.
 function renderContracts(data, state) {
-  return h('section', { class: 'card' },
+  return h('section', { class: 'card card-plain' },
     h('h2', {}, '올해 계약 한눈에'),
     h('div', { class: 'table-wrap' },
       h('table', { class: 'table' },
@@ -210,8 +212,8 @@ function renderContracts(data, state) {
           return h('tr', {},
             h('th', { scope: 'row' }, client.name_ko),
             h('td', {}, STATUS_KO[ts.phase], ts.gap_applied ? h('span', { class: 'tag tag-warn' }, glossaryLink('gl_cover_gap', { label: '공백' }), '이 있었어요') : null),
-            h('td', {}, ts.final_rc === null ? '—' : `${ts.final_rc > 0 ? '+' : ''}${ts.final_rc.toFixed(1)}%`),
-            h('td', {}, booked ? formatUsdM(booked.brokerage_usd_m) : ts.phase === 'placed' ? '인셉션에 확정돼요' : '—'));
+            h('td', { class: 'num' }, ts.final_rc === null ? '—' : `${ts.final_rc > 0 ? '+' : ''}${ts.final_rc.toFixed(1)}%`),
+            h('td', { class: 'num' }, booked ? formatUsdM(booked.brokerage_usd_m) : ts.phase === 'placed' ? '인셉션에 확정돼요' : '—'));
         })))));
 }
 
@@ -239,11 +241,14 @@ function newGameButton() {
   }, '새 게임 시작하기');
 }
 
+// 등급은 도장으로 찍힌다(§6.0.3). 점수는 화면을 열 때 0에서 올라간다(motion.js, 끝난 글자는 실제 값).
 function gradeBadge(report, fired) {
+  const scoreNum = h('span', { class: 'grade-score-num' });
+  countUp(scoreNum, 'review-score', report.score, (n) => String(Math.round(n)), { from: hasShown('review-score') ? undefined : 0 });
   return h('div', { class: 'grade-box' },
-    h('span', { class: `grade-letter grade-${report.grade.toLowerCase()}`, role: 'img', 'aria-label': `${report.grade} 등급` }, report.grade),
+    gradeStampEl(report.grade, { size: 104 }),
     h('div', {},
-      h('div', { class: 'grade-score' }, `${report.score}점 / 100점`),
+      h('div', { class: 'grade-score' }, scoreNum, '점 / 100점'),
       fired ? h('div', { class: 'dim' }, '해고 시점까지의 성적으로 매긴 등급이에요') : null));
 }
 
@@ -252,6 +257,15 @@ function confidenceLine(report, data) {
   const delta = data.config.board.grade_delta[report.grade];
   const sign = delta > 0 ? `+${delta}` : String(delta);
   return h('p', { class: 'dim' }, [glossaryLink('gl_board_trust'), `: ${Math.round(report.confidence_before)}점 → ${Math.round(report.confidence_after)}점 (${report.grade} 등급 평가 ${sign})`]);
+}
+
+// 보고서 문서의 머리: 이사회 인장 + 명조 제목 + 받는 회사. 편지 머리글(.letterhead)과 같은 모양이다.
+function reportLetterhead(title, state) {
+  return h('header', { class: 'letterhead letterhead-board report-letterhead' },
+    sealFor('sender_board', { size: 56 }),
+    h('div', { class: 'lh-text' },
+      h('p', { class: 'lh-name' }, title),
+      h('p', { class: 'lh-sub' }, `${state.player.firm} 앞 · 이사회 (가상)`)));
 }
 
 // 성적표·중간 점검 머리에 붙는 난이도 표시(design.md §9.5)
@@ -267,7 +281,8 @@ export function renderReview() {
     const report = computeReport(data, state);
     return h('div', { class: 'screen screen-wide' },
       h('h1', {}, '시즌 리뷰'),
-      h('section', { class: 'card' },
+      h('section', { class: 'report-doc report-preview' },
+        reportLetterhead('중간 점검 메모', state),
         h('p', { class: 'badge-line' }, h('span', { class: 'tag tag-warn' }, '아직 성적표가 아니에요'), levelTag(data, state)),
         h('h2', {}, '중간 점검 — 지금 이대로 끝난다면'),
         h('p', {}, richText(data.report.preview_note_ko)),
@@ -284,13 +299,15 @@ export function renderReview() {
   const text = fired ? data.report.fired : data.report.grades[report.grade];
   return h('div', { class: 'screen screen-wide' },
     h('h1', {}, '시즌 리뷰'),
-    h('section', { class: `card report-head${fired ? ' report-fired' : ''}` },
+    h('section', { class: `report-doc${fired ? ' report-fired' : ''}` },
+      reportLetterhead('이사회 연간 보고서', state),
       h('p', { class: 'badge-line' }, h('span', { class: `tag ${fired ? 'tag-bad' : 'tag-ok'}` }, fired ? '게임 오버 — 해고' : glossaryLink('gl_report_card')), levelTag(data, state)),
       h('h2', {}, text.title_ko),
-      gradeBadge(report, fired),
+      h('div', { class: 'report-stamps' }, gradeBadge(report, fired), fired ? stampEl('fired', { size: 92 }) : null),
       text.summary_ko.map((line) => h('p', { class: 'chair-note' }, richText(line))),
       confidenceLine(report, data),
-      fired ? h('p', { class: 'dim' }, ending.turn >= data.calendar.turns ? '연말 평가까지 마친 뒤의 결과예요.' : `턴 ${ending.turn}에 이사회가 결정했어요. 위 등급은 그때까지의 성적으로 계산했어요.`) : null),
+      fired ? h('p', { class: 'dim' }, ending.turn >= data.calendar.turns ? '연말 평가까지 마친 뒤의 결과예요.' : `턴 ${ending.turn}에 이사회가 결정했어요. 위 등급은 그때까지의 성적으로 계산했어요.`) : null,
+      h('p', { class: 'letter-sign' }, '— 이사회 의장')),
     renderSeasonCompare(data, state),
     renderTrend(data, state),
     renderSeasonCards(data, state),
