@@ -11,6 +11,7 @@ import { responseHint, verdictHint } from '../guide.js';
 import { patienceStart, rejectPenalty, guideDetail } from '../difficulty.js';
 import { h, toast, confirmDialog } from './components.js';
 import { glossaryLink, resetTermScope } from './glossary_view.js';
+import { sealFor, stampEl, reTone } from './seals.js';
 
 const TERMS_KO = { strict: '엄격', standard: '표준', broad: '넓음' };
 const LINE_KO = { property_energy: '재산·에너지', marine_cargo: '해상화물', takaful_general: '일반 타카풀' };
@@ -29,6 +30,7 @@ const STATUS_KO = { draft: '미제안', accept: '수락', counter: '반제', rej
 const ROW_STATUS = { draft: 'draft', accepted: 'accept', countered: 'counter', rejected: 'reject' };
 const VERDICT_KO = { delighted: '매우 만족', accept: '수락', renegotiate: '재협상 요구', reject: '거부' };
 const STEP = 5;
+const VERDICT_STAMP = { delighted: 'delighted', accept: 'accept', renegotiate: 'renegotiate', reject: 'refuse' };
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const pct = (x, d = 1) => `${x < 0 ? '−' : x > 0 ? '+' : ''}${Math.abs(x).toFixed(d)}%`;
@@ -62,7 +64,7 @@ function boardContext(data, state) {
   const timing = placement.treatyTiming(data, state, treaty);
   return {
     treaty, client, expiringIds, reinsurers: ordered, season: timing.season, t: state.treaties[treaty.id],
-    colorOf: new Map(ordered.map((r, i) => [r.id, i % 5])),
+    colorOf: new Map(ordered.map((r) => [r.id, reTone(r.id)])), // 재보험사마다 고정된 색(패널 순서와 무관)
     toInception: timing.toInception,
     placed: state.treaties[treaty.id].phase !== 'open', // 확정(placed)이거나 고객 이탈(lost)이면 보드를 잠근다
     lost: state.treaties[treaty.id].phase === 'lost',
@@ -208,6 +210,11 @@ function patienceDots(left, start) {
   return `${'●'.repeat(Math.min(left, start))}${'○'.repeat(Math.max(0, start - left))}`;
 }
 
+// 막대 조각 안쪽: 인장(좁으면 생략) + 이름 + 지분. 폭이 좁은 화면에서는 이름을 CSS로 숨기고 숫자만 남긴다(표에 같은 내용이 있다).
+function segLabel(r, s) {
+  return [s >= 9 ? sealFor(r.id, { size: 20 }) : null, h('span', { class: 'pl-seg-name' }, `${r.name_ko} `), h('span', { class: 'pl-seg-num' }, String(s))];
+}
+
 function barTrack(ctx, state, data, check) {
   const nameOf = (id) => data.reinsurers.find((r) => r.id === id).name_ko;
   const ghosts = [];
@@ -217,7 +224,7 @@ function barTrack(ctx, state, data, check) {
     ghosts.push(h('div', {
       class: `pl-seg pl-ghost re-${ctx.colorOf.get(m.re)}`, style: { left: `${at}%`, width: `${w}%` },
       title: `만기 ${nameOf(m.re)} ${share(m.share)}`,
-    }, `만기 ${nameOf(m.re)} ${Math.round(w)}`));
+    }, h('span', { class: 'pl-seg-name' }, `만기 ${nameOf(m.re)} `), h('span', { class: 'pl-seg-num' }, String(Math.round(w)))));
     at += w;
   }
   const edits = [];
@@ -230,7 +237,7 @@ function barTrack(ctx, state, data, check) {
     edits.push(h('div', {
       class: `pl-seg pl-edit pl-st-${status} re-${ctx.colorOf.get(r.id)}`, style: { left: `${Math.min(at, 100)}%`, width: `${Math.max(0, Math.min(s, 100 - at))}%` },
       title: `${r.name_ko} ${s}% — ${STATUS_KO[status]}${counterDeadline(row, state.turn) ? ` (${counterDeadline(row, state.turn)})` : ''}`,
-    }, `${r.name_ko} ${s}`));
+    }, segLabel(r, s)));
     at += s;
   }
   const restPct = Math.round((1 - check.total) * 100);
@@ -238,6 +245,7 @@ function barTrack(ctx, state, data, check) {
     edits.push(h('div', { class: 'pl-seg pl-rest', style: { left: `${Math.min(at, 100)}%`, width: `${restPct}%` } }, `남은 ${restPct}%`));
   }
   return h('div', { class: 'pl-bar' },
+    h('div', { class: 'pl-gutter', 'aria-hidden': 'true' }, h('span', { class: 'pl-gutter-old' }, '만기'), h('span', { class: 'pl-gutter-now' }, '현재')),
     h('div', { class: 'pl-track', role: 'img', 'aria-label': `지분 합 ${Math.round(check.total * 100)}%, 남은 지분 ${restPct}%. 아래 표에 같은 내용이 있어요.` }, ghosts, edits),
     h('div', { class: 'pl-scale', 'aria-hidden': 'true' }, Array.from({ length: 11 }, (_, i) => h('span', { style: { left: `${i * 10}%` } }, String(i * 10)))),
   );
@@ -262,6 +270,9 @@ export function hintErrWords(errPp, cfg) {
   return '거의 맞아요';
 }
 
+// 제안 응답을 도장으로 찍는다(수락·반제·거절). 의견 묻기에는 찍지 않는다.
+const RESPONSE_STAMP = { accept: 'accept', counter: 'counter', reject: 'decline', decline: 'decline' };
+
 function resultLines(data, row, hint) {
   const l = row?.last;
   if (!l) return null;
@@ -278,7 +289,9 @@ function resultLines(data, row, hint) {
   if (l.mode === 'propose' && l.limited) lines.push(h('p', { class: 'pl-line' }, `라인이 제한돼요. 요청한 ${share(l.share_req)}보다 적게 맡을 수 있어요.`));
   if (l.mode === 'propose' && l.hint && l.kind !== 'accept') lines.push(h('p', { class: 'pl-line dim' }, `가격 감: ${HINT_KO[l.hint]}`));
   if (hint) lines.push(nextLine(hint));
-  return lines;
+  const stampKind = l.mode === 'ask' ? null : l.mode === 'counter_accept' ? 'accept' : RESPONSE_STAMP[l.kind];
+  const stamp = stampKind ? stampEl(stampKind, { size: stampKind === 'counter' ? 84 : 66 }) : null;
+  return stamp ? h('div', { class: 'pl-result' }, h('div', { class: 'pl-result-lines' }, lines), h('div', { class: 'pl-result-stamp' }, stamp)) : lines;
 }
 
 // 결과 밑 "다음엔 이렇게" 한 줄(design.md §6.3). 이유·목소리와 달리 화면의 어디를 바꿔 볼지를 말한다.
@@ -356,8 +369,8 @@ function reinsurerRow(data, state, ctx, check, reinsurer, rerender) {
 
   return h('div', { class: `pl-row re-${ctx.colorOf.get(id)}` },
     h('div', { class: 'pl-row-head' },
-      h('span', { class: 'pl-swatch', 'aria-hidden': 'true' }),
-      h('strong', {}, reinsurer.name_ko),
+      sealFor(reinsurer.id, { size: 34 }),
+      h('strong', { class: 'pl-name' }, reinsurer.name_ko),
       h('span', { class: reinsurer.live?.downgraded ? 'tag tag-bad' : 'tag', title: reinsurer.live?.downgraded ? `사건으로 등급이 ${reinsurer.live.baseRating}에서 내려갔어요` : null },
         reinsurer.live?.downgraded ? `${reinsurer.rating} (강등, 원래 ${reinsurer.live.baseRating})` : reinsurer.rating),
       reinsurer.live?.capacityShrunk ? h('span', { class: 'tag tag-warn', title: '사건으로 일정 기간 인수 용량이 줄었어요' }, '용량 일시 축소') : null,
@@ -458,6 +471,12 @@ function verdictText(data, ctx) {
   return null;
 }
 
+// 고객 반응 문장 옆에 도장을 찍는다(매우 만족·수락·재협상·거부).
+function verdictBlock(textNode, verdict) {
+  const stamp = stampEl(VERDICT_STAMP[verdict], { size: verdict === 'renegotiate' ? 108 : 92 });
+  return stamp ? h('div', { class: 'pl-verdict' }, textNode, h('div', { class: 'pl-result-stamp' }, stamp)) : textNode;
+}
+
 // 협상 로그: 모든 행의 기록을 행동 순서대로, 최근 것이 위로.
 function logEntries(data, ctx) {
   const nameOf = (id) => data.reinsurers.find((r) => r.id === id).name_ko;
@@ -511,7 +530,7 @@ export function renderPlacement() {
 
     const rerender = () => { draw(); };
 
-    const header = h('section', { class: 'card', 'aria-label': '트리티 정보' },
+    const header = h('section', { class: 'card card-plain pl-info', 'aria-label': '트리티 정보' },
       h('div', { class: 'pl-head' },
         h('div', { class: 'field' },
           h('label', { for: 'pl-treaty' }, '트리티'),
@@ -539,7 +558,7 @@ export function renderPlacement() {
       h('p', { class: 'dim' }, '고객 요구: ', requirementLine(ctx)),
       h('p', { class: 'dim pl-small' }, glossaryLink('gl_treaty', { label: '트리티' }), '는 ', glossaryLink(STRUCTURE_TERM[trt.structure][0], { label: STRUCTURE_TERM[trt.structure][1] }), ' 방식이에요.'));
 
-    const boardCard = h('section', { class: 'card', 'aria-label': '지분 막대' },
+    const boardCard = h('section', { class: 'card card-ledger pl-ledger', 'aria-label': '지분 막대' },
       h('div', { class: 'pl-bar-head' },
         h('h2', {}, '위험 100%를 나눠 채우기'),
         h('div', { class: 'row pl-quick' },
@@ -564,13 +583,13 @@ export function renderPlacement() {
           }, '비우기'))),
       barTrack(ctx, state, data, check),
       h('p', { class: 'pl-legend dim' },
-        '위쪽 흐린 띠는 만기 때 ', glossaryLink('gl_panel', { label: '패널' }), '(고스트)이고, 아래쪽이 지금 구성이에요. 점선=아직 제안 전, 실선=수락(', glossaryLink('gl_signed_line', { label: '확정 지분' }), '), 주황 테두리=',
+        '위쪽 흐린 띠는 만기 때 ', glossaryLink('gl_panel', { label: '패널' }), '(고스트)이고, 아래쪽이 지금 구성이에요. 점선=아직 제안 전, 색이 꽉 찬 칸=수락(', glossaryLink('gl_signed_line', { label: '확정 지분' }), '), 주황 이중 테두리=',
         glossaryLink('gl_counter_offer', { label: '반제' }), ', 빗금=거절이에요.'),
       h('p', { class: 'pl-sum' },
         h('strong', { class: check.over ? 'pl-over' : '' }, `입력 합계 ${total}% / 100%`),
         check.filled ? ' — 가득 찼어요' : check.over ? '' : ` — 남은 ${Math.round(check.remaining * 100)}%`,
         h('span', { class: 'dim' }, ` · 확정(수락) ${signedTotal}%`)),
-      globalChips.length > 0 ? h('div', { class: 'pl-chips' }, globalChips) : null,
+      globalChips.length > 0 ? h('div', { class: 'pl-chips pl-warnings', role: 'group', 'aria-label': '경고' }, globalChips) : null,
       locked ? null : h('div', { class: 'notice' },
         h('strong', {}, '제안은 진짜예요. '),
         `의견 묻기는 ${cfg.ask_ap}점, 제안은 ${cfg.propose_ap}점의 `, glossaryLink('gl_ap', { label: '행동 점수' }),
@@ -607,11 +626,11 @@ export function renderPlacement() {
       submitChildren.push(h('p', { class: 'pl-resp pl-resp-reject', role: 'status' }, '고객이 다른 브로커로 옮겨 가서 제출할 수 없어요.'));
     } else if (locked) {
       submitChildren.push(
-        h('p', { class: 'pl-resp pl-resp-accept', role: 'status' }, verdict),
+        verdictBlock(h('p', { class: 'pl-resp pl-resp-accept', role: 'status' }, verdict), ctx.t.verdict),
         nextText ? nextLine(nextText) : null,
         h('p', {}, `최종 평균 RC ${pct(ctx.t.final_rc, 2)} · 확정 패널 ${ctx.t.panel.filter((r) => r.status === 'accepted').map((r) => `${data.reinsurers.find((x) => x.id === r.re).name_ko} ${share(r.share_signed)}`).join(' · ')}`));
     } else {
-      if (verdict) submitChildren.push(h('p', { class: `pl-resp pl-resp-${ctx.t.verdict === 'renegotiate' ? 'counter' : 'reject'}`, role: 'status' }, verdict));
+      if (verdict) submitChildren.push(verdictBlock(h('p', { class: `pl-resp pl-resp-${ctx.t.verdict === 'renegotiate' ? 'counter' : 'reject'}`, role: 'status' }, verdict), ctx.t.verdict));
       if (nextText) submitChildren.push(nextLine(nextText));
       submitChildren.push(
         blockText.length > 0
@@ -619,15 +638,15 @@ export function renderPlacement() {
           : h('p', { role: 'status' }, '확정된 지분이 100%이고 하드 위반도 없어요.'),
         submitWhy && submitWhy !== 'blockers' ? h('p', { class: 'dim', role: 'status' }, submitWhy) : null,
         h('button', {
-          type: 'button', class: 'btn btn-primary', disabled: submitWhy ? true : null, 'data-key': 'submit',
+          type: 'button', class: 'btn btn-submit', disabled: submitWhy ? true : null, 'data-key': 'submit',
           onclick: () => { onSubmit(data, ctx); },
         }, '고객에 패키지 제출'),
         h('p', { class: 'dim pl-small' }, '수락(확정)된 지분만 패키지에 들어가요. 아직 수락받지 못한 행의 지분은 제출 때 빠지니, 막대를 수락으로 100% 채워야 제출할 수 있어요. 용량 부족은 칩으로만 알려 주고 제출을 막지는 않아요.'));
     }
-    const submit = h('section', { class: 'card', 'aria-label': '제출' }, submitChildren);
+    const submit = h('section', { class: 'card card-ledger pl-submit', 'aria-label': '제출' }, submitChildren);
 
     const entries = logEntries(data, ctx);
-    const log = h('section', { class: 'card', 'aria-label': '협상 로그' },
+    const log = h('section', { class: 'card card-plain', 'aria-label': '협상 로그' },
       h('h2', {}, '협상 로그'),
       entries.length === 0 ? h('p', { class: 'dim' }, '아직 의견을 묻거나 제안한 기록이 없어요.')
         : h('ul', { class: 'plain-list pl-log' }, entries.slice(0, 30).map((t) => h('li', {}, t))));
@@ -636,7 +655,7 @@ export function renderPlacement() {
     root.replaceChildren(...[
       h('h1', {}, '플레이스먼트 — ', glossaryLink('gl_line', { label: '라인' }), ' 구성 보드'),
       urgent, lostBanner, downgradeBanner, header, boardCard, rows,
-      h('section', { class: 'card', 'aria-label': '표로 보기' }, h('h2', {}, '표로 보기'), accessibleTable(ctx, state, check)),
+      h('section', { class: 'card card-plain', 'aria-label': '표로 보기' }, h('h2', {}, '표로 보기'), accessibleTable(ctx, state, check)),
       h('div', { class: 'pl-bottom' }, submit, log),
     ].filter((node) => node !== null));
 
