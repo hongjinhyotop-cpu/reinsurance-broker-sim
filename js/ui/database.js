@@ -5,7 +5,8 @@ import { ATTRS, revealAttr, stageOf, awareness } from '../reveal.js';
 import { unlockedNotes } from '../scouting.js';
 import { liveClients, liveReinsurers } from '../live.js';
 import { meet, meetBlockReason } from '../turn.js';
-import { h, toast, rangeBar, gauge } from './components.js';
+import { h, toast, gauge } from './components.js';
+import { fogMeter, FOG_WORDS } from './fog_meter.js';
 import { richText, glossaryLink } from './glossary_view.js';
 import { sealFor } from './seals.js';
 
@@ -119,18 +120,17 @@ function renderProfile(def, dyn, kind) {
 
 function attrRow(def, dyn, attr, seed, cfg) {
   const r = revealAttr({ value: def.hidden[attr], s: dyn.scout[attr], entityId: def.id, attr, seed }, cfg);
-  let reading;
-  if (r.stage === 'unknown') {
-    reading = h('div', { class: 'attr-reading' },
+  // 막대는 단계·범위·라벨만 받는다(원값·스카우트 값은 넘기지 않는다). 점수 숫자는 글로 쓰지 않는다 — design.md §6.0.3 D4.
+  const meter = fogMeter(ATTR_LABEL[attr], r, cfg);
+  const reading = r.stage === 'unknown'
+    ? h('div', { class: 'attr-reading' },
+      meter,
       h('span', { class: 'attr-unknown', 'aria-label': '아직 알 수 없음' }, '???'),
-      h('span', { class: 'dim' }, '미팅으로 알아내기'));
-  } else {
-    const range = r.stage === 'exact' ? `${r.exact}` : `${r.lo} ~ ${r.hi}`;
-    reading = h('div', { class: 'attr-reading' },
-      rangeBar(r.lo, r.hi),
+      h('span', { class: 'dim' }, '미팅으로 알아내기'))
+    : h('div', { class: 'attr-reading' },
+      meter,
       h('span', { class: `attr-label attr-${r.label}` }, LABEL_KO[r.label]),
-      h('span', { class: 'dim' }, `${r.stage === 'exact' ? '정확한 값' : '추정 범위'} ${range}`));
-  }
+      h('span', { class: 'dim' }, r.stage === 'exact' ? '확정' : r.stage === 'blurred' ? '넓은 범위' : '좁은 범위'));
   return h('div', { class: 'attr-row' },
     h('div', { class: 'attr-head' },
       h('h3', {}, ATTR_LABEL[attr]),
@@ -138,8 +138,8 @@ function attrRow(def, dyn, attr, seed, cfg) {
     h('p', { class: 'dim attr-help' }, ATTR_HELP[attr]),
     reading,
     h('div', { class: 'attr-scout' },
-      h('span', { class: 'dim' }, `스카우트 값 ${Math.round(dyn.scout[attr])}`),
-      gauge(dyn.scout[attr], [cfg.stage_thresholds.blurred, cfg.stage_thresholds.sharp, cfg.stage_thresholds.exact])));
+      h('span', { class: 'dim' }, FOG_WORDS[r.stage].short),
+      gauge(dyn.scout[attr], [cfg.stage_thresholds.blurred, cfg.stage_thresholds.sharp, cfg.stage_thresholds.exact], { decor: true })));
 }
 
 function onMeet(kind, def) {
