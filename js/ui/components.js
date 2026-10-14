@@ -77,16 +77,10 @@ export function formatDateTime(iso) {
 
 // ---------- 막대 ----------
 
-// 0~100 눈금 위에 [lo, hi] 구간을 칠한다. lo === hi면 한 점(확정)이다. 위치는 CSP 때문에 CSSOM으로만 준다.
-export function rangeBar(lo, hi) {
-  const exact = lo === hi;
-  return h('span', { class: `rbar${exact ? ' rbar-exact' : ''}`, role: 'img', 'aria-label': exact ? `${lo}` : `${lo}에서 ${hi} 사이` },
-    h('span', { class: 'rbar-fill', style: { left: `${lo}%`, width: exact ? '1.5%' : `${hi - lo}%` } }));
-}
-
 // 0~100 게이지. marks는 단계가 바뀌는 지점(눈금).
-export function gauge(value, marks = []) {
-  return h('span', { class: 'gauge', role: 'img', 'aria-label': `${Math.round(value)} / 100` },
+// decor: 옆에 같은 말이 글로 있을 때 숫자 이름 없이 장식으로만 둔다.
+export function gauge(value, marks = [], { decor = false } = {}) {
+  return h('span', decor ? { class: 'gauge', 'aria-hidden': 'true' } : { class: 'gauge', role: 'img', 'aria-label': `${Math.round(value)} / 100` },
     h('span', { class: 'gauge-fill', style: { width: `${Math.min(100, Math.max(0, value))}%` } }),
     marks.map((m) => h('span', { class: 'gauge-mark', style: { left: `${m}%` } })));
 }

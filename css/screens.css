@@ -176,41 +176,99 @@
   .mail-from-cell { width: 38%; }
 }
 
-/* ---- 캘린더: 찢는 달력의 한 장씩 (design.md §6.0.3) ---- */
+/* ---- 캘린더: 노선도 — 58주가 한 노선 (design.md §6.0.3 D4) ---- */
 .cal-legend { list-style: none; margin: var(--sp-2) 0 var(--sp-4); padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); font-size: var(--fs-sm); color: var(--ink-2); }
 .cal-legend li { display: inline-flex; align-items: center; gap: 6px; }
-.swatch { display: inline-block; width: 16px; height: 18px; background: var(--paper-hi); border: 1px solid var(--rule); border-top: 3px solid var(--ink-3); }
+.swatch { display: inline-block; flex: none; width: 16px; height: 16px; box-sizing: border-box; background: var(--paper-hi); border: 3px solid var(--rail); border-radius: var(--r-round); }
 .swatch-now { background: var(--ink); border-color: var(--ink); }
-.swatch-window { background: var(--ok-soft); border-top-color: var(--ok); }
-.swatch-inception { border: 3px double var(--warn); }
-.swatch-deadline { box-shadow: inset 0 -4px 0 var(--stamp); }
-.swatch-past { background: var(--paper-2); }
+.swatch-window { height: 9px; border: 0; border-top: 3px solid var(--rail); border-bottom: 3px solid var(--ok); border-radius: var(--r-0); background: transparent; }
+.swatch-inception { box-shadow: 0 0 0 2px var(--paper-hi), 0 0 0 4px var(--rail); }
+.swatch-deadline { border-color: var(--stamp); }
+.swatch-event { border-radius: var(--r-0); transform: rotate(45deg) scale(0.75); }
+.swatch-past { width: 22px; height: 6px; border: 0; border-radius: var(--r-0); background: var(--rail); }
 
-.cal-quarter { margin-bottom: var(--sp-4); }
-.cal-quarter h2 { margin-bottom: var(--sp-2); padding-bottom: var(--sp-1); border-bottom: 2px solid var(--ink); }
-.cal-grid { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: var(--sp-1); }
-.cal-cell {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
-  min-height: 52px; padding: 2px; font: inherit; font-variant-numeric: tabular-nums;
-  background: var(--paper-hi); color: var(--ink);
-  border: 1px solid var(--rule); border-top: 4px solid var(--ink-3); border-radius: var(--r-1);
-  box-shadow: var(--shadow-sheet); cursor: pointer;
+.rail-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); margin: var(--sp-3) 0 var(--sp-1); font-weight: 600; }
+.rail-badge { padding: 2px var(--sp-4); background: var(--rail); color: var(--paper-hi); border-radius: var(--r-2); font-family: var(--font-serif); font-size: var(--fs-lg); letter-spacing: 0.08em; }
+
+.cal-body { display: flex; flex-direction: column; }
+.rail-map { --stop: 26px; --bar: 8px; --marks: 22px; }
+.rail-quarter { margin-bottom: var(--sp-1); }
+.rail-quarter h2 { margin-bottom: var(--sp-1); padding-bottom: var(--sp-1); border-bottom: 2px solid var(--ink); }
+.rail-row { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); }
+.rail-stop { position: relative; min-width: 0; }
+/* 선: 칸마다 왼쪽 절반(::before)과 오른쪽 절반(::after). 지난 길은 실선, 앞으로 갈 길은 점선 */
+.rail-stop::before, .rail-stop::after {
+  content: ""; position: absolute; top: calc(var(--marks) + var(--stop) / 2 - var(--bar) / 2); height: var(--bar);
+  background: repeating-linear-gradient(to right, var(--rail) 0 10px, transparent 10px 15px);
 }
-.cal-cell:hover { background: var(--paper-2); }
-.cal-num { font-family: var(--font-mono); }
-.cal-cell.in-window { background: var(--ok-soft); border-top-color: var(--ok); }
-.cal-cell.is-inception { border: 4px double var(--warn); }
-.cal-cell.has-deadline { box-shadow: inset 0 -4px 0 var(--stamp); }
-.cal-cell.is-past { background: var(--paper-2); color: var(--ink-2); box-shadow: none; }
-.cal-cell.is-now { background: var(--ink); color: var(--paper-hi); border-color: var(--ink); font-weight: 700; }
-.cal-cell.is-selected { box-shadow: inset 0 0 0 2px var(--ink); }
-.cal-cell.is-selected.has-deadline { box-shadow: inset 0 0 0 2px var(--ink), inset 0 -4px 0 var(--stamp); }
-.cal-cell.is-now.has-deadline { box-shadow: inset 0 -4px 0 var(--stamp); }
-.cal-mark { font-size: var(--fs-xs); min-height: 1em; line-height: 1; }
+.rail-stop::before { left: 0; right: 50%; }
+.rail-stop::after { left: 50%; right: 0; }
+.rail-stop.is-past::before, .rail-stop.is-past::after, .rail-stop.is-now::before { background: var(--rail); }
+.rail-stop.is-first::before, .rail-stop.is-last::after { display: none; }
+.rail-lane { position: absolute; left: 0; right: 0; top: calc(var(--marks) + var(--stop) / 2 - var(--bar) / 2 - 6px); height: 3px; }
+.rail-stop.in-window .rail-lane { background: var(--ok); }
+
+.rail-btn {
+  position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%;
+  padding: 0 0 var(--sp-1); font: inherit; color: var(--ink); background: transparent;
+  border: 0; border-radius: var(--r-1); cursor: pointer;
+}
+.rail-btn:hover { background: var(--paper-2); }
+.rail-btn:focus-visible { z-index: 2; }
+.rail-stop.is-selected .rail-btn { box-shadow: inset 0 0 0 2px var(--ink); background: var(--paper-hi); }
+.rail-marks { display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: var(--marks); font-size: var(--fs-sm); line-height: 1.1; font-weight: 700; }
+.mark-star { color: var(--gold-ink); }
+.mark-due { color: var(--stamp); }
+.mark-event { color: var(--ink); }
+.rail-train { display: block; width: 28px; height: 18px; }
+.train-body { fill: var(--ink); }
+.train-window { fill: var(--paper-hi); }
+.train-wheel { fill: var(--ink); }
+.rail-dot {
+  display: grid; place-items: center; width: var(--stop); height: var(--stop); box-sizing: border-box;
+  background: var(--paper-hi); color: var(--ink); border: 3px solid var(--rail); border-radius: var(--r-round);
+  font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums;
+}
+.rail-stop.is-past .rail-dot { background: var(--rail); color: var(--paper-hi); }
+.rail-stop.is-now .rail-dot { background: var(--ink); border-color: var(--ink); color: var(--paper-hi); font-weight: 700; }
+.rail-stop.is-open .rail-dot { border-radius: var(--r-0); }
+.rail-stop.is-inception .rail-dot { box-shadow: 0 0 0 2px var(--paper-hi), 0 0 0 5px var(--rail); }
+.rail-stop.has-deadline .rail-dot { border-color: var(--stamp); }
+.rail-stop.has-event .rail-dot { border-style: double; border-width: 4px; }
+.rail-name { display: flex; flex-direction: column; align-items: center; min-height: 2.6em; padding: 3px 2px 0; font-size: var(--fs-xs); line-height: 1.25; text-align: center; color: var(--ink-2); overflow-wrap: anywhere; }
+.rail-name strong { color: var(--ink); }
+.rail-name em { font-style: normal; font-weight: 700; color: var(--ink); }
+.rail-week { display: none; }
+
+/* 줄 끝에서 선이 꺾여 다음 줄 앞으로 이어진다: ㄷ자 이음선 */
+.rail-link {
+  box-sizing: border-box; height: 22px; margin-top: calc(-1 * var(--sp-1)); margin-bottom: var(--sp-3);
+  border: var(--bar) dashed var(--rail); border-top: 0; border-radius: 0 0 var(--r-2) var(--r-2);
+}
+.rail-link.is-past { border-style: solid; }
+.cal-summary { margin-top: var(--sp-3); }
 .cal-summary h3 { font-size: var(--fs-md); margin: var(--sp-3) 0 var(--sp-1); }
 
-@media (max-width: 900px) {
-  .cal-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+/* 휴대폰: 세로 노선 */
+@media (max-width: 760px) {
+  .rail-map { --stop: 28px; --marks: 0px; }
+  .rail-row { display: block; }
+  .rail-stop::before, .rail-stop::after {
+    left: calc(22px - var(--bar) / 2); right: auto; width: var(--bar); top: auto; height: auto;
+    background: repeating-linear-gradient(to bottom, var(--rail) 0 10px, transparent 10px 15px);
+  }
+  .rail-stop::before { top: 0; bottom: 50%; }
+  .rail-stop::after { top: 50%; bottom: 0; }
+  .rail-stop.is-past::before, .rail-stop.is-past::after, .rail-stop.is-now::before { background: var(--rail); }
+  .rail-lane { top: 0; bottom: 0; left: calc(22px + var(--bar) / 2 + 2px); right: auto; width: 3px; height: auto; }
+  .rail-btn { flex-direction: row; justify-content: flex-start; gap: var(--sp-2); min-height: 44px; padding: 0 var(--sp-2) 0 calc(22px - var(--stop) / 2); text-align: left; }
+  .rail-dot { order: 0; flex: none; }
+  .rail-marks { order: 1; height: auto; align-items: center; }
+  .rail-name { order: 2; min-height: 0; padding: 0; align-items: flex-start; text-align: left; flex-direction: row; flex-wrap: wrap; gap: 0 var(--sp-2); }
+  .rail-train { width: 24px; height: 16px; }
+  .rail-link { width: var(--bar) !important; height: 14px; margin: 0 0 var(--sp-1) calc(22px - var(--bar) / 2); border: 0; border-left: var(--bar) dashed var(--rail); border-radius: 0; }
+  .rail-link.is-past { border-left-style: solid; }
+  .cal-summary { order: -1; margin: 0 0 var(--sp-3); }
 }
 
 /* ---- 고객·재보험사 DB / 스카우트 리포트: 장부 표와 인장 ---- */
@@ -249,13 +307,22 @@
 .stage-sharp { border: 2px solid var(--ink); color: var(--ink); }
 .stage-exact { border: 4px double var(--ink); color: var(--ink); background: var(--paper-2); font-weight: 700; }
 
-.rbar {
-  position: relative; display: inline-block; flex: none; width: 180px; height: 12px;
-  background-color: var(--paper); border: 1px solid var(--ink); border-radius: var(--r-0);
+/* 성격 안개 눈금 막대 (design.md §6.0.3 D4): 안개 무늬(빗금/점/성근 점/없음)로 단계를 구분한다 — 색이 아니다 */
+.fog { display: inline-flex; flex-direction: column; gap: 2px; flex: 1 1 200px; min-width: 0; max-width: 320px; }
+.fog-bar {
+  position: relative; display: block; height: 18px; overflow: hidden;
+  background-color: var(--paper-hi); border: 1px solid var(--ink); border-radius: var(--r-0);
   background-image: repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px 10%);
 }
-.rbar-fill { position: absolute; top: -1px; bottom: -1px; box-sizing: border-box; min-width: 4px; background: var(--gold); border: 1px solid var(--gold-ink); }
-.rbar-exact .rbar-fill { background: var(--ink); border-color: var(--ink); }
+.fog-tick { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink-3); }
+.fog-range { position: absolute; top: 0; bottom: 0; box-sizing: border-box; min-width: 4px; background: var(--gold); border: 1px solid var(--gold-ink); }
+.fog-pin { position: absolute; top: 0; bottom: 0; width: 6px; margin-left: -3px; background: var(--ink); border-left: 1px solid var(--paper-hi); border-right: 1px solid var(--paper-hi); }
+.fog-layer { position: absolute; top: 0; bottom: 0; }
+.fog-dense { background-color: var(--paper-2); background-image: repeating-linear-gradient(45deg, var(--ink-3) 0 1px, transparent 1px 4px); }
+.fog-mid { background-image: radial-gradient(var(--ink-3) 1px, transparent 1.5px); background-size: 5px 5px; }
+.fog-light { background-image: radial-gradient(var(--rule) 1px, transparent 1.5px); background-size: 9px 9px; }
+.fog-bands { display: flex; font-size: var(--fs-xs); color: var(--ink-2); }
+.fog-bands span { text-align: center; }
 .gauge { position: relative; display: inline-block; flex: none; width: 140px; height: 8px; background: var(--paper-2); border: 1px solid var(--ink-3); border-radius: var(--r-0); }
 .gauge-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink-2); }
 .gauge-mark { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--gold-ink); }
@@ -271,7 +338,6 @@
   .db { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 760px) {
-  .rbar { width: 140px; }
   .gauge { width: 100px; }
   .db-table td, .db-table th { white-space: normal; }
 }

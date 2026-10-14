@@ -2325,6 +2325,50 @@
       } finally { root.remove(); }
     });
 
+    // ---------- D4: 성격 안개 막대 · 노선도 캘린더 ----------
+    test('D4 안개 막대: 설명 문장에 숫자가 없고, 단계마다 안개 모양이 다르며, 미확인에는 범위가 없다', async () => {
+      const { fogMeter, describeFog } = await import('../js/ui/fog_meter.js');
+      const cfg = data.config.scouting;
+      const mk = (s) => revealAttr({ value: 72, s, entityId: 'x', attr: 'loyalty', seed: 5 }, cfg);
+      const kinds = {};
+      for (const s of [0, 30, 60, 95]) {
+        const r = mk(s); const el = fogMeter('보수성', r, cfg);
+        const label = el.querySelector('.fog-bar').getAttribute('aria-label');
+        check(!/\d/.test(label), `숫자가 있어요: ${label}`);
+        check(!/\d/.test(el.textContent), `막대 글자에 숫자: ${el.textContent}`);
+        eq(label, describeFog('보수성', r, cfg));
+        kinds[r.stage] = [...el.querySelectorAll('.fog-layer')].map((n) => n.className.replace('fog-layer ', ''));
+        eq(el.querySelectorAll('.fog-range').length, r.stage === 'blurred' || r.stage === 'sharp' ? 1 : 0, r.stage);
+        eq(el.querySelectorAll('.fog-pin').length, r.stage === 'exact' ? 1 : 0, r.stage);
+      }
+      eq(kinds.unknown, ['fog-dense']); eq(kinds.blurred, ['fog-mid', 'fog-mid']); eq(kinds.sharp, ['fog-light', 'fog-light']); eq(kinds.exact, []);
+    });
+    test('D4 화면(DB): 스카우트 리포트에 "스카우트 값"·"추정 범위" 숫자 글이 없고 속성마다 이름 있는 안개 막대가 있다', () => {
+      startScreens();
+      const root = renderDatabase(); document.body.append(root);
+      try {
+        const bars = root.querySelectorAll('.attr-row .fog-bar'); eq(bars.length, 3);
+        for (const b of bars) check(b.getAttribute('role') === 'img' && b.getAttribute('aria-label').length > 10);
+        check(!root.querySelector('.attr-list').textContent.match(/스카우트 값|추정 범위|정확한 값|\d/), root.querySelector('.attr-list').textContent);
+      } finally { root.remove(); }
+    });
+    test('D4 화면(캘린더): 58주가 모두 이름 있는 버튼이고, 열차는 이번 주에만 있으며, 사건은 일어난 뒤에만 역이 된다', () => {
+      startScreens();
+      let root = renderCalendar(); document.body.append(root);
+      try {
+        eq(root.querySelectorAll('.rail-btn').length, 58);
+        eq(root.querySelectorAll('.rail-train').length, 1);
+        eq(root.querySelectorAll('[aria-current="date"]').length, 1);
+        eq(root.querySelectorAll('.has-event').length, 0, '아직 사건이 없어요');
+        for (const b of root.querySelectorAll('.rail-btn')) check(b.getAttribute('aria-label'));
+        check(root.querySelector('.is-inception .rail-name').textContent.includes('인셉션'));
+        check(!/(Marina|Bayfront|Dhoby|Raffles|Orchard)/.test(root.textContent.replace('Marina Bay Re Brokers', '')), '실제 역 이름 금지');
+      } finally { root.remove(); }
+      turn.forceEvent('evt_mas_inspection');
+      root = renderCalendar(); document.body.append(root);
+      try { check(root.querySelectorAll('.has-event').length >= 1, '일어난 사건은 역이 돼요'); } finally { root.remove(); }
+    });
+
     // ---------- M6b: 규칙을 바꾸는 사건 · 덮어쓰기 · 보정 · 연쇄 · 공백 ----------
     const LIVE = await import('../js/live.js');
     const TQ = 're_thames_quay'; const CS = 'cli_straits_port'; const CN = 'cli_nusantara'; const SP = 'trt_straits_marine_xl'; const NT = 'trt_nusantara_takaful_qs';
