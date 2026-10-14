@@ -687,7 +687,7 @@ UI 톤: 표 중심의 고밀도 레이아웃, **종이와 잉크**(밝은 크림
 
 **이야깃거리 (D6)** — 게임 규칙·계산·점수·세이브 구조는 건드리지 않는다. 이미 세이브에 남아 있는 기록과 공개 정보만 읽어 말을 붙인다. 숨은 속성(`hidden.*`)·스카우트 값·계산 내부 값(가격 하한 F_r, 고객 평가 U 등)은 읽지 않는다. 새 파일은 `js/playstyle.js`(칭호 판정, 순수 함수)·`js/news.js`(헤드라인 고르기, 순수 함수)·`js/ui/ticker.js`(뉴스 띠 표시)·`data/news.json`(헤드라인)이다. 새 토큰은 없다.
 
-*① 플레이 스타일 칭호* (§6.6 성적표, 규칙은 §9.7) — 연말 성적표와 해고 화면의 보고서 문서 안, 등급 도장과 의장의 글 사이에 **칭호 띠** 한 줄을 둔다: 명조 굵은 칭호("관계의 장인") + 한 줄 설명 + 작은 글씨의 근거("미팅을 많이 하고 고객 관계를 높게 지켰어요"). 모양은 금색 왼쪽 선의 메모(`.card-memo`와 같은 무게)이고 "플레이 스타일"이라는 작은 라벨을 붙여 **등급과 별개**임을 글자로 말한다. 연말 전 "중간 점검" 미리보기에는 칭호가 없다(한 해의 색깔이라서).
+*① 플레이 스타일 칭호* (§6.6 성적표, 규칙은 §9.7) — 연말 성적표와 해고 화면의 보고서 문서 안, 등급 도장과 의장의 글 사이에 **칭호 띠** 한 줄을 둔다: 굵은 고딕 칭호("관계의 장인". 명조 부분 글꼴에 없는 글자가 있어 고딕으로 쓴다 — 고딕은 KS X 1001 한글 2,350자를 모두 담고 있다) + 한 줄 설명 + 작은 글씨의 근거("미팅을 많이 하고 고객 관계를 높게 지켰어요"). 모양은 금색 왼쪽 선의 메모(`.card-memo`와 같은 무게)이고 "플레이 스타일"이라는 작은 라벨을 붙여 **등급과 별개**임을 글자로 말한다. 연말 전 "중간 점검" 미리보기에는 칭호가 없다(한 해의 색깔이라서).
 
 *② 결과 카드와 시드 공유* — 연말 성적표·해고 화면의 보고서 문서 맨 아래(서명 줄 위)에 **결과 카드** 한 칸.
 - 글자: `마리나 베이 데스크 | 시드 1234 | 보통 | A | 관계의 장인`. 시드는 세이브의 `seed`(숫자), 난이도는 `label_ko`, 등급은 글자 한 자(해고면 `해고(C)`처럼 "해고"와 해고 시점 등급), 마지막은 칭호.
@@ -1268,15 +1268,16 @@ M7a가 만든 것(재무·점수·성적표)과 M7b가 더한 것(시즌 평가�
 
 | 순서 | id | 칭호 | 조건 | 한 줄 설명(요지) |
 |---|---|---|---|---|
-| 1 | `crisis` | 위기 관리형 | `event_actions ≥ 3` | 사건이 터질 때마다 행동 점수를 써서 직접 나섰다 |
-| 2 | `relationship` | 관계의 장인 | `meetings ≥ 12` 그리고 `client_rel_avg ≥ 65` | 자주 만나 고객 관계를 높게 지켰다 |
-| 3 | `numbers` | 숫자 승부사 | `placed ≥ 2` 그리고 `avg_rc ≥ +2.0` | 가격을 끝까지 밀어 수수료를 키웠다 |
-| 4 | `client_side` | 고객 편 협상가 | `placed ≥ 2` 그리고 `avg_rc ≤ −2.0` | 가격을 낮춰 고객 편에 섰다 |
-| 5 | `tenacious` | 끈질긴 협상가 | `pushbacks ≥ 6` | 거절과 재협상에도 물러서지 않고 다시 냈다 |
-| 6 | `cliffhanger` | 벼랑 끝 승부사 | `late_placed ≥ 1` | 공백이 생긴 뒤에도 끝내 계약을 지켜 냈다 |
+| 1 | `crisis` | 위기 관리형 | `event_actions ≥ 5` | 사건이 터질 때마다 행동 점수를 써서 직접 나섰다 |
+| 2 | `relationship` | 관계의 장인 | `meetings ≥ 28` 그리고 `client_rel_avg ≥ 50` | 자주 만나 고객 관계를 높게 지켰다 |
+| 3 | `numbers` | 숫자 승부사 | `placed ≥ 2` 그리고 `avg_rc ≥ +1.0` | 가격을 끝까지 밀어 수수료를 키웠다 |
+| 4 | `client_side` | 고객 편 협상가 | `placed ≥ 2` 그리고 `avg_rc ≤ −1.0` | 가격을 낮춰 고객 편에 섰다 |
+| 5 | `cliffhanger` | 벼랑 끝 승부사 | `late_placed ≥ 1` | 공백이 생긴 뒤에도 끝내 계약을 지켜 냈다 |
+| 6 | `tenacious` | 끈질긴 협상가 | `pushbacks ≥ 14` | 거절과 재협상에도 물러서지 않고 다시 냈다 |
 | 7 | `guardian` | 신중한 지킴이 | `gaps = 0`, `fines = 0`, `lost = 0`, `compliance ≥ 75` | 사고 없이 규정과 계약을 지켰다 |
 | 8 | `balanced` | 균형 잡힌 실무가 | (그 밖 모두) | 어느 한쪽에 치우치지 않았다 |
 
+- 문턱값은 자동 플레이어(`tests/balance/sim.mjs`, 보통·쉬움 × 100시드)로 맞췄다: 열심히 하는 플레이(all)에서 위기 관리형 31 · 신중한 지킴이 27 · 균형 23 · 끈질긴 9 · 관계 9 · 벼랑 끝 1, 방치(neglect)는 모두 균형. 자동 플레이어는 가격(RC)을 거의 움직이지 않아 숫자 승부사·고객 편 협상가가 드물게 나오지만, 사람은 가격을 더 크게 움직이므로 시즌 평가의 맨 위 단계(만기 대비 +1%, §9.2)와 같은 크기로 정했다.
 - 해고 화면에도 같은 판정으로 칭호를 붙인다(그때까지의 기록).
 - 문턱값을 바꿀 때는 `tests/balance/sim.mjs`의 칭호 분포 줄로 한쪽에 몰리지 않는지 본다(§9.6).
 
@@ -1651,7 +1652,7 @@ M0에서 추가된 항목: `market.labels`는 §3의 구간표(지수 ≤ max이
 ```
 
 **D6에서 추가된 설정·파일**
-- `config.playstyle`: `{ order: [칭호 id 8개, 판정 순서], crisis_event_actions: 3, relationship_meetings: 12, relationship_client_rel: 65, numbers_min_placed: 2, numbers_avg_rc: 2.0, client_side_avg_rc: -2.0, tenacious_pushbacks: 6, cliffhanger_late: 1, guardian_compliance: 75 }`(§9.7). `order`의 마지막은 조건 없는 `balanced`여야 한다.
+- `config.playstyle`: `{ order: [칭호 id 8개, 판정 순서], crisis_event_actions: 5, relationship_meetings: 28, relationship_client_rel: 50, numbers_min_placed: 2, numbers_avg_rc: 1.0, client_side_avg_rc: -1.0, tenacious_pushbacks: 14, cliffhanger_late: 1, guardian_compliance: 75 }`(§9.7). `order`의 마지막은 조건 없는 `balanced`여야 한다.
 - `config.rivals.taunt`: `{ prob: 0.5, mails: { "<brk id>": { "ahead": mail id, "behind": mail id } } }`(§9.3). 로더는 라이벌 7곳이 모두 있고, 메일이 `mails.json`에 있으며 고정 도착(`schedule`)이 아닌지 본다.
 - `data/news.json`: 뉴스 띠 헤드라인(§6.0.3 D6 ④). 숫자·실제 이름·용어 표시 금지.
 ```jsonc
