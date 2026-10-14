@@ -12,6 +12,7 @@ import { patienceStart, rejectPenalty, guideDetail } from '../difficulty.js';
 import { h, toast, confirmDialog } from './components.js';
 import { glossaryLink, resetTermScope } from './glossary_view.js';
 import { sealFor, stampEl, reTone, openingEnvelopeEl } from './seals.js';
+import { portraitEl, RESPONSE_MOOD, VERDICT_MOOD } from './portraits.js';
 import { run as runCeremony, OPEN_MS, isOpening, viewState, takeFresh } from './ceremony.js';
 import { trackValue, reducedMotion } from './motion.js';
 
@@ -302,7 +303,7 @@ function resultLines(data, row, hint, fresh = false) {
   // 사유 있는 거절(decline)·의견 묻기에는 목소리를 붙이지 않는다. 사유 문구가 이미 있다.
   if (l.mode === 'propose' && ['accept', 'counter', 'reject'].includes(l.kind)) {
     const re = data.reinsurers.find((r) => r.id === row.re);
-    lines.push(h('p', { class: 'pl-line pl-voice' }, `“${re.response_lines[l.kind]}” — ${re.contact.name}`));
+    lines.push(h('p', { class: 'pl-line pl-voice' }, portraitEl(re.id, RESPONSE_MOOD[l.kind], { size: 32 }), h('span', {}, `“${re.response_lines[l.kind]}” — ${re.contact.name}`)));
   }
   if (l.mode === 'ask' && l.hint) {
     lines.push(h('p', { class: 'pl-line dim' }, `가격 민감도를 아는 만큼만 정확해요 — 이 감은 ${hintErrWords(l.err_pp, data.config.negotiation)}`));
@@ -493,10 +494,12 @@ function verdictText(data, ctx) {
   return null;
 }
 
-// 고객 반응 문장 옆에 도장을 찍는다(매우 만족·수락·재협상·거부).
-function verdictBlock(textNode, verdict, fresh = false) {
+// 고객 반응 문장 옆에 담당자 초상(D5)과 도장을 붙인다(매우 만족·수락·재협상·거부).
+function verdictBlock(textNode, verdict, fresh = false, client = null) {
   const stamp = stampEl(VERDICT_STAMP[verdict], { size: verdict === 'renegotiate' ? 108 : 92 });
-  return stamp ? h('div', { class: 'pl-verdict' }, textNode, h('div', { class: `pl-result-stamp${fresh ? ' is-fresh' : ''}` }, stamp)) : textNode;
+  const face = client ? portraitEl(client.id, VERDICT_MOOD[verdict], { size: 40 }) : null;
+  const who = face ? h('div', { class: 'pl-who' }, face, h('span', { class: 'pl-who-name' }, client.profile.contact.name)) : null;
+  return stamp ? h('div', { class: 'pl-verdict' }, who, textNode, h('div', { class: `pl-result-stamp${fresh ? ' is-fresh' : ''}` }, stamp)) : textNode;
 }
 
 // 협상 로그: 모든 행의 기록을 행동 순서대로, 최근 것이 위로.
@@ -649,11 +652,11 @@ export function renderPlacement() {
       submitChildren.push(h('p', { class: 'pl-resp pl-resp-reject', role: 'status' }, '고객이 다른 브로커로 옮겨 가서 제출할 수 없어요.'));
     } else if (locked) {
       submitChildren.push(
-        verdictBlock(h('p', { class: 'pl-resp pl-resp-accept', role: 'status' }, verdict), ctx.t.verdict, verdictFresh),
+        verdictBlock(h('p', { class: 'pl-resp pl-resp-accept', role: 'status' }, verdict), ctx.t.verdict, verdictFresh, ctx.client),
         nextText ? nextLine(nextText) : null,
         h('p', {}, `최종 평균 RC ${pct(ctx.t.final_rc, 2)} · 확정 패널 ${ctx.t.panel.filter((r) => r.status === 'accepted').map((r) => `${data.reinsurers.find((x) => x.id === r.re).name_ko} ${share(r.share_signed)}`).join(' · ')}`));
     } else {
-      if (verdict) submitChildren.push(verdictBlock(h('p', { class: `pl-resp pl-resp-${ctx.t.verdict === 'renegotiate' ? 'counter' : 'reject'}`, role: 'status' }, verdict), ctx.t.verdict, verdictFresh));
+      if (verdict) submitChildren.push(verdictBlock(h('p', { class: `pl-resp pl-resp-${ctx.t.verdict === 'renegotiate' ? 'counter' : 'reject'}`, role: 'status' }, verdict), ctx.t.verdict, verdictFresh, ctx.client));
       if (nextText) submitChildren.push(nextLine(nextText));
       submitChildren.push(
         blockText.length > 0

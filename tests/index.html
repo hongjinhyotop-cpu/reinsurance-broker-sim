@@ -2368,6 +2368,38 @@
       root = renderCalendar(); document.body.append(root);
       try { check(root.querySelectorAll('.has-event').length >= 1, '일어난 사건은 역이 돼요'); } finally { root.remove(); }
     });
+    test('D5 초상: 담당자 8명·선배·의장이 모두 다른 얼굴이고, 표정 3가지가 서로 다르며, 장식이고 외부 참조가 없다', async () => {
+      const pt = await import('../js/ui/portraits.js');
+      const ids = ['mentor', 'board_chair', ...data.clients.map((c) => c.id), ...data.reinsurers.map((r) => r.id)];
+      const looks = new Set();
+      for (const id of ids) {
+        const faces = ['neutral', 'pleased', 'troubled'].map((m) => pt.portraitEl(id, m));
+        for (const el of faces) {
+          check(el, id); eq(el.getAttribute('aria-hidden'), 'true'); eq(el.textContent, '', '글자 없음');
+          check(!el.querySelector('image, use, foreignObject, a'), '외부 참조 없음');
+        }
+        eq(new Set(faces.map((el) => el.innerHTML)).size, 3, `${id} 표정 3가지`);
+        looks.add(faces[0].innerHTML);
+      }
+      eq(looks.size, 10, '10명 모두 다른 모습');
+      eq(pt.portraitEl('nobody'), null);
+      // 모든 메일에 표정이 하나 정해진다
+      const known = new Set(data.mails.map((m) => m.id));
+      for (const t of data.mails) check(['neutral', 'pleased', 'troubled'].includes(pt.mailMood(t.id)), t.id);
+      const tpl = (id) => data.mails.find((m) => m.id === id);
+      check(known.has('mail_board_fired') && pt.mailMood('mail_board_fired') === 'troubled' && pt.mailMood('mail_welcome_board') === 'pleased');
+      eq(pt.mailPortraitId(tpl('mail_welcome_board'), null), 'board_chair');
+      eq(pt.mailPortraitId(tpl('mail_gap_notice'), null), null, '"이사회"(의장 아님)는 초상 없음');
+      eq(pt.mailPortraitId(tpl('mail_mentor_lost'), null), 'mentor');
+      eq(pt.mailPortraitId(tpl('mail_compliance_notice'), null), null, '규제는 초상 없음');
+    });
+    test('D5 인박스: 사람이 보낸 메일의 머리글에만 초상이 붙는다', async () => {
+      const { renderInbox } = await import('../js/ui/inbox.js');
+      startScreens();
+      const root = renderInbox();
+      const head = root.querySelector('.letterhead');
+      check(head && head.querySelector('.lh-portrait .portrait'), '첫 메일(고객·의장) 머리글에 초상');
+    });
 
     // ---------- M6b: 규칙을 바꾸는 사건 · 덮어쓰기 · 보정 · 연쇄 · 공백 ----------
     const LIVE = await import('../js/live.js');
